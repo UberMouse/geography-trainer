@@ -1,0 +1,53 @@
+:root {
+  --bg: #fafafa;
+  --text: #171717;
+  --link: #1d4ed8;
+  --muted: #525252;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --text: #ededed;
+    --link: #8ab4ff;
+    --muted: #a3a3a3;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--link);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0 16px;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.app-footer {
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.app-footer p {
+  margin: 0;
+}

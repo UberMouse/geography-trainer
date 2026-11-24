@@ -1,0 +1,10 @@
+dist/
+node_modules/
+public/data/
+.claude/
+.durable-state/
+playwright-report/
+test-results/
+.cache/
+package-lock.json
+docs/
