@@ -1,12 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// A dedicated port, never the dev server's 5173, and never reused: another
+// worktree's server on the same port would otherwise run the specs against the wrong app.
+const port = Number(process.env.E2E_PORT ?? 5199);
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
   testDir: 'e2e',
-  use: { baseURL: 'http://localhost:5173' },
+  use: { baseURL },
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev -- --port ${port} --strictPort`,
+    url: baseURL,
+    reuseExistingServer: false,
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
