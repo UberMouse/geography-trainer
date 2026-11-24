@@ -6,3 +6,4 @@ dist/
 .claude/skills/*/.claude-plugin/types/claude-code.d.ts
 test-results/
 playwright-report/
+.cache/

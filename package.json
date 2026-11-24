@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "verify": "npm run typecheck && npm run lint && npm test && npm run test:e2e",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:data": "tsx scripts/build-data/index.ts"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -20,6 +21,8 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.7",
     "@types/react": "^19.3.1",
     "@types/react-dom": "^19.3.0",
@@ -28,7 +31,9 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.8",
+    "mapshaper": "^0.8.10",
     "prettier": "^3.10.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.74.0",
     "vite": "^8.3.8",

@@ -1,0 +1,125 @@
+// Simplifies geometry with mapshaper and writes public/data/*.
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { Feature, FeatureCollection } from 'geojson';
+import mapshaper from 'mapshaper';
+import type { Area } from './geo';
+import { compareStrings } from './normalize';
+
+/** mapshaper -simplify retained-point share, and TopoJSON quantization. */
+const SIMPLIFY = '10%';
+const QUANTIZATION = '1e5';
+
+export interface PlaceOut {
+  id: string;
+  name: string;
+  country: string;
+  region: string | null;
+  lat: number;
+  lng: number;
+  type: string;
+  level: number;
+  pop?: number;
+}
+
+export interface TopoGeometry {
+  type: string | null;
+  id: string;
+  properties: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface Topology {
+  type: 'Topology';
+  objects: Record<string, { type: 'GeometryCollection'; geometries: TopoGeometry[] }>;
+  [key: string]: unknown;
+}
+
+export interface Manifest {
+  source: string;
+  naturalEarth: { version: string; files: string[] };
+  counts: { total: number; active: number; kept: number; excluded: number };
+  excluded: Array<{ id: string; name: string; country: string; reason: string }>;
+  countries: { byName: number; byOverride: number; pointOnly: number; excludedNames: string[] };
+  regionsTierCountries: string[];
+}
+
+/** A feature to write: polygons (several get dissolved into one) or a point, plus properties. */
+export interface ShapeOut {
+  id: string;
+  areas: Area[];
+  point?: [lng: number, lat: number];
+  properties: Record<string, unknown>;
+}
+
+/**
+ * One TopoJSON object named `name` holding one geometry per shape, sorted by id: polygons are
+ * dissolved by id and simplified (keeping every shape), points pass through. Fails when a shape
+ * comes out empty.
+ */
+export async function toTopology(name: string, shapes: ShapeOut[]): Promise<Topology> {
+  const feature = (id: string, geometry: Feature['geometry']): Feature => ({
+    type: 'Feature',
+    properties: { id },
+    geometry,
+  });
+  const polygons: FeatureCollection = {
+    type: 'FeatureCollection',
+    features: shapes.flatMap((s) => s.areas.map((area) => feature(s.id, area))),
+  };
+  const points: FeatureCollection = {
+    type: 'FeatureCollection',
+    features: shapes
+      .filter((s) => s.point)
+      .map((s) => feature(s.id, { type: 'Point', coordinates: s.point! })),
+  };
+  const inputs: Record<string, FeatureCollection> = { [`${name}.json`]: polygons };
+  if (points.features.length > 0) inputs['points.json'] = points;
+
+  const output = await mapshaper.applyCommands(
+    [
+      `-i ${Object.keys(inputs).join(' ')} combine-files`,
+      `-dissolve id target=${name}`,
+      `-simplify ${SIMPLIFY} keep-shapes target=${name}`,
+      `-o format=topojson quantization=${QUANTIZATION} id-field=id target=* out.json`,
+    ].join(' '),
+    inputs,
+  );
+  const topology = JSON.parse(String(output['out.json'])) as Topology;
+
+  // Points share the polygons' quantization transform, so their geometries can join the object.
+  const object = topology.objects[name]!;
+  object.geometries.push(...(topology.objects.points?.geometries ?? []));
+  delete topology.objects.points;
+
+  const byId = new Map(shapes.map((s) => [s.id, s]));
+  const missing = shapes.filter((s) => !object.geometries.some((g) => g.id === s.id && g.type));
+  if (missing.length > 0) {
+    throw new Error(`${name}: simplification lost ${missing.map((s) => s.id).join(', ')}`);
+  }
+  for (const geometry of object.geometries) geometry.properties = byId.get(geometry.id)!.properties;
+  object.geometries.sort((a, b) => compareStrings(a.id, b.id));
+  return topology;
+}
+
+export interface DataOut {
+  places: PlaceOut[];
+  countries: Topology;
+  regions: Map<string, Topology>;
+  manifest: Manifest;
+  sourceMd: string;
+}
+
+/** Replaces `dir` with the generated files. */
+export async function writeData(dir: string, data: DataOut): Promise<void> {
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(join(dir, 'regions'), { recursive: true });
+  const json = (value: unknown) => `${JSON.stringify(value)}\n`;
+  await writeFile(join(dir, 'places.json'), json(data.places));
+  await writeFile(join(dir, 'countries.topo.json'), json(data.countries));
+  for (const [countryId, topology] of [...data.regions].sort(([a], [b]) => compareStrings(a, b))) {
+    await writeFile(join(dir, 'regions', `${countryId}.topo.json`), json(topology));
+  }
+  await writeFile(join(dir, 'manifest.json'), `${JSON.stringify(data.manifest, null, 2)}\n`);
+  await writeFile(join(dir, 'SOURCE.md'), data.sourceMd);
+}

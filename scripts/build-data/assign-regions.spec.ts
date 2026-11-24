@@ -1,0 +1,120 @@
+import { describe, expect, it } from 'vitest';
+import { REGIONS_TIER_MIN_PLACES, REGIONS_TIER_MIN_REGIONS } from '../../src/engine/config';
+import {
+  adminDisagrees,
+  admin1Rows,
+  assignRegion,
+  buildRegions,
+  hasRegionsTier,
+} from './assign-regions';
+import { admin1, polygonCountry } from './fixtures/geometry';
+
+// Three provinces in a row; north and south make up the "Upland" region when dissolved.
+const ROWS = [
+  admin1('AAA-1', 'North', [0, 0], { region: 'Upland', nameAlt: 'Nordland|Top' }),
+  admin1('AAA-2', 'South', [1, 0], { region: 'Upland', nameEn: 'Southshire' }),
+  admin1('AAA-3', 'Coast', [2, 0], { region: 'Lowland' }),
+];
+
+describe('buildRegions', () => {
+  it('keeps admin-1 rows as they are by default, with <country>.<slug> ids', () => {
+    const regions = buildRegions('aland', ROWS, false);
+    expect(regions.map((r) => [r.id, r.name])).toEqual([
+      ['aland.coast', 'Coast'],
+      ['aland.north', 'North'],
+      ['aland.south', 'South'],
+    ]);
+  });
+
+  it('dissolves rows by region when asked, keeping a row without one on its own', () => {
+    const rows = [...ROWS, admin1('AAA-4', 'Far Isles', [9, 9])];
+    const regions = buildRegions('aland', rows, true);
+    expect(regions.map((r) => [r.id, r.units.map((u) => u.row.code)])).toEqual([
+      ['aland.far-isles', ['AAA-4']],
+      ['aland.lowland', ['AAA-3']],
+      ['aland.upland', ['AAA-1', 'AAA-2']],
+    ]);
+  });
+
+  it('keeps ids unique when two rows share a name', () => {
+    const rows = [admin1('AAA-1', 'Limburg', [0, 0]), admin1('AAA-2', 'Limburg', [1, 0])];
+    expect(buildRegions('x', rows, false).map((r) => r.id)).toEqual([
+      'x.limburg-aaa-1',
+      'x.limburg-aaa-2',
+    ]);
+  });
+});
+
+describe('admin1Rows', () => {
+  it("takes the country's ADM0 rows, minus another country's geounit or label point", () => {
+    const home = { ...polygonCountry('home', [0, 0], 10), adm0: ['AAA'], guA3: ['AAA'] };
+    const islet = { ...polygonCountry('islet', [80, 80]), guA3: ['ISL'] };
+    const dot = {
+      ...polygonCountry('dot', [0, 0]),
+      area: null,
+      box: null,
+      point: { lng: 7.5, lat: 7.5, radiusKm: 10 },
+    };
+    const rows = [
+      admin1('AAA-1', 'Main', [0, 0]),
+      admin1('AAA-2', 'Islet', [50, 50], { guA3: 'ISL' }),
+      admin1('AAA-3', 'Dot', [7, 7]),
+      admin1('BBB-1', 'Foreign', [1, 1], { adm0: 'BBB' }),
+    ];
+    expect(admin1Rows(home, rows, [home, islet, dot]).map((r) => r.code)).toEqual(['AAA-1']);
+  });
+});
+
+describe('assignRegion', () => {
+  const regions = buildRegions('aland', ROWS, false);
+  const byId = (id: string) => regions.find((r) => r.id === id)!;
+
+  it('assigns the region containing the point', () => {
+    const a = assignRegion(regions, 1.5, 0.5, undefined);
+    expect([a.region.id, a.how]).toEqual(['aland.south', 'inside']);
+    expect(adminDisagrees(a, undefined)).toBe(false);
+  });
+
+  it("prefers the region maptap's admin names over the point-in-polygon result", () => {
+    const a = assignRegion(regions, 1.5, 0.5, 'Coast');
+    expect([a.region.id, a.how, a.inside?.id]).toEqual(['aland.coast', 'admin', 'aland.south']);
+    expect(adminDisagrees(a, 'Coast')).toBe(true);
+  });
+
+  it('matches admin against name_en and name_alt, normalized', () => {
+    expect(assignRegion(regions, 2.5, 0.5, 'southshire').region).toBe(byId('aland.south'));
+    expect(assignRegion(regions, 2.5, 0.5, 'Nordland').region).toBe(byId('aland.north'));
+  });
+
+  it('matches admin against a dissolved region and its underlying rows', () => {
+    const dissolved = buildRegions('aland', ROWS, true);
+    expect(assignRegion(dissolved, 2.5, 0.5, 'Upland').region.id).toBe('aland.upland');
+    expect(assignRegion(dissolved, 2.5, 0.5, 'Top').region.id).toBe('aland.upland');
+  });
+
+  it('reports an admin that names no region, keeping the point-in-polygon result', () => {
+    const a = assignRegion(regions, 0.5, 0.5, 'Atlantis');
+    expect([a.region.id, a.how]).toEqual(['aland.north', 'inside']);
+    expect(adminDisagrees(a, 'Atlantis')).toBe(true);
+  });
+
+  it('agrees when admin and the point name the same region', () => {
+    expect(adminDisagrees(assignRegion(regions, 0.5, 0.5, 'North'), 'North')).toBe(false);
+  });
+
+  it('snaps a point outside every region to the one with the nearest edge', () => {
+    const a = assignRegion(regions, 3.2, 0.5, undefined);
+    expect([a.region.id, a.how]).toEqual(['aland.coast', 'snapped']);
+    expect(a.snappedKm).toBeCloseTo(22.2, 0);
+  });
+});
+
+describe('hasRegionsTier', () => {
+  it(`needs ≥ ${REGIONS_TIER_MIN_REGIONS} regions with places and ≥ ${REGIONS_TIER_MIN_PLACES} places`, () => {
+    expect(REGIONS_TIER_MIN_REGIONS).toBe(4);
+    expect(REGIONS_TIER_MIN_PLACES).toBe(15);
+    expect(hasRegionsTier(4, 15)).toBe(true);
+    expect(hasRegionsTier(3, 15)).toBe(false);
+    expect(hasRegionsTier(4, 14)).toBe(false);
+  });
+});

@@ -1,0 +1,98 @@
+// Downloads maptap's V2 place list and reads its array literal as JSON. maptap's file is never
+// executed (no eval, Function, vm, import or require): we slice out the literal and JSON.parse it.
+
+export const MAPTAP_URL = 'https://maptap.gg/data/master_locations_v2.js';
+const MARKER = 'const masterLocationsV2 = ';
+
+export interface MaptapEntry {
+  id: string;
+  name: string;
+  country: string;
+  lat: number;
+  lng: number;
+  type: string;
+  difficultyLevel: number;
+  population?: number;
+  admin?: string;
+  disabled?: boolean;
+}
+
+/**
+ * Returns the text of the JSON array that starts right after `marker`, ending at its matching `]`.
+ * Brackets inside JSON strings (escapes included) are not counted.
+ */
+export function sliceArrayLiteral(source: string, marker: string): string {
+  const markerAt = source.indexOf(marker);
+  if (markerAt === -1) throw new Error(`maptap file: marker "${marker.trim()}" not found`);
+  const start = markerAt + marker.length;
+  if (source[start] !== '[') throw new Error(`maptap file: no "[" right after "${marker.trim()}"`);
+
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '[') {
+      depth++;
+    } else if (ch === ']') {
+      depth--;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error(`maptap file: the array after "${marker.trim()}" never closes`);
+}
+
+const REQUIRED: Array<[keyof MaptapEntry, 'string' | 'number']> = [
+  ['id', 'string'],
+  ['name', 'string'],
+  ['country', 'string'],
+  ['lat', 'number'],
+  ['lng', 'number'],
+  ['type', 'string'],
+  ['difficultyLevel', 'number'],
+];
+
+export interface MaptapList {
+  /** Every entry in the array, disabled ones included. */
+  total: number;
+  /** Entries without `disabled: true`. */
+  active: MaptapEntry[];
+}
+
+/** Parses the `masterLocationsV2` array out of maptap's JS file and drops disabled entries. */
+export function parseMaptap(source: string): MaptapList {
+  const literal = sliceArrayLiteral(source, MARKER);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(literal);
+  } catch (error) {
+    throw new Error(
+      `maptap file: masterLocationsV2 is not valid JSON (${(error as Error).message})`,
+    );
+  }
+  if (!Array.isArray(parsed)) throw new Error('maptap file: masterLocationsV2 is not an array');
+
+  const entries = parsed as Array<Record<string, unknown>>;
+  const active = entries.filter((entry) => entry.disabled !== true);
+  const malformed = active.filter((entry) =>
+    REQUIRED.some(([field, type]) => typeof entry[field] !== type),
+  );
+  if (malformed.length > 0) {
+    const ids = malformed.slice(0, 5).map((entry) => JSON.stringify(entry.id ?? entry.name));
+    throw new Error(
+      `maptap file: ${malformed.length} active entries lack a required field (${REQUIRED.map(([f]) => f).join(', ')}), e.g. ${ids.join(', ')}`,
+    );
+  }
+  return { total: entries.length, active: active as unknown as MaptapEntry[] };
+}
+
+/** Fetches maptap's file fresh (never cached) and parses it. */
+export async function fetchMaptap(url = MAPTAP_URL): Promise<MaptapList> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`fetching ${url}: HTTP ${response.status}`);
+  return parseMaptap(await response.text());
+}
