@@ -1,4 +1,4 @@
-import type { ClaudeOpsAutocompact, ClaudeOpsAutocompactCheck, ClaudeOpsAutocompactMode, ClaudeOpsIdle } from '../types'
+import type { IdleCompactAutocompact, IdleCompactAutocompactCheck, IdleCompactAutocompactMode, IdleCompactIdle } from '../types'
 import type { InFlightEntry } from './inflight-model'
 import { RUN_STATE_FILES, cleanWhat, handKeptInFlight } from './inflight-model'
 import { asNonEmptyString, asRecord, asString, cleanLine, formatAge, isIdle, msSince } from './util'
@@ -32,7 +32,7 @@ export const TICK_MS = 60_000
  */
 export const QUEUED_HOLD_MS = 5 * 60_000
 /**
- * Rule 3, opt-in per session (`/claude-autocompact stale on`): a main loop idle this long is
+ * Rule 3, opt-in per session (`/idle-compact stale on`): a main loop idle this long is
  * compacted at STALE_PERCENT or more. A session left open overnight comes back to a cold prompt
  * cache, so its first prompt re-reads the whole window; compacting while nobody waits makes that
  * read small. Off by default: it also compacts sessions that are never resumed, and a session
@@ -41,11 +41,11 @@ export const QUEUED_HOLD_MS = 5 * 60_000
 export const STALE_IDLE_MS = 6 * 60 * 60_000
 export const STALE_PERCENT = 20
 /**
- * The opening line every claude-ops compaction asks its summary to start with. A compaction a
+ * The opening line every idle-compact compaction asks its summary to start with. A compaction a
  * plugin starts is recorded with `trigger: "manual"`, the same as a typed `/compact`, so the
- * summary is the only place the transcript can say claude-ops made it.
+ * summary is the only place the transcript can say idle-compact made it.
  */
-export const COMPACTION_MARK = 'Compacted by claude-ops autocompact'
+export const COMPACTION_MARK = 'Compacted by idle-compact'
 
 /**
  * Standing instructions are kept verbatim in meaning, so the per-entry cap is generous: it only
@@ -55,7 +55,7 @@ const STANDING_MAX_CHARS = 2_000
 const STANDING_MAX_ENTRIES = 20
 
 /** The userConfig value as a mode; anything unexpected reads as the default, `on`. */
-export function parseMode(value: unknown): ClaudeOpsAutocompactMode {
+export function parseMode(value: unknown): IdleCompactAutocompactMode {
   return value === 'conductor-only' || value === 'off' ? value : 'on'
 }
 
@@ -99,7 +99,7 @@ export function standingInstructions(stateJson: unknown): string[] {
  * and for QUEUED_HOLD_MS after it ends unless a turn starts first (turn.start clears the hold).
  * An end time that does not parse keeps the hold.
  */
-export function isQueuedHold(ac: ClaudeOpsAutocompact, now: number): boolean {
+export function isQueuedHold(ac: IdleCompactAutocompact, now: number): boolean {
   if (ac.queuedTurnId === null) {
     return false
   }
@@ -114,7 +114,7 @@ export function isQueuedHold(ac: ClaudeOpsAutocompact, now: number): boolean {
  * `ac` with `percent` taken as a reading: the first defined one after a compaction becomes the
  * baseline the regrowth rule measures from.
  */
-export function withReading(ac: ClaudeOpsAutocompact, percent: number | undefined): ClaudeOpsAutocompact {
+export function withReading(ac: IdleCompactAutocompact, percent: number | undefined): IdleCompactAutocompact {
   if (percent === undefined || !ac.isAwaitingBaseline) {
     return ac
   }
@@ -126,7 +126,7 @@ export function withReading(ac: ClaudeOpsAutocompact, percent: number | undefine
  * reading since the last compaction, and the percent REGROWTH_POINTS above that first reading. A
  * last attempt whose time does not parse does not debounce.
  */
-export function retriggerBlock(ac: ClaudeOpsAutocompact, percent: number, now: number): string | null {
+export function retriggerBlock(ac: IdleCompactAutocompact, percent: number, now: number): string | null {
   const sinceAttempt = msSince(ac.lastAttemptAt, now)
   if (sinceAttempt !== null && sinceAttempt < DEBOUNCE_MS) {
     return `debounced: the last attempt was ${formatAge(sinceAttempt)} ago, quiet for ${formatAge(DEBOUNCE_MS - sinceAttempt)} more`
@@ -141,12 +141,12 @@ export function retriggerBlock(ac: ClaudeOpsAutocompact, percent: number, now: n
 }
 
 /** Whether another attempt may run at `percent` (`retriggerBlock` finds nothing in the way). */
-export function canRetrigger(ac: ClaudeOpsAutocompact, percent: number, now: number): boolean {
+export function canRetrigger(ac: IdleCompactAutocompact, percent: number, now: number): boolean {
   return retriggerBlock(ac, percent, now) === null
 }
 
 /** Why the main loop is not idle, for a decision's reason. */
-function notIdleReason(idle: ClaudeOpsIdle): string {
+function notIdleReason(idle: IdleCompactIdle): string {
   if (idle.running) {
     return 'a main-loop turn is running'
   }
@@ -157,7 +157,7 @@ function notIdleReason(idle: ClaudeOpsIdle): string {
 }
 
 /** Why `isQueuedHold` holds, for a decision's reason. */
-function queuedHoldReason(ac: ClaudeOpsAutocompact, now: number): string {
+function queuedHoldReason(ac: IdleCompactAutocompact, now: number): string {
   const turn = `a prompt was submitted into turn ${ac.queuedTurnId ?? '?'}`
   if (ac.queuedTurnEndedAt === null) {
     return `held: ${turn}, still running`
@@ -199,9 +199,9 @@ export function conductorStatus(run: { path: string; json: unknown } | null, ses
 }
 
 export interface AutocompactInputs {
-  mode: ClaudeOpsAutocompactMode;
-  ac: ClaudeOpsAutocompact;
-  idle: ClaudeOpsIdle;
+  mode: IdleCompactAutocompactMode;
+  ac: IdleCompactAutocompact;
+  idle: IdleCompactIdle;
   /** `context.percent`; undefined right after a compaction (and in a fresh session) until the next response. */
   percent: number | undefined;
   /** Rule 1's view of the run; null when it was not read (at or under 25%, state.json is not). */
@@ -211,7 +211,7 @@ export interface AutocompactInputs {
 
 export type AutocompactVerdict = 'none' | 'conductor' | 'failsafe' | 'stale'
 
-/** The rules as claude-ops numbers them in its texts. */
+/** The rules as idle-compact numbers them in its texts. */
 export type AutocompactRule = Exclude<AutocompactVerdict, 'none'>
 
 const RULE_NUMBER: Readonly<Record<AutocompactRule, number>> = { conductor: 1, failsafe: 2, stale: 3 }
@@ -240,9 +240,9 @@ function conductorBlock(conductor: ConductorStatus | null, percent: number): str
 }
 
 /** Why rule 3 does not apply, or null when it does: switched on, idle STALE_IDLE_MS, at STALE_PERCENT. */
-function staleBlock(ac: ClaudeOpsAutocompact, idle: ClaudeOpsIdle, percent: number, now: number): string | null {
+function staleBlock(ac: IdleCompactAutocompact, idle: IdleCompactIdle, percent: number, now: number): string | null {
   if (ac.isStaleOn !== true) {
-    return 'off (opt in with /claude-autocompact stale on)'
+    return 'off (opt in with /idle-compact stale on)'
   }
   const idleMs = msSince(idle.idleSince, now)
   if (idleMs === null || idleMs < STALE_IDLE_MS) {
@@ -267,7 +267,7 @@ export function decide(inputs: AutocompactInputs): AutocompactDecision {
     return none('the global setting is off')
   }
   if (!ac.isSessionOn) {
-    return none('off for this session (/claude-autocompact on)')
+    return none('off for this session (/idle-compact on)')
   }
   if (!isIdle(idle)) {
     return none(notIdleReason(idle))
@@ -320,7 +320,7 @@ function itemLine(item: InFlightEntry): string {
 
 /**
  * The instructions' first line: the summary opens with the COMPACTION_MARK line, which is how the
- * transcript tells a claude-ops compaction from a typed `/compact`.
+ * transcript tells a idle-compact compaction from a typed `/compact`.
  */
 export function provenanceLine(rule: AutocompactRule, percent: number): string {
   return `Begin the summary with this line, verbatim: "${COMPACTION_MARK} (rule ${RULE_NUMBER[rule]}, ${percent}%)."`
@@ -337,7 +337,7 @@ export function conductorInstructions(brief: ConductorBrief): string {
   }
   return [
     provenanceLine('conductor', brief.percent),
-    `claude-ops autocompact: this conductor was idle at ${brief.percent}% context, waiting on background work.`,
+    `idle-compact: this conductor was idle at ${brief.percent}% context, waiting on background work.`,
     'Keep in the summary, verbatim, the background work in flight (ids and what lines); its notifications will wake you:',
     ...(handKept.length === 0 ? [] : ['state.json inFlight:', ...handKept]),
     `After the compaction, before any other action, re-read ${brief.statePath}.`,
@@ -353,7 +353,7 @@ export function conductorInstructions(brief: ConductorBrief): string {
 export function failsafeInstructions(percent: number): string {
   return [
     provenanceLine('failsafe', percent),
-    `claude-ops failsafe autocompact: this session was idle at ${percent}% context.`,
+    `idle-compact failsafe: this session was idle at ${percent}% context.`,
     "Keep the thread: the user's current request and goal, decisions made and why, open questions, and the next step.",
     'Keep every instruction the user gave verbatim.',
     'Drop tool payloads: file contents, command output and diffs; keep only their conclusions.',
@@ -364,7 +364,7 @@ export function failsafeInstructions(percent: number): string {
 export function staleInstructions(percent: number, idleMs: number): string {
   return [
     provenanceLine('stale', percent),
-    `claude-ops idle-hours autocompact: this session was idle ${formatAge(idleMs)} at ${percent}% context.`,
+    `idle-compact idle-hours: this session was idle ${formatAge(idleMs)} at ${percent}% context.`,
     "Keep the thread: the user's current request and goal, decisions made and why, open questions, and the next step.",
     'Keep every instruction the user gave verbatim, and any background work still in flight (ids and what it is).',
     'Drop tool payloads: file contents, command output and diffs; keep only their conclusions.',
@@ -377,20 +377,20 @@ const STATUS_WHY: Readonly<Record<AutocompactRule, string>> = {
   stale: 'idle for hours',
 }
 
-/** The status line's wording without its `claude-ops autocompact: ` prefix, which is what the trail logs under its own. */
+/** The status line's wording without its `idle-compact: ` prefix, which is what the trail logs under its own. */
 export function statusBody(rule: AutocompactRule, percent: number, skip: string | null): string {
   const why = STATUS_WHY[rule]
   return skip === null ? `compacted at ${percent}% (${why})` : `vetoed at ${percent}% (${why}) · ${cleanWhat(skip)}`
 }
 
-/** The status line after an attempt, e.g. `claude-ops autocompact: compacted at 43% (conductor idle)`. */
+/** The status line after an attempt, e.g. `idle-compact: compacted at 43% (conductor idle)`. */
 export function statusText(rule: AutocompactRule, percent: number, skip: string | null): string {
-  return `claude-ops autocompact: ${statusBody(rule, percent, skip)}`
+  return `idle-compact: ${statusBody(rule, percent, skip)}`
 }
 
-/** What bare `/claude-autocompact` reports beyond the switches: everything a decision reads. */
+/** What bare `/idle-compact` reports beyond the switches: everything a decision reads. */
 export interface AutocompactDiagnostic {
-  ac: ClaudeOpsAutocompact;
+  ac: IdleCompactAutocompact;
   /** `currentPercent` as a check would read it. */
   percent: number | undefined;
   /** Whether this load's 60 s tick is running; a load whose session.start never ran has none. */
@@ -408,7 +408,7 @@ function ago(iso: string | null, now: number): string {
   return since === null ? 'at an unreadable time' : `${formatAge(since)} ago`
 }
 
-function checkLine(check: ClaudeOpsAutocompactCheck | null, now: number): string {
+function checkLine(check: IdleCompactAutocompactCheck | null, now: number): string {
   if (check === null) {
     return 'last check: none since this session loaded the state'
   }
@@ -416,7 +416,7 @@ function checkLine(check: ClaudeOpsAutocompactCheck | null, now: number): string
   return `last check: ${ago(check.at, now)}${at}: ${check.rule}: ${check.reason}`
 }
 
-function attemptLine(ac: ClaudeOpsAutocompact, now: number): string {
+function attemptLine(ac: IdleCompactAutocompact, now: number): string {
   if (ac.lastAttemptAt === null) {
     return 'last attempt: none this session'
   }
@@ -454,6 +454,6 @@ export function diagnosticLines(d: AutocompactDiagnostic): string[] {
     `failsafe window: ${failsafe}${cancelled}`,
     `run: ${d.conductor.note}`,
     inFlightLine(d.conductor),
-    `idle-hours rule (3): ${ac.isStaleOn === true ? `on: compacts after ${formatAge(STALE_IDLE_MS)} idle at ${STALE_PERCENT}% or more` : 'off (/claude-autocompact stale on)'}`,
+    `idle-hours rule (3): ${ac.isStaleOn === true ? `on: compacts after ${formatAge(STALE_IDLE_MS)} idle at ${STALE_PERCENT}% or more` : 'off (/idle-compact stale on)'}`,
   ]
 }

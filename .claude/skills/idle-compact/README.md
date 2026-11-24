@@ -1,8 +1,8 @@
-# claude-ops
+# idle-compact
 
 A Claude Code mod that compacts the main conversation while it sits idle, so a long
 durable-state run (an `/sdd-loop` conductor waiting on its subagents) does not re-read a huge
-context on every wake-up. It loads as `claude-ops@skills-dir` when this repo is the session's
+context on every wake-up. It loads as `idle-compact@skills-dir` when this repo is the session's
 primary working directory.
 
 It is the autocompact feature of a larger ops mod, cut down to stand alone: no task registry,
@@ -21,12 +21,12 @@ After an attempt it waits 20 minutes and for 10 points of context growth before 
 
 ## Controls
 
-- `/claude-autocompact` shows what every rule reads right now and why it would or would not act.
-- `/claude-autocompact on|off` switches it for this session; `stale on|off` switches rule 3.
+- `/idle-compact` shows what every rule reads right now and why it would or would not act.
+- `/idle-compact on|off` switches it for this session; `stale on|off` switches rule 3.
 - The global mode (`on`, `conductor-only`, `off`) is the plugin's `autocompact` userConfig:
-  `claude plugin configure claude-ops@skills-dir`.
+  `claude plugin configure idle-compact@skills-dir`.
 
-Decisions are logged to the debug log and to `~/.claude/state/claude-ops/trail/<session>.jsonl`.
+Decisions are logged to the debug log and to `~/.claude/state/idle-compact/trail/<session>.jsonl`.
 
 ## Checking it
 
@@ -34,7 +34,7 @@ Copy this build's `claude-code.d.ts` (from the `plugin-authoring` skill's `types
 `.claude-plugin/types/` (gitignored), then:
 
 ```bash
-claude plugin validate .claude/skills/claude-ops
-claude plugin test .claude/skills/claude-ops
-npx -p typescript@5.9.3 tsc -p .claude/skills/claude-ops
+claude plugin validate .claude/skills/idle-compact
+claude plugin test .claude/skills/idle-compact
+npx -p typescript@5.9.3 tsc -p .claude/skills/idle-compact
 ```

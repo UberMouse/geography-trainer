@@ -95,7 +95,7 @@ resume hook, handoff). What sdd-loop adds:
 - Rewrite `state.json` on every task transition (dispatched, reviewed, fixed, done), keeping
   `tasks[]` verdicts, `fixRounds`, `agentInFlight` and `inFlight` accurate. Every background
   agent goes in `inFlight` (`state inflight add agent <id> <what>`) and comes out when its
-  notification arrives: the `claude-ops` autocompact mod compacts an idle conductor only while
+  notification arrives: the `idle-compact` autocompact mod compacts an idle conductor only while
   something is listed there.
 
 ## Resuming — after compaction, a resume, or a handoff

@@ -25,7 +25,7 @@ import {
 const AGENT_ID = 'a04a88098a5bcd93a'
 const HAND_KEPT_ID = 'gate-b'
 const STANDING = 'ignore the subagent compaction stuff, not doing it'
-const FAILSAFE_TOAST = 'claude-ops autocompact: compacting in 60s · type to cancel'
+const FAILSAFE_TOAST = 'idle-compact: compacting in 60s · type to cancel'
 
 const OTHER_SID = '7f3c2a10-5b4e-4d8a-9c61-0e2f4b7a8d93'
 
@@ -55,14 +55,14 @@ interface World {
   logs: string[];
   /** What the engine's `$.session.usage()` reads: undefined for a window with no response yet. */
   usagePercent: number | undefined;
-  /** A veto beneath claude-ops (a hook's, or a classic PreCompact block). */
+  /** A veto beneath idle-compact (a hook's, or a classic PreCompact block). */
   skip: string | undefined;
 }
 
 interface Setup {
   state?: unknown;
   usagePercent?: number;
-  /** A `claude-ops.autocompact` value already in `$.state`, as a reload finds it. */
+  /** A `idle-compact.autocompact` value already in `$.state`, as a reload finds it. */
   autocompact?: Record<string, unknown>;
   /** The main loop idle since this time (ms), as a session left open for hours finds it. */
   idleSince?: number;
@@ -70,10 +70,10 @@ interface Setup {
 
 function world(on: On, setup: Setup = {}): World {
   const state = mockState(on, {
-    ...(setup.autocompact === undefined ? {} : { 'claude-ops.autocompact': setup.autocompact }),
+    ...(setup.autocompact === undefined ? {} : { 'idle-compact.autocompact': setup.autocompact }),
     ...(setup.idleSince === undefined
       ? {}
-      : { 'claude-ops.idle': { running: false, idleSince: new Date(setup.idleSince).toISOString(), queued: 0, pendingSubmits: 0 } }),
+      : { 'idle-compact.idle': { running: false, idleSince: new Date(setup.idleSince).toISOString(), queued: 0, pendingSubmits: 0 } }),
   })
   const clock = mock.clock(on, { now: NOON })
   mockSession(on, { root: ROOT })
@@ -134,7 +134,7 @@ async function change($: Engine, e: PromptChangeInput): Promise<unknown> {
 }
 
 async function autocompactCommand($: Engine, w: World, args: string): Promise<string | undefined> {
-  const result = await $.command.run({ command: 'claude-autocompact', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+  const result = await $.command.run({ command: 'idle-compact', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
   await w.clock.settle()
   return result.text
 }
@@ -157,7 +157,7 @@ test('an idle conductor over 25% compacts 1 s after its turn, listing its inFlig
   expect(instructions).toContain(`> ${STANDING}`)
   expect(instructions).toContain(`re-read ${STATE_JSON}.`)
   expect(instructions).not.toContain('registry')
-  expect(w.statuses).toEqual(['claude-ops autocompact: compacted at 45% (conductor idle)'])
+  expect(w.statuses).toEqual(['idle-compact: compacted at 45% (conductor idle)'])
 })
 
 test('conductorInFlight counts every hand-kept entry, whatever its kind, only when the run names this session', () => {
@@ -209,7 +209,7 @@ test('a run naming this session compacts on a hand-kept gate alone', async ($, o
   expect(w.compactions[0]).toContain(`gate ${HAND_KEPT_ID}`)
 })
 
-// claude-ops keeps no task registry, so a hand-kept agent entry is what says a subagent runs.
+// idle-compact keeps no task registry, so a hand-kept agent entry is what says a subagent runs.
 test('a run naming this session compacts on a hand-kept agent entry alone', async ($, on) => {
   const w = world(on, { state: { ...CONDUCTOR, inFlight: [IMPLEMENTER] } })
   await startSession($, w.clock)
@@ -225,7 +225,7 @@ test('a standalone durable-state run with no phase compacts under rule 1', async
   await startSession($, w.clock)
   await turn($, w, 't1', 60)
   expect(w.compactions.length).toBe(1)
-  expect(w.statuses).toEqual(['claude-ops autocompact: compacted at 60% (conductor idle)'])
+  expect(w.statuses).toEqual(['idle-compact: compacted at 60% (conductor idle)'])
 })
 
 test('a durable-state run driven by any skill compacts under rule 1', async ($, on) => {
@@ -403,7 +403,7 @@ test('a {skip} veto is shown and debounced like a compaction', async ($, on) => 
   await startSession($, w.clock)
   await turn($, w, 't1', 45)
   expect(w.compactions.length).toBe(1)
-  expect(w.statuses).toEqual(['claude-ops autocompact: vetoed at 45% (conductor idle) · PreCompact hook blocked'])
+  expect(w.statuses).toEqual(['idle-compact: vetoed at 45% (conductor idle) · PreCompact hook blocked'])
 
   await turn($, w, 't2', 60)
   await w.clock.advance(5 * MINUTE)
@@ -421,7 +421,7 @@ test('the failsafe toasts, then compacts an idle session at 75% after 60 s with 
   await w.clock.advance(1_000)
   expect(w.compactions.length).toBe(1)
   expect(w.compactions[0]).toContain('Keep the thread')
-  expect(w.statuses).toEqual(['claude-ops autocompact: compacted at 80% (failsafe idle)'])
+  expect(w.statuses).toEqual(['idle-compact: compacted at 80% (failsafe idle)'])
 })
 
 test('a compaction leaves trail rows: the check that chose it, the attempt, and its outcome', async ($, on) => {
@@ -432,8 +432,8 @@ test('a compaction leaves trail rows: the check that chose it, the attempt, and 
   await turn($, w, 't1', 45)
 
   const rows = trailRows(runs, 'autocompact')
-  expect(rows.slice(-2)).toEqual(['claude-ops autocompact: conductor: compacting at 45%', 'claude-ops autocompact: compacted at 45% (conductor idle)'])
-  expect(rows.at(-3)?.startsWith('claude-ops autocompact: check at 45%: conductor: rule 1: ')).toBe(true)
+  expect(rows.slice(-2)).toEqual(['idle-compact autocompact: conductor: compacting at 45%', 'idle-compact autocompact: compacted at 45% (conductor idle)'])
+  expect(rows.at(-3)?.startsWith('idle-compact autocompact: check at 45%: conductor: rule 1: ')).toBe(true)
 })
 
 test('a check repeated every minute leaves one trail row until its verdict changes, not one per tick', async ($, on) => {
@@ -448,8 +448,8 @@ test('a check repeated every minute leaves one trail row until its verdict chang
   await turn($, w, 't2', 50)
 
   expect(trailRows(runs, 'autocompact')).toEqual([
-    'claude-ops autocompact: check at 24%: none: rule 1: at 24%, not over 25%; rule 2: at 24%, under 75%',
-    'claude-ops autocompact: check at 50%: none: rule 1: no readable state.json (.durable-state/state.json); rule 2: at 50%, under 75%',
+    'idle-compact autocompact: check at 24%: none: rule 1: at 24%, not over 25%; rule 2: at 24%, under 75%',
+    'idle-compact autocompact: check at 50%: none: rule 1: no readable state.json (.durable-state/state.json); rule 2: at 50%, under 75%',
   ])
 })
 
@@ -493,7 +493,7 @@ test('a session left idle for hours is not compacted while the idle-hours rule i
   expect(w.compactions).toEqual([])
 })
 
-test('/claude-autocompact stale on compacts a session idle for hours, its summary told to name rule 3', async ($, on) => {
+test('/idle-compact stale on compacts a session idle for hours, its summary told to name rule 3', async ($, on) => {
   const runs = captureRuns(on)
   const w = world(on, { usagePercent: 30, idleSince: NOON - 7 * 60 * MINUTE })
   await startSession($, w.clock)
@@ -505,8 +505,8 @@ test('/claude-autocompact stale on compacts a session idle for hours, its summar
 
   expect(w.compactions.length).toBe(1)
   expect(w.compactions[0]?.split('\n')[0]).toBe(`Begin the summary with this line, verbatim: "${COMPACTION_MARK} (rule 3, 30%)."`)
-  expect(w.statuses).toEqual(['claude-ops autocompact: compacted at 30% (idle for hours)'])
-  expect(trailRows(runs, 'autocompact')).toContain('claude-ops autocompact: idle-hours rule (3) switched on for this session')
+  expect(w.statuses).toEqual(['idle-compact: compacted at 30% (idle for hours)'])
+  expect(trailRows(runs, 'autocompact')).toContain('idle-compact autocompact: idle-hours rule (3) switched on for this session')
 })
 
 test('the failsafe is cancelled by prompt.edit and does not re-arm in that idle episode', async ($, on) => {
@@ -520,7 +520,7 @@ test('the failsafe is cancelled by prompt.edit and does not re-arm in that idle 
   await w.clock.advance(3 * MINUTE)
   expect(w.compactions).toEqual([])
   expect(w.toasts.filter(text => text === FAILSAFE_TOAST).length).toBe(1)
-  expect(w.toasts).toContain('claude-ops autocompact: cancelled')
+  expect(w.toasts).toContain('idle-compact: cancelled')
 })
 
 test('the failsafe is cancelled by a prompt recalled from history', async ($, on) => {
@@ -533,7 +533,7 @@ test('the failsafe is cancelled by a prompt recalled from history', async ($, on
   await w.clock.settle()
   await w.clock.advance(3 * MINUTE)
   expect(w.compactions).toEqual([])
-  expect(w.toasts).toContain('claude-ops autocompact: cancelled')
+  expect(w.toasts).toContain('idle-compact: cancelled')
 })
 
 test("a plugin's fill of the prompt box leaves the failsafe armed", async ($, on) => {
@@ -594,7 +594,7 @@ test('a /compact the person ran leaves no stale percent for the next tick to act
   expect(w.compactions).toEqual([''])
 })
 
-test('/claude-autocompact off stops this session compacting, and on lets it again', async ($, on) => {
+test('/idle-compact off stops this session compacting, and on lets it again', async ($, on) => {
   const w = world(on, { state: CONDUCTOR })
   await startSession($, w.clock)
   expect(await autocompactCommand($, w, 'off')).toContain('off for this session')
@@ -607,7 +607,7 @@ test('/claude-autocompact off stops this session compacting, and on lets it agai
   expect(w.compactions.length).toBe(1)
 })
 
-test('bare /claude-autocompact says an idle conductor over 25% did not compact because nothing is in flight', async ($, on) => {
+test('bare /idle-compact says an idle conductor over 25% did not compact because nothing is in flight', async ($, on) => {
   const w = world(on, { state: { ...CONDUCTOR, inFlight: [] } })
   await startSession($, w.clock)
   await turn($, w, 't1', 45)
@@ -620,10 +620,10 @@ test('bare /claude-autocompact says an idle conductor over 25% did not compact b
   expect(text).toContain('in flight: nothing')
   expect(text).toContain('checks: every 60s, and 1s after each main-loop turn')
   expect(text).toMatch(/last check: 0s ago at 45%: none: rule 1: .* but nothing is in flight .*; rule 2: at 45%, under 75%/)
-  expect(w.logs.some(line => line.startsWith('claude-ops: autocompact check at 45%: none: rule 1:'))).toBe(true)
+  expect(w.logs.some(line => line.startsWith('idle-compact: check at 45%: none: rule 1:'))).toBe(true)
 })
 
-test('bare /claude-autocompact names the session another run belongs to', async ($, on) => {
+test('bare /idle-compact names the session another run belongs to', async ($, on) => {
   const w = world(on, { state: { ...CONDUCTOR, sessionId: OTHER_SID } })
   await startSession($, w.clock)
   await turn($, w, 't1', 60)
@@ -633,7 +633,7 @@ test('bare /claude-autocompact names the session another run belongs to', async 
   expect(text).toContain('in flight: nothing')
 })
 
-test('bare /claude-autocompact reads the run under 25% and lists what is in flight', async ($, on) => {
+test('bare /idle-compact reads the run under 25% and lists what is in flight', async ($, on) => {
   const w = world(on, { state: CONDUCTOR })
   await startSession($, w.clock)
   await turn($, w, 't1', 24)
@@ -644,7 +644,7 @@ test('bare /claude-autocompact reads the run under 25% and lists what is in flig
   expect(text).toContain(`in flight: gate ${HAND_KEPT_ID}, agent ${AGENT_ID}`)
 })
 
-test('after a compaction, bare /claude-autocompact shows the last attempt and the debounce holding the next', async ($, on) => {
+test('after a compaction, bare /idle-compact shows the last attempt and the debounce holding the next', async ($, on) => {
   const w = world(on, { state: CONDUCTOR })
   await startSession($, w.clock)
   await turn($, w, 't1', 45)
@@ -666,7 +666,7 @@ test('a check while a turn runs records that the turn is running', async ($, on)
   expect(await autocompactCommand($, w, '')).toContain('none: a main-loop turn is running')
 })
 
-test('bare /claude-autocompact reads state saved before lastCheck existed as no check yet', async ($, on) => {
+test('bare /idle-compact reads state saved before lastCheck existed as no check yet', async ($, on) => {
   const saved = {
     isSessionOn: true,
     percent: 45,

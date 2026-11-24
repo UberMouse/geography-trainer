@@ -5,14 +5,14 @@ import { AUTOCOMPACT_CANCELLED_TOAST, AUTOCOMPACT_FAILSAFE_TOAST } from './ui-te
 import { failureText } from './util'
 
 /**
- * Every text claude-ops puts in front of the model or into the transcript names claude-ops first.
+ * Every text idle-compact puts in front of the model or into the transcript names idle-compact first.
  * The transcript records a hook's context, a drop line or a plugin prompt with no plugin field, so
  * the text is the only way to tell which mod wrote it. The toasts and status lines the person
- * reads are held to the stricter `claude-ops <feature>: ` form.
+ * reads are held to the stricter `idle-compact: ` form.
  */
 
-const MODEL_OR_TRANSCRIPT = /^claude-ops[ :]/
-const TOAST_OR_STATUS = /^claude-ops autocompact: /
+const MODEL_OR_TRANSCRIPT = /^idle-compact[ :]/
+const TOAST_OR_STATUS = /^idle-compact: /
 
 interface Pinned {
   readonly text: string
@@ -41,16 +41,16 @@ const TEXTS: Readonly<Record<string, Pinned>> = {
   'autocompact status, vetoed': ui(statusText('stale', 43, 'PreCompact hook blocked')),
 }
 
-test('every text claude-ops shows, sends the model or writes to the transcript names claude-ops first', () => {
+test('every text idle-compact shows, sends the model or writes to the transcript names idle-compact first', () => {
   const unprefixed = Object.entries(TEXTS).filter(([, { text, opens }]) => !opens.test(text))
   expect(unprefixed).toEqual([])
 })
 
-test('every claude-ops compaction asks its summary to open with a line naming claude-ops, the rule and the percent', () => {
+test('every idle-compact compaction asks its summary to open with a line naming idle-compact, the rule and the percent', () => {
   const opening = (instructions: string): string | undefined => instructions.split('\n')[0]
 
   expect(opening(conductorInstructions(BRIEF))).toBe(`Begin the summary with this line, verbatim: "${COMPACTION_MARK} (rule 1, 43%)."`)
   expect(opening(failsafeInstructions(80))).toBe(`Begin the summary with this line, verbatim: "${COMPACTION_MARK} (rule 2, 80%)."`)
   expect(opening(staleInstructions(25, 7 * 3_600_000))).toBe(`Begin the summary with this line, verbatim: "${COMPACTION_MARK} (rule 3, 25%)."`)
-  expect(COMPACTION_MARK).toBe('Compacted by claude-ops autocompact')
+  expect(COMPACTION_MARK).toBe('Compacted by idle-compact')
 })

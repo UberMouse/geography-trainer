@@ -4,7 +4,7 @@ import type { Caught, EngineInterface, On, PromptSubmitResult } from 'claude-cod
 import { INITIAL } from './state-initial'
 import { failureText } from './util'
 
-const IDLE = atom({ plugin: 'claude-ops', key: 'idle' } as const, INITIAL.idle)
+const IDLE = atom({ plugin: 'idle-compact', key: 'idle' } as const, INITIAL.idle)
 
 /** The `.catch` every idle hook carries: a failing hook logs and passes the event on. */
 function passOn<E, R>($: EngineInterface, where: string, e: E, next: ((e: E) => R) & Caught): R {

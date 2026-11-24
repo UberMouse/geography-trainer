@@ -45,7 +45,7 @@ resume so you know to read them.
 | Field | Meaning |
 |---|---|
 | `skill` | owner skill name (a directory under `.claude/skills/`) |
-| `sessionId` | the session that owns the run, `$CLAUDE_CODE_SESSION_ID`: written on the first write, and rewritten with your own id on every resume or handoff (the owner is whoever resumed). Other sessions share the worktree; the `claude-ops` mod's autocompact treats only this one as the conductor, whatever `skill` says: any run not at `done` with work in flight is compacted when idle over 25 % |
+| `sessionId` | the session that owns the run, `$CLAUDE_CODE_SESSION_ID`: written on the first write, and rewritten with your own id on every resume or handoff (the owner is whoever resumed). Other sessions share the worktree; the `idle-compact` mod's autocompact treats only this one as the conductor, whatever `skill` says: any run not at `done` with work in flight is compacted when idle over 25 % |
 | `phase` | owner-defined string. **`done` is reserved**: the run is finished |
 | `goal` | one line: what the run is for. Mostly for standalone use; an owner skill's name usually says it |
 | `standingInstructions` | the user's instructions that outlive one turn, **verbatim**, never paraphrased |
@@ -148,7 +148,7 @@ give them its absolute path and the owner skill's path. That is the whole handof
   `sessionId` names another session, one line saying so instead; when it is absent, the summary
   adds that no owner is recorded.
 - `claude-bin-path.sh` (SessionStart): puts `.claude/bin` on PATH, so `state` runs by bare name.
-- The `claude-ops` mod (`.claude/skills/claude-ops/`) reads `phase`, `sessionId`, `inFlight` and
+- The `idle-compact` mod (`.claude/skills/idle-compact/`) reads `phase`, `sessionId`, `inFlight` and
   `standingInstructions` to decide when to auto-compact an idle conductor, and quotes the
   standing instructions verbatim in its compaction instructions. It never writes the file.
 

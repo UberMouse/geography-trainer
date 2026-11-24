@@ -3,12 +3,12 @@ import { asRecord, asString, cleanLine } from './util'
 /**
  * What a durable-state run has in flight, read from its state.json alone. The mod this was cut
  * from also kept a registry of the session's background tasks and, while it was healthy, counted
- * only hand-kept `gate` entries; claude-ops keeps no registry, so every hand-kept entry counts,
+ * only hand-kept `gate` entries; idle-compact keeps no registry, so every hand-kept entry counts,
  * whatever its kind. That keeps rule 1 firing while an sdd-loop conductor waits on the subagents
  * it recorded with `state inflight add agent …`.
  */
 
-/** A run's state file, by root. Whether a run is durable is its owner skill's call: claude-ops only checks it exists. */
+/** A run's state file, by root. Whether a run is durable is its owner skill's call: idle-compact only checks it exists. */
 export const RUN_STATE_FILES: readonly string[] = ['.durable-state/state.json']
 
 const WHAT_MAX = 200

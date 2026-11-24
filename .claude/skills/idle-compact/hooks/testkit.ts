@@ -4,7 +4,7 @@ import type { Engine, MockClock } from 'claude-code/testing'
 import { TRAIL_SHELL, tracedRow } from './trail'
 
 /**
- * The engine beneath claude-ops for the feature tests: fixtures and the hooks every test world is
+ * The engine beneath idle-compact for the feature tests: fixtures and the hooks every test world is
  * built from. A test's hooks sit beneath every plugin and, among themselves, the first registered
  * is outermost, so a test registers its special cases before these and falls through via `next`.
  */

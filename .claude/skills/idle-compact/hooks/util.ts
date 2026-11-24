@@ -1,9 +1,9 @@
 import type { HookFailure, ToolCallResult } from 'claude-code'
 
-import type { ClaudeOpsIdle } from '../types'
+import type { IdleCompactIdle } from '../types'
 
 /**
- * Pure helpers every claude-ops feature shares: no `$` and no atoms, so any file may import them.
+ * Pure helpers every idle-compact feature shares: no `$` and no atoms, so any file may import them.
  */
 
 /** An error's message, or the thrown value as text when it is no Error. */
@@ -12,7 +12,7 @@ export function errorText(error: unknown): string {
 }
 
 /**
- * The line a claude-ops failure logs: a hook's `.catch` (its `next.error`) or a promise it set going.
+ * The line a idle-compact failure logs: a hook's `.catch` (its `next.error`) or a promise it set going.
  * Pure text: the validator never follows `$` across an import, so each file calls `$.ui.log` itself.
  *
  * Failures log to the debug sink, because a failing render hook fails on every frame and would
@@ -22,9 +22,9 @@ export function errorText(error: unknown): string {
 export function failureText(where: string, error: unknown): string {
   if (isHookFailure(error)) {
     const detail = error.message === undefined ? '' : `: ${error.message}`
-    return `claude-ops: ${where} failed (${error.kind}${detail})`
+    return `idle-compact: ${where} failed (${error.kind}${detail})`
   }
-  return `claude-ops: ${where} failed (${error instanceof Error ? error.message : String(error)})`
+  return `idle-compact: ${where} failed (${error instanceof Error ? error.message : String(error)})`
 }
 
 function isHookFailure(error: unknown): error is HookFailure {
@@ -86,11 +86,11 @@ export function cleanLine(text: string, max: number): string {
 }
 
 /** Whether a prompt may be submitted now: no main-loop turn running, and none about to start. */
-export function isTurnFree(idle: ClaudeOpsIdle): boolean {
+export function isTurnFree(idle: IdleCompactIdle): boolean {
   return !idle.running && idle.pendingSubmits === 0
 }
 
 /** Whether the main loop is idle with nothing about to start, a turn having ended at `idleSince`. */
-export function isIdle(idle: ClaudeOpsIdle): idle is ClaudeOpsIdle & { idleSince: string } {
+export function isIdle(idle: IdleCompactIdle): idle is IdleCompactIdle & { idleSince: string } {
   return isTurnFree(idle) && idle.idleSince !== null
 }

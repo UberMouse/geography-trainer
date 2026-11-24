@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Caught, EngineInterface, On, Timer } from 'claude-code'
 
-import type { ClaudeOpsAutocompactMode } from '../types'
+import type { IdleCompactAutocompactMode } from '../types'
 import {
   CONDUCTOR_PERCENT,
   DEFER_MS,
@@ -35,7 +35,7 @@ import { failureText, isIdle, msSince } from './util'
 // Atoms are consts in each file that reads them (the validator rejects a shared atom module); a
 // key declared in more than one file takes its initial value from state-initial.ts in each, so
 // the copies agree on it.
-const AUTOCOMPACT = atom({ plugin: 'claude-ops', key: 'autocompact' } as const, {
+const AUTOCOMPACT = atom({ plugin: 'idle-compact', key: 'autocompact' } as const, {
   isSessionOn: true,
   percent: null,
   isMeasured: false,
@@ -50,11 +50,11 @@ const AUTOCOMPACT = atom({ plugin: 'claude-ops', key: 'autocompact' } as const, 
   lastCheck: null,
   isStaleOn: false,
 })
-const IDLE = atom({ plugin: 'claude-ops', key: 'idle' } as const, INITIAL.idle)
+const IDLE = atom({ plugin: 'idle-compact', key: 'idle' } as const, INITIAL.idle)
 
 // Not `autocompact`: that is Claude Code's built-in (the engine's own threshold), which
 // `$.command.register` refuses and a command.run hook on it would shadow.
-const COMMAND = 'claude-autocompact'
+const COMMAND = 'idle-compact'
 const STATUS_MS = 10 * 60_000
 
 /**
@@ -69,7 +69,7 @@ interface AutocompactHandles {
 
 /** A decision worth keeping: to the debug log, and as a row of the session's trail. */
 async function logLine($: EngineInterface, message: string, data?: TraceData): Promise<void> {
-  $.ui.log(`claude-ops: autocompact ${message}`, { to: 'debug' })
+  $.ui.log(`idle-compact: ${message}`, { to: 'debug' })
   await trace($, 'autocompact', message, data)
 }
 
@@ -91,7 +91,7 @@ async function trace($: EngineInterface, feature: string, text: string, data?: T
   try {
     const home = await $.env.get('HOME')
     const sessionId = await $.session.id()
-    const argv = traceArgv({ mod: 'claude-ops', home, sessionId, feature, text, now: await $.clock.now(), data })
+    const argv = traceArgv({ mod: 'idle-compact', home, sessionId, feature, text, now: await $.clock.now(), data })
     if (argv !== null) {
       await $.process.run(argv, { timeoutMs: TRAIL_TIMEOUT_MS })
     }
@@ -183,7 +183,7 @@ function conductorBrief(percent: number, statePath: string, stateJson: unknown):
 }
 
 /** Opens the failsafe's window for this idle episode: a toast now, the compaction in 60 s. */
-async function armFailsafe($: EngineInterface, handles: AutocompactHandles, mode: ClaudeOpsAutocompactMode, episode: string): Promise<void> {
+async function armFailsafe($: EngineInterface, handles: AutocompactHandles, mode: IdleCompactAutocompactMode, episode: string): Promise<void> {
   let id = 0
   await update($, AUTOCOMPACT, ac => {
     if (ac.failsafe !== null || ac.cancelledFor === episode) {
@@ -204,7 +204,7 @@ async function armFailsafe($: EngineInterface, handles: AutocompactHandles, mode
 }
 
 /** The failsafe's window closed untouched: compact if the same idle episode still qualifies. */
-async function fireFailsafe($: EngineInterface, handles: AutocompactHandles, mode: ClaudeOpsAutocompactMode, id: number): Promise<void> {
+async function fireFailsafe($: EngineInterface, handles: AutocompactHandles, mode: IdleCompactAutocompactMode, id: number): Promise<void> {
   let episode: string | null = null
   await update($, AUTOCOMPACT, ac => {
     if (ac.failsafe?.id !== id) {
@@ -253,7 +253,7 @@ async function cancelFailsafe($: EngineInterface, why: string, isPerson: boolean
 }
 
 /**
- * Keeps a check's decision for bare `/claude-autocompact` and logs it to the debug log, so a check
+ * Keeps a check's decision for bare `/idle-compact` and logs it to the debug log, so a check
  * that did nothing still says why.
  */
 async function recordCheck($: EngineInterface, decision: AutocompactDecision, percent: number | undefined, now: number): Promise<void> {
@@ -264,7 +264,7 @@ async function recordCheck($: EngineInterface, decision: AutocompactDecision, pe
     return { ...ac, lastCheck }
   })
   const message = `check${percent === undefined ? '' : ` at ${percent}%`}: ${decision.rule}: ${decision.reason}`
-  $.ui.log(`claude-ops: autocompact ${message}`, { to: 'debug' })
+  $.ui.log(`idle-compact: ${message}`, { to: 'debug' })
   // A check runs every minute; the trail keeps one row per change of verdict, not one per tick.
   const prior: { rule: string; reason: string } | null = previous
   if (prior === null || prior.rule !== decision.rule || !isSameGist(prior.reason, decision.reason)) {
@@ -279,7 +279,7 @@ async function readConductor($: EngineInterface): Promise<{ run: { path: string;
 }
 
 /** One check: rule 1 or 3, else rule 2's window. Runs from turn.complete (deferred) and the tick. */
-async function check($: EngineInterface, handles: AutocompactHandles, mode: ClaudeOpsAutocompactMode): Promise<void> {
+async function check($: EngineInterface, handles: AutocompactHandles, mode: IdleCompactAutocompactMode): Promise<void> {
   if (mode === 'off' || handles.isChecking) {
     return
   }
@@ -320,7 +320,7 @@ async function check($: EngineInterface, handles: AutocompactHandles, mode: Clau
   }
 }
 
-function startTick($: EngineInterface, handles: AutocompactHandles, mode: ClaudeOpsAutocompactMode): void {
+function startTick($: EngineInterface, handles: AutocompactHandles, mode: IdleCompactAutocompactMode): void {
   handles.tick?.cancel()
   handles.tick = $.clock.every(TICK_MS, () => {
     void check($, handles, mode).catch(error => logFailure($, 'tick', error))
@@ -333,9 +333,9 @@ function staleCommandText(isStaleOn: boolean): string {
     : 'the idle-hours rule is off for this session.'
 }
 
-function commandText(mode: ClaudeOpsAutocompactMode, isSessionOn: boolean): string {
+function commandText(mode: IdleCompactAutocompactMode, isSessionOn: boolean): string {
   const global = mode === 'off' ? 'off, so nothing compacts' : mode
-  return `autocompact is ${isSessionOn ? 'on' : 'off'} for this session (global setting: ${global}; change it with claude plugin configure claude-ops@skills-dir).`
+  return `autocompact is ${isSessionOn ? 'on' : 'off'} for this session (global setting: ${global}; change it with claude plugin configure idle-compact@skills-dir).`
 }
 
 /**
@@ -343,16 +343,16 @@ function commandText(mode: ClaudeOpsAutocompactMode, isSessionOn: boolean): stri
  * durable-state run, sdd-loop's included, not done, its state.json naming this session) over 25%
  * while something is in flight: any hand-kept `inFlight` entry. Rule 3 (opt-in) compacts a session
  * idle for hours. Rule 2, the failsafe, gives any other idle session at 75% a 60 s cancellable
- * window. `mode` is the global userConfig switch; `/claude-autocompact on|off` is this session's own.
+ * window. `mode` is the global userConfig switch; `/idle-compact on|off` is this session's own.
  */
-export function registerAutocompact(on: On, mode: ClaudeOpsAutocompactMode): void {
+export function registerAutocompact(on: On, mode: IdleCompactAutocompactMode): void {
   const handles: AutocompactHandles = { tick: null, isChecking: false, statusSeq: 0 }
 
   // A matcher every input satisfies, so another feature of this plugin may still hold the one
   // matcher-less session.start and session.end the engine allows.
   on('session.start', { cwd: /^/ }, async ($, e, next) => {
     await $.command
-      .register({ name: COMMAND, description: 'claude-ops: idle auto-compaction for this session: on|off, stale on|off' })
+      .register({ name: COMMAND, description: 'idle-compact: idle auto-compaction for this session: on|off, stale on|off' })
       .catch(error => logFailure($, 'command.register', error))
     // A reload dropped the previous load's timers, the failsafe's among them: its window is gone.
     await update($, AUTOCOMPACT, ac => (ac.failsafe === null ? ac : { ...ac, failsafe: null }))
@@ -439,8 +439,8 @@ export function registerAutocompact(on: On, mode: ClaudeOpsAutocompactMode): voi
     return next(e)
   }).catch(($, e, next) => passOn($, 'session.measure', e, next))
 
-  // Observes compactions claude-ops did not make (/compact, the engine's threshold, another plugin):
-  // the window reads no percent until its next response, so the last measure is stale. claude-ops'
+  // Observes compactions idle-compact did not make (/compact, the engine's threshold, another plugin):
+  // the window reads no percent until its next response, so the last measure is stale. idle-compact'
   // own compact is a timer's call, which skips this plugin's hooks.
   on('session.compact', async ($, e, next) => {
     const result = await next(e)

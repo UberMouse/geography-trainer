@@ -102,13 +102,13 @@ I do this by hand in the conductor session, not through sdd-loop, because sdd-lo
   - Rewrite the selftest fixtures from plan-and-implement to sdd-loop.
 - Verify: `python3 -I .claude/skills/durable-state/scripts/state_selftest.py` and `bash .claude/hooks/durable-state-resume.selftest.sh` both pass.
 
-**0b. kx-ops autocompact, extracted as a slim mod renamed `claude-ops`** → `.claude/skills/claude-ops/` (loads as `claude-ops@skills-dir`). The rename covers every place "kx-ops" appears:
+**0b. kx-ops autocompact, extracted as a slim mod renamed `idle-compact`** → `.claude/skills/idle-compact/` (loads as `idle-compact@skills-dir`). The rename covers every place "kx-ops" appears:
 - plugin name in `plugin.json`
-- `$.state`/atom keys `kx-ops.*` → `claude-ops.*` (e.g. `claude-ops.idle`)
-- `/kx-autocompact` → `/claude-autocompact`
+- `$.state`/atom keys `kx-ops.*` → `idle-compact.*` (e.g. `idle-compact.idle`)
+- `/kx-autocompact` → `/idle-compact`
 - the `claude plugin configure kx-ops@skills-dir` hint in `autocompact.tsx:444`
 - text and log prefixes, and the `texts.test.ts` pins on them
-- trail path `~/.claude/state/kx-ops/trail/` → `~/.claude/state/claude-ops/trail/`
+- trail path `~/.claude/state/kx-ops/trail/` → `~/.claude/state/idle-compact/trail/`
 
 When done, `grep -ri 'kx-ops\|kx_' .claude` must return nothing. Files:
 - Files:
@@ -123,7 +123,7 @@ When done, `grep -ri 'kx-ops\|kx_' .claude` must return nothing. Files:
   - rule 4 (PR-green), which needs prwatch; drop it along with its fixtures
   - the mj/rushx patterns in `never-ending.ts`, replaced with `vite`/`npm run dev`
   - the tsc path in `mods.selftest.sh`, pointed at `node_modules/.bin/tsc`, with the mod-twins check dropped
-- Verify: `claude plugin validate .claude/skills/claude-ops`, `claude plugin test .claude/skills/claude-ops`, `tsc -p`, and the no-`kx-ops` grep above.
+- Verify: `claude plugin validate .claude/skills/idle-compact`, `claude plugin test .claude/skills/idle-compact`, `tsc -p`, and the no-`kx-ops` grep above.
 
 **0c. sdd-loop, adapted to this repo.** sdd-loop is the most kawaka-bound of the three, so this is a rewrite of its mechanics while its shape stays the same: §0 intake + cold-read criteria → split → implementer → spec + quality review → verify → branch review → ship.
 - Bring along `plan-and-implement/references/dispatch-templates.md` → `.claude/skills/sdd-loop/references/dispatch-templates.md`, and `.claude/agents/{implementer,build-and-test-runner}.md`.

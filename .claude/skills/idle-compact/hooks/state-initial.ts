@@ -1,12 +1,12 @@
-import type { ClaudeOpsIdle } from '../types'
+import type { IdleCompactIdle } from '../types'
 
 /** The `$.state` keys more than one file declares an atom for. */
 interface SharedInitials {
-  idle: ClaudeOpsIdle;
+  idle: IdleCompactIdle;
 }
 
 /**
- * The initial value of every claude-ops atom that more than one file declares. Each file still
+ * The initial value of every idle-compact atom that more than one file declares. Each file still
  * holds its own `atom(…)` const (the validator rejects a shared atom module), but the copies of
  * one key must agree on the initial, so they all take it from here.
  */

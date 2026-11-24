@@ -56,7 +56,7 @@ Each build step in `docs/plan.md` is one `/sdd-loop` run (`.claude/skills/sdd-lo
 user types it, the conductor takes the intake, and the step's *Build order* entry, the design
 sections it builds on and the plan's *Verification* section are where its acceptance criteria
 start. The run keeps durable state in `.durable-state/state.json`
-(`.claude/skills/durable-state/`); the `claude-ops` mod (`.claude/skills/claude-ops/`)
+(`.claude/skills/durable-state/`); the `idle-compact` mod (`.claude/skills/idle-compact/`)
 auto-compacts an idle conductor while its subagents work.
 
 Selftests for that tooling:
@@ -64,7 +64,7 @@ Selftests for that tooling:
 ```bash
 python3 -I .claude/skills/durable-state/scripts/state_selftest.py
 bash .claude/hooks/durable-state-resume.selftest.sh
-claude plugin test .claude/skills/claude-ops
+claude plugin test .claude/skills/idle-compact
 ```
 
 ## Git
