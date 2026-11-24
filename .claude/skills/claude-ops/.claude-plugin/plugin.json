@@ -1,0 +1,15 @@
+{
+  "name": "claude-ops",
+  "version": "0.1.0",
+  "description": "Idle auto-compaction for durable-state runs: compacts an idle conductor with work in flight, plus a cancellable failsafe for any idle session at 75%.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "autocompact": {
+      "type": "string",
+      "title": "Autocompact",
+      "description": "Idle auto-compaction, for every project (user settings): on = an idle conductor (any session running a durable-state run, whatever skill drives it) over 25% plus a cancellable failsafe for any idle session at 75%; conductor-only = the conductor rule alone; off = never. /claude-autocompact on|off overrides it for one session.",
+      "default": "on",
+      "options": ["on", "conductor-only", "off"]
+    }
+  }
+}
