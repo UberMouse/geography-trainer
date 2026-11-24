@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.durable-state/
+.claude/settings.local.json
+.claude/worktrees/
+.claude/skills/*/.claude-plugin/types/claude-code.d.ts
+test-results/
+playwright-report/
