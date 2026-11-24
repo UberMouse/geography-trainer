@@ -5,7 +5,8 @@ durable-state run (an `/sdd-loop` conductor waiting on its subagents) does not r
 context on every wake-up. It loads as `claude-ops@skills-dir` when this repo is the session's
 primary working directory.
 
-It was cut down from the autocompact feature of kawaka's ops mod: no task registry, no PR watch.
+It is the autocompact feature of a larger ops mod, cut down to stand alone: no task registry,
+no PR watch.
 
 ## Rules
 
