@@ -29,11 +29,18 @@ function run(items: PlacementItem[], seed: number, skill: (level: number) => boo
   const rng = mulberry32(seed);
   let state: PlacementState = startPlacement(items, rng);
   const asked: string[] = [];
-  for (let q = nextQuestion(state, rng); q; q = nextQuestion(state, rng)) {
+  for (let n = nextQuestion(state, rng); n; n = nextQuestion(state, rng)) {
+    const q = n.question;
     asked.push(q.itemId);
-    state = answerPlacement(state, q.itemId, skill(q.level) ? Rating.Good : Rating.Again);
+    state = answerPlacement(n.state, q.itemId, skill(q.level) ? Rating.Good : Rating.Again);
   }
   return { state, asked, result: finishPlacement(state) };
+}
+
+/** Asks the next question and answers it; returns the new state and the level asked. */
+function step(state: PlacementState, rng: () => number, rating: Grade) {
+  const n = nextQuestion(state, rng)!;
+  return { state: answerPlacement(n.state, n.question.itemId, rating), level: n.question.level };
 }
 
 describe('placement staircase', () => {
@@ -61,6 +68,7 @@ describe('placement staircase', () => {
     expect(new Set(settled.asked).size).toBe(settled.asked.length);
     expect(settled.asked.length).toBeLessThanOrEqual(PLACEMENT_MAX_QUESTIONS);
     expect(nextQuestion(settled.state, mulberry32(1))).toBeNull();
+    expect(settled.state.pending).toBeNull();
     // A perfect user never reverses, so only the question limit stops it.
     const perfect = run(makeItems(40), 3, () => true);
     expect(perfect.asked).toHaveLength(PLACEMENT_MAX_QUESTIONS);
@@ -70,25 +78,52 @@ describe('placement staircase', () => {
   it('starts at the start level and moves one level per answer', () => {
     const rng = mulberry32(9);
     let s = startPlacement(items, rng);
-    expect(nextQuestion(s, rng)!.level).toBe(PLACEMENT_START_LEVEL);
-    s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Easy);
-    expect(nextQuestion(s, rng)!.level).toBe(PLACEMENT_START_LEVEL + 1);
-    s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Hard);
-    s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Again);
-    expect(nextQuestion(s, rng)!.level).toBe(PLACEMENT_START_LEVEL - 1);
+    expect(nextQuestion(s, rng)!.question.level).toBe(PLACEMENT_START_LEVEL);
+    let r = step(s, rng, Rating.Easy);
+    expect(r.level).toBe(PLACEMENT_START_LEVEL);
+    expect(nextQuestion(r.state, rng)!.question.level).toBe(PLACEMENT_START_LEVEL + 1);
+    r = step(r.state, rng, Rating.Hard);
+    r = step(r.state, rng, Rating.Again);
+    s = r.state;
+    expect(nextQuestion(s, rng)!.question.level).toBe(PLACEMENT_START_LEVEL - 1);
   });
 
   it('counts direction changes as reversals but not clamped repeats', () => {
     const rng = mulberry32(2);
     let s = startPlacement(items, rng);
     // Fail down to the floor and keep failing: no reversal.
-    for (let i = 0; i < 6; i++) s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Again);
+    for (let i = 0; i < 6; i++) s = step(s, rng, Rating.Again).state;
     expect(s.reversals).toEqual([]);
     // A pass at the floor turns the staircase there (level 1), the next fail turns it at 2.
-    s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Good);
+    s = step(s, rng, Rating.Good).state;
     expect(s.reversals).toEqual([1]);
-    s = answerPlacement(s, nextQuestion(s, rng)!.itemId, Rating.Again);
+    s = step(s, rng, Rating.Again).state;
     expect(s.reversals).toEqual([1, 2]);
+  });
+
+  it('does not count a clamped pass at the ceiling as a reversal', () => {
+    const rng = mulberry32(3);
+    let s = startPlacement(makeItems(10), rng);
+    // Pass up to the ceiling, then keep passing at level 8.
+    for (let i = 0; i < 8; i++) s = step(s, rng, Rating.Good).state;
+    expect(s.target).toBe(8);
+    const at8 = step(s, rng, Rating.Good);
+    expect(at8.level).toBe(8);
+    expect(at8.state.target).toBe(8);
+    expect(at8.state.reversals).toEqual([]);
+  });
+
+  it('stops at 6 reversals, before the question limit', () => {
+    const rng = mulberry32(8);
+    let s = startPlacement(makeItems(10), rng);
+    // Alternating pass/fail reverses on every move after the first.
+    for (let i = 0; i < 7; i++) {
+      expect(nextQuestion(s, rng)).not.toBeNull();
+      s = step(s, rng, i % 2 === 0 ? Rating.Good : Rating.Again).state;
+    }
+    expect(s.reversals).toHaveLength(6);
+    expect(s.answers.length).toBeLessThan(PLACEMENT_MAX_QUESTIONS);
+    expect(nextQuestion(s, rng)).toBeNull();
   });
 
   it('falls back to the nearest level with unasked items, easier on a tie', () => {
@@ -99,7 +134,10 @@ describe('placement staircase', () => {
       { itemId: 'c', level: 8 },
     ];
     // Target 4 is equidistant from 2 and 6: the easier one wins.
-    expect(nextQuestion(startPlacement(sparse, rng), rng)).toEqual({ itemId: 'a', level: 2 });
+    expect(nextQuestion(startPlacement(sparse, rng), rng)!.question).toEqual({
+      itemId: 'a',
+      level: 2,
+    });
   });
 
   it('never asks items with a non-finite level, and returns null when none are left', () => {
@@ -109,23 +147,56 @@ describe('placement staircase', () => {
     expect(finishPlacement(s).outcomes).toEqual({ x: 'aboveEstimate' });
   });
 
-  it('rejects answers for items that are not open questions', () => {
+  it('rejects answers for items that are not the pending question', () => {
     const rng = mulberry32(6);
     let s = startPlacement(items, rng);
-    expect(() => answerPlacement(s, 'nope', Rating.Good)).toThrow();
-    const q = nextQuestion(s, rng)!;
-    s = answerPlacement(s, q.itemId, Rating.Good);
-    expect(() => answerPlacement(s, q.itemId, Rating.Good)).toThrow();
+    // Nothing asked yet.
+    expect(() => answerPlacement(s, 'i0', Rating.Good)).toThrow();
+    const n = nextQuestion(s, rng)!;
+    const other = items.find((i) => i.itemId !== n.question.itemId)!.itemId;
+    // An open item that was not the one asked.
+    expect(() => answerPlacement(n.state, other, Rating.Good)).toThrow();
+    expect(() => answerPlacement(n.state, 'nope', Rating.Good)).toThrow();
+    s = answerPlacement(n.state, n.question.itemId, Rating.Good);
+    // Already answered.
+    expect(() => answerPlacement(s, n.question.itemId, Rating.Good)).toThrow();
     const done = run(items, 1, (l) => l <= 3).state;
     const spare = done.items.find((i) => !done.answers.some((a) => a.itemId === i.itemId))!;
     expect(() => answerPlacement(done, spare.itemId, Rating.Good)).toThrow();
+  });
+
+  it('keeps one question open: nextQuestion is idempotent and spends no randomness', () => {
+    let calls = 0;
+    const base = mulberry32(11);
+    const rng = () => (calls++, base());
+    const s = startPlacement(items, rng);
+    const first = nextQuestion(s, rng)!;
+    expect(calls).toBe(1);
+    const second = nextQuestion(first.state, rng)!;
+    expect(calls).toBe(1);
+    expect(second.question).toEqual(first.question);
+    expect(second.state).toBe(first.state);
+  });
+
+  it('survives a JSON round trip with a question pending, and finishes it as untested', () => {
+    const rng = mulberry32(12);
+    const n = nextQuestion(startPlacement(items, rng), rng)!;
+    expect(n.state.pending).toEqual(n.question);
+    const revived = JSON.parse(JSON.stringify(n.state)) as PlacementState;
+    expect(revived).toEqual(n.state);
+    expect(nextQuestion(revived, rng)!.question).toEqual(n.question);
+    const next = answerPlacement(revived, n.question.itemId, Rating.Good);
+    expect(next.pending).toBeNull();
+    expect(finishPlacement(n.state).outcomes[n.question.itemId]).not.toBe('passed');
   });
 
   it('is pure: state is JSON and is not mutated', () => {
     const rng = mulberry32(7);
     const s0 = startPlacement(items, rng);
     const snapshot = JSON.stringify(s0);
-    const s1 = answerPlacement(s0, nextQuestion(s0, rng)!.itemId, Rating.Good);
+    const asked = nextQuestion(s0, rng)!;
+    expect(JSON.stringify(s0)).toBe(snapshot);
+    const s1 = answerPlacement(asked.state, asked.question.itemId, Rating.Good);
     expect(JSON.stringify(s0)).toBe(snapshot);
     expect(JSON.parse(JSON.stringify(s1))).toEqual(s1);
   });
@@ -140,7 +211,11 @@ describe('placement staircase', () => {
     ];
     const rng = mulberry32(1);
     let s = startPlacement(levelled, rng);
-    const answer = (id: string, rating: Grade) => (s = answerPlacement(s, id, rating));
+    const answer = (id: string, rating: Grade) => {
+      // Items are chosen by hand here, so open each as the pending question first.
+      const level = levelled.find((i) => i.itemId === id)!.level;
+      s = answerPlacement({ ...s, pending: { itemId: id, level } }, id, rating);
+    };
     // Targets 4 (pass) -> 5 (fail: reversal at 5) -> 4 (fail), so the estimate is 5.
     answer('p1', Rating.Easy);
     answer('f1', Rating.Hard);

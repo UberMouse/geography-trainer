@@ -32,6 +32,8 @@ export interface PlacementState {
   direction: -1 | 0 | 1;
   /** Target levels at which the direction changed, in order. */
   reversals: number[];
+  /** The question handed out by `nextQuestion` and not yet answered; null otherwise. */
+  pending: PlacementQuestion | null;
 }
 
 export interface PlacementQuestion {
@@ -55,6 +57,7 @@ export function startPlacement(items: readonly PlacementItem[], rng: () => numbe
     answers: [],
     direction: 0,
     reversals: [],
+    pending: null,
   };
 }
 
@@ -67,10 +70,16 @@ function unaskedAskable(state: PlacementState): PlacementItem[] {
   return state.items.filter((i) => Number.isFinite(i.level) && !asked.has(i.itemId));
 }
 
-/** The next question, or null when the test is finished or no askable item is left. At the
- * target level it picks uniformly with `rng`; with none left there, it uses the nearest level
- * that has some (the easier one on a tie). */
-export function nextQuestion(state: PlacementState, rng: () => number): PlacementQuestion | null {
+/** The next question with the state that now holds it as `pending`, or null when the test is
+ * finished or no askable item is left. While a question is pending it returns that question and
+ * the same state without calling `rng`, so repeated calls are safe. Otherwise, at the target
+ * level it picks uniformly with `rng`; with none left there, it uses the nearest level that has
+ * some (the easier one on a tie). */
+export function nextQuestion(
+  state: PlacementState,
+  rng: () => number,
+): { state: PlacementState; question: PlacementQuestion } | null {
+  if (state.pending) return { state, question: state.pending };
   if (isFinished(state)) return null;
   const pool = unaskedAskable(state);
   if (pool.length === 0) return null;
@@ -85,19 +94,19 @@ export function nextQuestion(state: PlacementState, rng: () => number): Placemen
   }
   const atLevel = pool.filter((i) => i.level === bestLevel);
   const pick = atLevel[Math.min(atLevel.length - 1, Math.floor(rng() * atLevel.length))]!;
-  return { itemId: pick.itemId, level: pick.level };
+  const question = { itemId: pick.itemId, level: pick.level };
+  return { state: { ...state, pending: question }, question };
 }
 
-/** Records the tap for `itemId`, which must be an askable item not yet answered (as returned by
- * `nextQuestion`); throws for anything else, and once the test is finished. A pass is Good or
+/** Records the tap for `itemId`, which must be the pending question from `nextQuestion`; throws
+ * for anything else (never asked, already answered, another item, or the test finished). A pass is Good or
  * Easy. The target moves one level harder on a pass and easier on a fail (clamped to 1-8). A
  * reversal is an answer whose move is opposite to the previous move; the level recorded is the
  * target level the answer was given at, where the direction turned. A clamped repeat of the
  * same direction is not a reversal. */
 export function answerPlacement(state: PlacementState, itemId: string, rating: Grade): PlacementState {
-  if (isFinished(state)) throw new Error('placement is finished');
-  const item = unaskedAskable(state).find((i) => i.itemId === itemId);
-  if (!item) throw new Error(`not an open placement question: ${itemId}`);
+  const item = state.pending;
+  if (!item || item.itemId !== itemId) throw new Error(`not the pending placement question: ${itemId}`);
   const passed = rating === Rating.Good || rating === Rating.Easy;
   const direction = passed ? 1 : -1;
   const reversed = state.direction !== 0 && state.direction !== direction;
@@ -107,6 +116,7 @@ export function answerPlacement(state: PlacementState, itemId: string, rating: G
     answers: [...state.answers, { itemId, level: item.level, passed }],
     direction,
     reversals: reversed ? [...state.reversals, state.target] : state.reversals,
+    pending: null,
   };
 }
 
@@ -121,7 +131,8 @@ function estimateOf(state: PlacementState): number {
   return clampLevel(Math.floor(raw + 0.5));
 }
 
-/** The estimate and an outcome for every item given to `startPlacement`; callable early. */
+/** The estimate and an outcome for every item given to `startPlacement`; callable early. A
+ * pending unanswered question counts as untested. */
 export function finishPlacement(state: PlacementState): PlacementResult {
   const estimate = estimateOf(state);
   const passed = new Set(state.answers.filter((a) => a.passed).map((a) => a.itemId));

@@ -87,6 +87,44 @@ describe('buildSession', () => {
     expect(q).toEqual([{ itemId: cid(1), rung: 3 }]);
   });
 
+  it('includes an item due exactly now and excludes one due a millisecond later', () => {
+    const at = (id: string, offsetMs: number): ItemProgress => {
+      const p = dueProgress(id, 1, 0);
+      const card = p.cards[p.rung]!;
+      return { ...p, cards: { ...p.cards, [p.rung]: { ...card, due: NOW.getTime() + offsetMs } } };
+    };
+    const progress = { [cid(1)]: at(cid(1), 0), [cid(2)]: at(cid(2), 1) };
+    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
+    expect(q).toEqual([{ itemId: cid(1), rung: 1 }]);
+  });
+
+  it('orders items with equal due times by item id', () => {
+    const progress = {
+      [cid(9)]: dueProgress(cid(9), 1, 2),
+      [cid(3)]: dueProgress(cid(3), 1, 2),
+      [cid(6)]: dueProgress(cid(6), 1, 2),
+    };
+    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
+    expect(q.map((x) => x.itemId)).toEqual([cid(3), cid(6), cid(9)]);
+  });
+
+  it('leaves out a locked item that has due progress', () => {
+    const locked = buildCurriculum(
+      [{ id: 'big', name: 'big', places: 20, hasRegions: false }],
+      [],
+      Array.from({ length: 20 }, (_, i) => place(`x${i}`, 'big', 'city', 1)),
+    );
+    const progress = { [placeItemId('x0')]: dueProgress(placeItemId('x0'), 1, 3) };
+    const q = buildSession({
+      curriculum: locked,
+      progress,
+      now: NOW,
+      introducedToday: DAILY_NEW_CAP,
+      rng,
+    });
+    expect(q).toEqual([]);
+  });
+
   it('caps new items at dailyCap minus introducedToday', () => {
     const count = (introducedToday: number, dailyCap?: number) =>
       buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday, dailyCap, rng }).length;
