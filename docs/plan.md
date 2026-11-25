@@ -3,7 +3,9 @@
 ## Context
 You play maptap.gg daily: you're given a place name and tap it on a **bare 3D globe with no borders or labels**, scored by distance. You want a public website that trains that skill. It works down a ladder, countries → regions in a country → cities in those regions, using maptap's own place list (permission granted; credit required). It uses spaced repetition so you retain what you learn, and a placement test so you skip what you already know.
 
-Decisions so far: placement-test calibration · all 4 exercise types · per-country unlocking · public site · progress stored locally first, sync later · React + TS · a one-time generation script that pulls maptap's JS data file and converts it into our own bundled format.
+Decisions so far: placement-test calibration · per-country unlocking · public site · progress stored locally first, sync later · React + TS · a one-time generation script that pulls maptap's JS data file and converts it into our own bundled format.
+
+**Revised 2026-11-26 (UI redo, steps 8–11):** the d3-geo maps are replaced by one MapLibre globe with Sentinel-2 imagery, which every question and the progress maps use. The ladder drops the outline rung and has 3 rungs instead of 4. Components come from Mantine. The redo is described in *Globe and layout*; *Architecture* and *Curriculum* below describe the result.
 
 ## Facts established from maptap (verified by reading their files)
 - **Place pool:** `https://maptap.gg/data/master_locations_v2.js` is the list the Atlas shows ("every place in the practice & versus pool"). It has 9,462 entries, 6,612 of them active. It's one JS file: `const masterLocationsV2 = [ …JSON… ]`, followed by a separate `masterLocationsV2Shapes` array.
@@ -39,26 +41,24 @@ src/
     placement.ts           adaptive placement test
     session.ts             builds a session queue (due reviews + new items, daily cap)
   storage/                 Dexie (IndexedDB) repo, export/import JSON, schema version
-  maps/                    d3-geo components
-    OutlineView            one shape on its own, auto-fit
-    HighlightMap           region context map with one feature shaded (cities: a dot)
-    TapMap                 bordered map, tap → lat/lng
-    BareGlobe              orthographic, drag-rotate + pinch/wheel zoom, no borders/labels (maptap-like)
-  exercises/               4 exercise components sharing one Exercise interface
-  pages/                   Home (today's queue + progress map), Session, Placement, Progress (world/country drilldown), Settings, Credits
+  maps/                    the one MapLibre globe and its layers
+    Globe                  one map instance for the whole app (stays mounted across routes), globe projection, EOX imagery
+    layers                 GeoJSON sources + layer modes: bare · country borders · region borders · highlight · progress
+    geo.ts                 spherical point-in-polygon and distance (d3-geo math only, no rendering) used for grading
+  exercises/               3 exercise types sharing one Exercise interface; they set the globe's mode, never draw maps
+  pages/                   Home (today's queue + progress on the globe), Session, Placement, Progress (drill down on the globe), Settings, Credits
 ```
 
-Libraries: `d3-geo`, `topojson-client`, `ts-fsrs`, `dexie`, `react-router`. Build script only: `@turf/boolean-point-in-polygon`, `mapshaper`, Natural Earth 10m/50m (public domain).
+Libraries: `maplibre-gl` (globe), `@mantine/core` + `@mantine/hooks` (components), `d3-geo` (spherical math only), `topojson-client`, `ts-fsrs`, `dexie`, `react-router`. Build script only: `@turf/boolean-point-in-polygon`, `mapshaper`, Natural Earth 10m/50m (public domain).
 
-The globe is d3 orthographic on canvas, not WebGL. That's lighter, works well on phones, and is close enough to maptap's globe, because what matters here is how tapping feels.
+The globe is MapLibre GL JS in globe projection (WebGL). The first globe was d3 orthographic on a 2D canvas: it re-projected every border on the CPU each frame and lagged on drag. MapLibre draws on the GPU from tiled imagery and tiled GeoJSON.
 
 ## Curriculum & learning model
 - **Tree:** Country → Regions (when the country has ≥ 4 regions containing maptap places and ≥ 15 places) → Places in a region. Countries below that threshold go straight from country to places. Landmarks (monuments, mountains, etc.) sit in the places tier alongside cities, and the type filter is a setting.
-- **Exercise ladder per item.** An item works up L1 → L4. The learning phase is the first rungs; the review card lives on the highest rung reached.
-  1. **Outline → name** (4 choices; distractors are nearby or similar-sized). For points (cities), a dot on an unlabeled region map → name.
-  2. **Highlighted on map → name** (shaded feature or dot in context, 4 choices)
-  3. **Name → tap on a bordered map.** Correct if inside the polygon (country/region) or within the tier's km threshold (place).
-  4. **Name → tap on the bare globe.** Same rule, maptap score shown.
+- **Exercise ladder per item.** An item works up L1 → L3, all on the globe. The learning phase is the first rungs; the review card lives on the highest rung reached. (Until 2026-11-26 there were 4 rungs, with *outline → name* as L1. It was dropped, and old L2–L4 became L1–L3; see *Globe and layout → Migration*.)
+  1. **Highlighted on the globe → name** (4 choices; distractors are nearby or similar-sized). Countries and regions are shaded, places are a dot.
+  2. **Name → tap, with borders.** Country questions show every country's border. Region and place questions show the regions of the item's country. Correct if inside the polygon (country/region) or within the tier's km threshold (place).
+  3. **Name → tap, no borders.** Imagery only, the camera stays where the last question left it (as in a maptap round). Same rule, maptap score shown.
 - **Grading → FSRS rating:**
   - Multiple choice: wrong = Again, correct and slow = Hard, correct = Good, correct and fast = Easy.
   - Tap: inside the polygon = Good (Easy if within ~25% of the feature's size from the answer point). Otherwise grade by km, with thresholds per tier:
@@ -66,24 +66,45 @@ The globe is d3 orthographic on canvas, not WebGL. That's lighter, works well on
     - Places: < 25 km Easy · < 75 Good · < 200 Hard · ≥ 200 Again
     - All thresholds live in one tunable config.
 - **Mastery & unlocking (per country):**
-  - An item is *mastered* once it passes L4 on 2 different days.
+  - An item is *mastered* once it passes L3 (the top rung) on 2 different days.
   - Mastering a country unlocks its regions (or its places when it has no regions tier).
   - Mastering a region unlocks that region's places.
-  - Mastered items stay in FSRS review indefinitely. A lapse at L4 drops the item temporarily to L3 and doesn't re-lock its children.
+  - Mastered items stay in FSRS review indefinitely. A lapse at L3 drops the item temporarily to L2 and doesn't re-lock its children.
 - **New-item order:** within the unlocked pool, lowest `difficultyLevel` first, ties broken by how often maptap asks about that country (its place count). Example: London comes before Akron, and the US comes before Tuvalu.
 - **Placement test** runs on first launch (countries), and again whenever a tier unlocks, as an optional "test out".
-  - It asks L4 (bare globe) questions only.
+  - It asks L3 (no borders) questions only.
   - It's an adaptive staircase over difficulty levels 1–8: pass → harder, fail → easier. It stops at about 20 questions or when the estimate settles.
-  - Items passed are seeded as L4 review cards with a short initial stability, so they come back within days to confirm, never skipped outright.
-  - Items above the estimated level start at L1. Untested items at or below the estimate start at L3.
+  - Items passed are seeded as L3 review cards with a short initial stability, so they come back within days to confirm, never skipped outright.
+  - Items above the estimated level start at L1. Untested items at or below the estimate start at L2.
 - **Session:** due reviews first, then new items up to a daily cap (default 15; a setting). The session interleaves exercise levels so it isn't one long run of multiple choice.
+
+## Globe and layout (UI redo, decided 2026-11-26)
+- **One globe.** A single MapLibre map in globe projection stays mounted for the whole app; routes and exercises change its layers and camera rather than mounting maps of their own. Drag rotates, pinch/wheel zooms, both built in (our own gesture code goes). A tap gives `lngLat`, and grading runs on that through `maps/geo.ts` against our own geometry, never against what MapLibre rendered, so it stays deterministic and unit-tested.
+- **Imagery:** EOX Sentinel-2 cloudless **2025**, hotlinked as a raster source: `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg` (row before column). Checked 2026-11-26: CORS `*`, a week's browser cache, land imagery to z15, native 10 m so it stops getting sharper around z13–14.
+  - **Licence:** CC BY-NC-SA 4.0. **The site stays non-commercial** (no ads or paid tiers without a paid EOX licence). The attribution is visible on the globe (MapLibre's attribution control) and on Credits: "Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)".
+  - If EOX becomes unreliable or rate-limits us, the fallback is a PMTiles copy cut to the zoom we need, in a static bucket. The 2016 mosaic (`s2cloudless_3857`, CC BY 4.0) is the fallback if the site ever needs to be commercial.
+- **No labels, no vector basemap.** The style is imagery plus our own layers. Names appear only after an answer, in the question panel and as HTML markers (`maplibregl.Marker`) on the globe, so no glyph server is needed.
+- **Layer modes** (one GeoJSON source per data file; region files load lazily per country, as now):
+  - *bare:* imagery only.
+  - *country borders:* every country's border line.
+  - *region borders:* the item's country's region borders and its outline; the rest of the world bare.
+  - *highlight:* one feature shaded (or one dot for a place), plus the borders of the matching tier for context.
+  - *progress:* countries (or, drilled in, regions) filled by progress state; tap to drill down.
+  - *reveal* (after any answer): the target outlined, the tap and answer points with a line between them, the km and maptap score.
+- **Camera** (my picks; mark up to change): L1 flies to fit the highlighted feature with some context around it; L2 for countries stays on the world, for regions and places it flies to fit the item's country; L3 never moves the camera; the reveal flies to fit the tap and the answer together. Progress drill-down flies to the country.
+- **Layout: side by side.** A narrow question column next to the globe; the globe gets the rest of the screen. The column holds the prompt, the 4 choices for L1, the session counter, and the reveal (result, Next). My pick: column on the left, about 320px.
+  - **Phone width:** the globe on top, the question panel below it where the thumb is (prompt, a 2×2 grid of choices, counter). No horizontal scroll, 16px gutters in the panel.
+  - Non-question pages (Home, Progress, Settings, Credits) use the same column for their content, with the globe beside it showing progress. Settings and Credits may hide the globe at phone width.
+- **Components: Mantine 9** (`@mantine/core`, `@mantine/hooks`): buttons, choice grid, segmented controls, forms (Settings), modals (reset, import), notifications, progress bars. A dark theme suits the imagery. We write no component of our own that Mantine has.
+- **Migration (Dexie v3).** Progress is re-laddered: rung r → r − 1 (old L1 → L1). The old L1 card is dropped; the L2–L4 cards become L1–L3. The top-rung pass days and the lapse flag carry over to the new L3. Answers keep their history, and outline-rung answers count toward nothing. An export file from before v3 goes through the same mapping on import. Placement-done markers are unchanged.
+- **What goes:** the d3 drawing code and the SVG/canvas maps (`OutlineView`, `HighlightMap`, `TapMap`, `BareGlobe`, `ProgressMap`, `DrillMap`, our gesture code) and the outline exercise. d3-geo stays only for the spherical math in `geo.ts`.
 
 ## Data generation script (`npm run build:data`)
 1. Fetch V2 → slice from `const masterLocationsV2 = ` → `JSON.parse` the array with a raw decoder (no code execution). Drop `disabled`.
 2. Match countries to NE admin-0, using `map_units` for England/Scotland/Wales/NI. Use an overrides table for naming (Türkiye, Côte d'Ivoire, territories, disputed areas). Tiny countries with no polygon get a point plus a radius. **Fail the build if a country goes unmatched.**
 3. Assign regions with NE admin-1 point-in-polygon. Check the result against maptap's `admin` where it exists and print disagreements for review. Coastal points that fall outside every polygon snap to the nearest region.
 4. Simplify geometry and write `public/data/*`. Commit the output, so the site build never hits maptap. The script also writes `public/data/SOURCE.md` with the fetch date, entry counts, and credit text.
-5. The Credits page: "Place list courtesy of MapTap.gg" + Natural Earth.
+5. The Credits page: "Place list courtesy of MapTap.gg" + Natural Earth (+ the EOX Sentinel-2 credit from step 8 on).
 
 ## Step 0: Port the Claude tooling from kawaka (before any app code)
 I do this by hand in the conductor session, not through sdd-loop, because sdd-loop doesn't exist here yet. First `git init` (branch `main`), then add `.gitignore` with `.durable-state/`. Sources are under `~/code/kawaka/` (paths below are relative to it).
@@ -150,6 +171,13 @@ From here on, **each build step below is one `/sdd-loop` run**: you type it, I t
 6. Placement test.
 7. PWA (offline, installable on phone), Settings, Credits, deploy.
 
+UI redo (see *Globe and layout*):
+
+8. **The globe.** `maplibre-gl` globe with the EOX imagery and its attribution, our country and region GeoJSON as sources, the layer modes, tap → `lngLat`. Mantine installed with the app shell: the side-by-side layout and its phone-width stacking. Shown in the playground next to the old maps; nothing else changes yet.
+9. **The 3-rung ladder.** `engine/` moves to L1–L3 (mastery, lapses, placement seeding and starting rungs); the Dexie v3 migration and pre-v3 imports map progress as described. No UI change besides what the engine change forces.
+10. **Questions on the globe.** The 3 exercise types for every tier on the globe, with camera moves and the reveal, in the Mantine column/panel. Session, Placement and test-out run on them. The outline exercise and the exercise maps are deleted.
+11. **Everything else on the globe.** Home and the Progress drill-down on the globe's progress mode; Settings and Credits in Mantine (Credits gains the EOX line). The remaining d3 drawing code and SVG maps are deleted, and so is anything else we built that Mantine now covers. `CLAUDE.md`'s *Stack* and *Layout* lines are updated to match (MapLibre globe, Mantine, three exercise types).
+
 ## Verification
 - `npm run build:data`: asserts every active place has a country polygon match and a region for any country that has a regions tier. Prints counts that should match the source (6,612 active), plus the admin-mismatch report.
 - `vitest`:
@@ -159,7 +187,12 @@ From here on, **each build step below is one `/sdd-loop` run**: you type it, I t
   - unlock rules (master FR → FR regions available, DE regions still locked)
   - placement staircase converging on synthetic users of known skill
   - export → import round-trip
-- Playwright smoke test on desktop and mobile viewports: complete a placement test, then a session. Check that a tap inside a highlighted polygon scores correct, that progress survives a reload, and that the bare globe rotates and zooms with touch.
+  - the v3 migration and pre-v3 import: every old rung maps as listed, and nothing else in the progress changes
+- Playwright smoke test on desktop and mobile viewports: complete a placement test, then a session. Check that a tap inside a highlighted polygon scores correct, that progress survives a reload, and that the globe rotates and zooms with touch.
+  - Chromium runs WebGL headless through its software renderer. Taps are aimed with a test-only hook that projects a `lngLat` to screen pixels through the live map (`map.project`), so they don't depend on pixel guesses.
+  - Imagery requests to EOX are stubbed in e2e with a local tile, so tests never depend on EOX being up.
+  - At phone width: the panel sits below the globe, nothing scrolls sideways, and all 4 choices are reachable without scrolling.
+- The globe stays smooth while dragging: check by hand on a phone, and with a Playwright trace of a drag that shows no long main-thread frames.
 - Check by hand in the browser (`npm run dev`), using the `run` skill for screenshots of each exercise type.
 
 ## Choices in step 0 (my picks; mark up to change)
