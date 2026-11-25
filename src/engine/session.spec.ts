@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { DAILY_NEW_CAP } from './config';
-import { buildCurriculum, countryItemId, placeItemId, type Curriculum } from './curriculum';
+import {
+  buildCurriculum,
+  countryItemId,
+  placeItemId,
+  unlockedItems,
+  type Curriculum,
+} from './curriculum';
 import { buildSession } from './session';
 import { createProgress, nextDue, seedFromPlacement, type ItemProgress } from './srs';
 import type { Place } from './types';
@@ -37,7 +43,8 @@ function fixture(n: number): Curriculum {
 
 const cid = (n: number) => countryItemId(`c${String(n).padStart(2, '0')}`);
 
-/** Progress on `rung` whose current card fell due `daysAgo` days before NOW (negative: in the future). */
+/** Answered (introduced) progress on `rung` whose current card fell due `daysAgo` days before NOW
+ * (negative: in the future). */
 function dueProgress(itemId: string, rung: 1 | 3 | 4, daysAgo: number): ItemProgress {
   const base: ItemProgress =
     rung === 4
@@ -46,7 +53,8 @@ function dueProgress(itemId: string, rung: 1 | 3 | 4, daysAgo: number): ItemProg
         ? seedFromPlacement(itemId, 'untestedAtOrBelow', NOW)
         : createProgress(itemId, NOW);
   const card = base.cards[base.rung]!;
-  return { ...base, cards: { ...base.cards, [base.rung]: { ...card, due: NOW.getTime() - daysAgo * DAY } } };
+  const due = NOW.getTime() - daysAgo * DAY;
+  return { ...base, cards: { ...base.cards, [base.rung]: { ...card, reps: Math.max(card.reps, 1), due } } };
 }
 
 function longestRun(rungs: number[]): number {
@@ -98,14 +106,19 @@ describe('buildSession', () => {
     expect(q).toEqual([{ itemId: cid(1), rung: 1 }]);
   });
 
-  it('orders items with equal due times by item id', () => {
-    const progress = {
-      [cid(9)]: dueProgress(cid(9), 1, 2),
-      [cid(3)]: dueProgress(cid(3), 1, 2),
-      [cid(6)]: dueProgress(cid(6), 1, 2),
-    };
-    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
-    expect(q.map((x) => x.itemId)).toEqual([cid(3), cid(6), cid(9)]);
+  it('orders items with equal due times by item id, not curriculum order', () => {
+    // The easier countries come first in the curriculum but have the larger ids.
+    const countries = ['z', 'y', 'x'].map((id) => ({ id, name: id, places: 1, hasRegions: false }));
+    const rev = buildCurriculum(
+      countries,
+      [],
+      countries.map((c, i) => place(`p${c.id}`, c.id, 'city', i + 1)),
+    );
+    const ids = countries.map((c) => countryItemId(c.id));
+    expect([...unlockedItems(rev, {}).map((i) => i.id)]).toEqual(ids);
+    const progress = Object.fromEntries(ids.map((id) => [id, dueProgress(id, 1, 2)]));
+    const q = buildSession({ curriculum: rev, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
+    expect(q.map((x) => x.itemId)).toEqual([...ids].sort());
   });
 
   it('leaves out a locked item that has due progress', () => {
@@ -183,6 +196,65 @@ describe('buildSession', () => {
     expect(q).toHaveLength(8);
     expect(longestRun(q.map((x) => x.rung))).toBeLessThanOrEqual(2);
     expect(buildSession({ ...input, dailyCap: 2 })).toEqual(q);
+  });
+
+  it('caps placement-seeded items as new, asked at L3, and asks nothing twice', () => {
+    const progress: Record<string, ItemProgress> = {};
+    for (let i = 0; i < 30; i++) progress[cid(i)] = seedFromPlacement(cid(i), 'untestedAtOrBelow', NOW);
+    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, rng });
+    expect(q).toHaveLength(15);
+    expect(q.every((x) => x.rung === 3)).toBe(true);
+    expect(new Set(q.map((x) => x.itemId)).size).toBe(15);
+  });
+
+  it('leaves a passed seed out until it is due, then reviews it at L4', () => {
+    const progress = { [cid(1)]: seedFromPlacement(cid(1), 'passed', NOW) };
+    const at = (days: number) =>
+      buildSession({
+        curriculum: cur,
+        progress,
+        now: new Date(NOW.getTime() + days * DAY),
+        introducedToday: DAILY_NEW_CAP,
+        rng,
+      });
+    expect(nextDue(progress[cid(1)]!)).toBe(NOW.getTime() + 2 * DAY);
+    expect(at(0)).toEqual([]);
+    expect(at(2)).toEqual([{ itemId: cid(1), rung: 4 }]);
+  });
+
+  it('avoids a long run when a better order exists', () => {
+    // Two due L3 reviews ahead of four new L1 items: a greedy order gave 3,3,1,1,1,1.
+    const progress = { [cid(0)]: dueProgress(cid(0), 3, 2), [cid(1)]: dueProgress(cid(1), 3, 1) };
+    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, dailyCap: 4, rng });
+    expect(q.map((x) => x.rung).sort()).toEqual([1, 1, 1, 1, 3, 3]);
+    expect(longestRun(q.map((x) => x.rung))).toBeLessThanOrEqual(2);
+  });
+
+  it('reaches a longest run of 2 whenever some order of the same questions does', () => {
+    // Shortest longest-run over all distinct orderings of a multiset of rungs.
+    const best = (left: number[], last = 0, run = 0): number => {
+      if (left.length === 0) return run;
+      let min = Infinity;
+      for (const r of new Set(left)) {
+        const rest = [...left];
+        rest.splice(rest.indexOf(r), 1);
+        const next = r === last ? run + 1 : 1;
+        min = Math.min(min, Math.max(next, best(rest, r, next)));
+      }
+      return min;
+    };
+    const rungOf = [1, 3, 4] as const;
+    for (let len = 1; len <= 7; len++) {
+      for (let code = 0; code < 3 ** len; code++) {
+        const mix = Array.from({ length: len }, (_, i) => Math.floor(code / 3 ** i) % 3);
+        const progress: Record<string, ItemProgress> = {};
+        mix.forEach((d, i) => (progress[cid(i)] = dueProgress(cid(i), rungOf[d]!, 20 - i)));
+        const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
+        const rungs = q.map((x) => x.rung);
+        expect(rungs, mix.join('')).toHaveLength(len);
+        if (best(rungs) <= 2) expect(longestRun(rungs), mix.join('')).toBeLessThanOrEqual(2);
+      }
+    }
   });
 
   it('keeps a single-rung queue intact when there is nothing to interleave with', () => {
