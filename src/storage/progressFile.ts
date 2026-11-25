@@ -144,11 +144,24 @@ export function validateProgressFile(parsed: unknown): ProgressFile {
   return file;
 }
 
-/** How many countries have been started (answered at least once) among these progress rows. */
-export function countriesStarted(progress: Iterable<ItemProgress>): number {
-  let count = 0;
+/** Started items per tier. */
+export interface TierCounts {
+  countries: number;
+  regions: number;
+  places: number;
+}
+
+/**
+ * How many countries, regions and places have been started (answered at least once) among these
+ * progress rows.
+ */
+export function startedByTier(progress: Iterable<ItemProgress>): TierCounts {
+  const counts: TierCounts = { countries: 0, regions: 0, places: 0 };
   for (const row of progress) {
-    if (row.itemId.startsWith('country:') && isIntroduced(row)) count += 1;
+    if (!isIntroduced(row)) continue;
+    if (row.itemId.startsWith('country:')) counts.countries += 1;
+    else if (row.itemId.startsWith('region:')) counts.regions += 1;
+    else if (row.itemId.startsWith('place:')) counts.places += 1;
   }
-  return count;
+  return counts;
 }

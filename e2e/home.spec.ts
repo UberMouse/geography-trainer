@@ -74,7 +74,7 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
     await fresh.goto('/');
     expect((await numbers(fresh)).newToday).toBe('0 of 15 new today');
     await fresh.getByLabel('Import progress').setInputFiles(path);
-    await expect(fresh.getByText(/^This browser: 0 countries started\. File: \d+ countries started, exported /)).toBeVisible();
+    await expect(fresh.getByText(/^This browser: nothing started\. File: \d+ countries started, exported /)).toBeVisible();
     await fresh.getByRole('button', { name: 'Replace' }).click();
     await expect(fresh.getByRole('status')).toHaveText('Progress imported.', WAIT);
     await expect(fresh.getByRole('status')).toBeFocused();

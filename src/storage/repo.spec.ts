@@ -3,7 +3,7 @@ import { Rating, S_MIN } from 'ts-fsrs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import type { NewAnswer } from './db';
-import { countriesStarted, validateProgressFile } from './progressFile';
+import { startedByTier, validateProgressFile } from './progressFile';
 import { createRepo, type ProgressRepo } from './repo';
 
 const NOW = new Date('2026-03-04T10:00:00Z');
@@ -208,18 +208,25 @@ describe('validated boundary cards', () => {
   });
 });
 
-describe('countriesStarted', () => {
-  it('counts introduced country rows only', () => {
+describe('startedByTier', () => {
+  it('counts introduced rows per tier', () => {
     const fresh = createProgress('country:chad', NOW);
     expect(
-      countriesStarted([answered('country:france'), answered('place:paris'), fresh, answered('country:peru')]),
-    ).toBe(2);
+      startedByTier([
+        answered('country:france'),
+        answered('place:paris'),
+        answered('region:fr.bre'),
+        fresh,
+        createProgress('region:fr.pdl', NOW),
+        answered('country:peru'),
+      ]),
+    ).toEqual({ countries: 2, regions: 1, places: 1 });
   });
 
   it('counts a validated file', async () => {
     await seed();
     const file = validateProgressFile(JSON.parse(JSON.stringify(await repo.exportProgress(NOW))));
-    expect(countriesStarted(file.progress)).toBe(2);
-    expect(countriesStarted(Object.values(await repo.loadProgress()))).toBe(2);
+    expect(startedByTier(file.progress).countries).toBe(2);
+    expect(startedByTier(Object.values(await repo.loadProgress())).countries).toBe(2);
   });
 });

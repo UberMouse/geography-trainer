@@ -1,7 +1,7 @@
 // Plain helpers for Home's export and import, kept out of the component so they can be unit-tested.
 
 import { localDayKey, type ItemProgress } from '../engine/srs';
-import { countriesStarted, validateProgressFile, type ProgressFile } from '../storage/progressFile';
+import { startedByTier, validateProgressFile, type ProgressFile, type TierCounts } from '../storage/progressFile';
 
 /** The download name for an export made at `now`: the local day, `tzOffsetMinutes` east of UTC. */
 export function exportFilename(now: Date, tzOffsetMinutes: number): string {
@@ -9,10 +9,10 @@ export function exportFilename(now: Date, tzOffsetMinutes: number): string {
 }
 
 export interface ImportSummary {
-  /** Countries started in this browser. */
-  here: number;
-  /** Countries started in the file. */
-  inFile: number;
+  /** Items started in this browser, by tier. */
+  here: TierCounts;
+  /** Items started in the file, by tier. */
+  inFile: TierCounts;
   /** The local day the file was exported. */
   exportedOn: string;
 }
@@ -42,17 +42,27 @@ export function checkImportText(
     ok: true,
     parsed,
     summary: {
-      here: countriesStarted(Object.values(current)),
-      inFile: countriesStarted(file.progress),
+      here: startedByTier(Object.values(current)),
+      inFile: startedByTier(file.progress),
       exportedOn: localDayKey(new Date(file.exportedAt), tzOffsetMinutes),
     },
   };
 }
 
-const countries = (n: number) => `${n} ${n === 1 ? 'country' : 'countries'}`;
+/** "3 countries, 12 regions and 40 places started": the tiers above zero, or "nothing started". */
+function startedText(c: TierCounts): string {
+  const parts = [
+    c.countries > 0 && `${c.countries} ${c.countries === 1 ? 'country' : 'countries'}`,
+    c.regions > 0 && `${c.regions} ${c.regions === 1 ? 'region' : 'regions'}`,
+    c.places > 0 && `${c.places} ${c.places === 1 ? 'place' : 'places'}`,
+  ].filter((part): part is string => part !== false);
+  if (parts.length === 0) return 'nothing started';
+  const last = parts.pop()!;
+  return `${parts.length > 0 ? `${parts.join(', ')} and ` : ''}${last} started`;
+}
 
 export const importConfirmText = (s: ImportSummary): string =>
-  `This browser: ${countries(s.here)} started. File: ${countries(s.inFile)} started, exported ${s.exportedOn}.`;
+  `This browser: ${startedText(s.here)}. File: ${startedText(s.inFile)}, exported ${s.exportedOn}.`;
 
 /** The warning after an export that left out `n` answers that could not be saved. */
 export const leftOutText = (n: number): string =>

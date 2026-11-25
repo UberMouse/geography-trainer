@@ -142,7 +142,7 @@ describe('the full tree', () => {
 
   describe('unlockLines', () => {
     it('says regions for a regions-tier country, places for the rest and a region', () => {
-      expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf, () => true)).toEqual([
+      expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
         { id: 'country:fr', text: "Unlocked: France's regions" },
         { id: 'country:jp', text: "Unlocked: Japan's places" },
         { id: 'region:fr.bre', text: "Unlocked: Brittany's places (France)" },
@@ -150,7 +150,7 @@ describe('the full tree', () => {
     });
 
     it('tells a region and a country of the same name apart, by id and by text', () => {
-      const lines = unlockLines(curriculum, ['country:lu', 'region:be.lux'], nameOf, () => true);
+      const lines = unlockLines(curriculum, ['country:lu', 'region:be.lux'], nameOf);
       expect(lines).toEqual([
         { id: 'country:lu', text: "Unlocked: Luxembourg's places" },
         { id: 'region:be.lux', text: "Unlocked: Luxembourg's places (Belgium)" },
@@ -158,18 +158,13 @@ describe('the full tree', () => {
     });
 
     it('lists an item mastered twice once and skips items that unlock nothing', () => {
-      expect(unlockLines(curriculum, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf, () => true)).toEqual([
+      expect(unlockLines(curriculum, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf)).toEqual([
         { id: 'country:jp', text: "Unlocked: Japan's places" },
       ]);
     });
 
-    it('leaves out an item that is no longer mastered', () => {
-      const lines = unlockLines(curriculum, ['country:fr', 'country:jp'], nameOf, (id) => id !== 'country:fr');
-      expect(lines).toEqual([{ id: 'country:jp', text: "Unlocked: Japan's places" }]);
-    });
-
     it('is empty when nothing was mastered', () => {
-      expect(unlockLines(curriculum, [], nameOf, () => true)).toEqual([]);
+      expect(unlockLines(curriculum, [], nameOf)).toEqual([]);
     });
   });
 });

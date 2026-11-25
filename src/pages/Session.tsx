@@ -81,9 +81,8 @@ function Runner({ data }: { data: SessionData }) {
   const { countries, curriculum, regions, items } = data;
   const [run, setRun] = useState<SessionRun>(() => startRun(data.questions));
   const empty = data.questions.length === 0;
-  // Items that passed from not mastered to mastered in this round, in answer order, each with
-  // whether it is still mastered after its latest answer.
-  const [mastered, setMastered] = useState<Readonly<Record<string, boolean>>>({});
+  // Ids of the items that passed from not mastered to mastered in this round, in answer order.
+  const [mastered, setMastered] = useState<readonly string[]>([]);
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   // True when the current question's answer could not be recorded and the question is skipped.
@@ -131,21 +130,23 @@ function Runner({ data }: { data: SessionData }) {
   }
 
   if (ended || !question || !item) {
+    const unlocks = unlockLines(curriculum, mastered, nameOf);
     return (
       <div data-unsaved={unsaved}>
         <h2 ref={summaryRef} tabIndex={-1} className="session-summary">
           Round done: {run.correctInRound} of {run.answeredInRound} right
         </h2>
-        {unlockLines(curriculum, Object.keys(mastered), nameOf, (id) => mastered[id] === true).map((line) => (
+        {unlocks.map((line) => (
           <p key={line.id}>{line.text}</p>
         ))}
+        {unlocks.length > 0 && <p>These start in your next session.</p>}
         {questionsRemain(run) ? (
           <p>
             <button
               type="button"
               className="session-button"
               onClick={() => {
-                setMastered({});
+                setMastered([]);
                 setRun(nextRound(run));
               }}
             >
@@ -177,11 +178,8 @@ function Runner({ data }: { data: SessionData }) {
       queue.push(recorded.entry);
       const before = progress.current[question.itemId];
       progress.current = { ...progress.current, [question.itemId]: after };
-      const nowMastered = isMastered(after);
-      if (nowMastered && !(before && isMastered(before))) {
-        setMastered((ids) => ({ ...ids, [question.itemId]: true }));
-      } else if (!nowMastered && question.itemId in mastered) {
-        setMastered((ids) => ({ ...ids, [question.itemId]: false }));
+      if (isMastered(after) && !(before && isMastered(before))) {
+        setMastered((ids) => [...ids, question.itemId]);
       }
     } catch (error) {
       console.error('[session] could not record answer', question.itemId, error);
