@@ -24,22 +24,23 @@ function isObj(value: unknown): value is Obj {
 const isNum = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 4;
 
-const CARD_NUMBERS = [
-  'due',
-  'stability',
-  'difficulty',
-  'scheduled_days',
-  'learning_steps',
-  'reps',
-  'lapses',
-  'state',
-] as const;
+const isCount = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 0;
+
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+const CARD_NUMBERS = ['due', 'stability', 'difficulty'] as const;
+// Whole-number fields: ts-fsrs rounds scheduled_days, and `state` is its State enum (0 New .. 3 Relearning).
+const CARD_COUNTS = ['scheduled_days', 'learning_steps', 'reps', 'lapses'] as const;
 
 function checkCard(card: unknown, where: string) {
   if (!isObj(card)) throw new Error(`${where} is not an object`);
   for (const key of CARD_NUMBERS) {
     if (!isNum(card[key])) throw new Error(`${where}.${key} is not a number`);
   }
+  for (const key of CARD_COUNTS) {
+    if (!isCount(card[key])) throw new Error(`${where}.${key} is not a non-negative integer`);
+  }
+  if (!isCount(card.state) || (card.state as number) > 3) throw new Error(`${where}.state is not an integer 0-3`);
   if (card.last_review !== undefined && !isNum(card.last_review)) {
     throw new Error(`${where}.last_review is not a number`);
   }
@@ -51,14 +52,21 @@ function checkProgress(row: unknown, index: number) {
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
   if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
   if (!isRung(row.highestRung)) throw new Error(`${where}.highestRung is not 1-4`);
+  if ((row.rung as number) > (row.highestRung as number)) {
+    throw new Error(`${where}.rung is above its highestRung`);
+  }
   if (!isObj(row.cards)) throw new Error(`${where}.cards is not an object`);
   for (const [key, card] of Object.entries(row.cards)) {
-    if (!isRung(Number(key))) throw new Error(`${where}.cards has the key "${key}", not 1-4`);
+    if (String(Number(key)) !== key || !isRung(Number(key)))
+      throw new Error(`${where}.cards has the key "${key}", not 1-4`);
     checkCard(card, `${where}.cards.${key}`);
   }
   if (!(String(row.rung) in row.cards)) throw new Error(`${where}.cards has no card for its rung`);
-  if (!Array.isArray(row.l4PassDays) || !row.l4PassDays.every((day) => typeof day === 'string')) {
-    throw new Error(`${where}.l4PassDays is not an array of strings`);
+  if (!Array.isArray(row.l4PassDays) || !row.l4PassDays.every((day) => typeof day === 'string' && DAY_KEY.test(day))) {
+    throw new Error(`${where}.l4PassDays is not an array of YYYY-MM-DD strings`);
+  }
+  if (new Set(row.l4PassDays).size !== row.l4PassDays.length) {
+    throw new Error(`${where}.l4PassDays has a repeated day`);
   }
   if (typeof row.inL4Lapse !== 'boolean') throw new Error(`${where}.inL4Lapse is not a boolean`);
   if (row.introducedAt !== null && !isNum(row.introducedAt)) {
@@ -69,7 +77,7 @@ function checkProgress(row: unknown, index: number) {
 function checkAnswer(row: unknown, index: number) {
   const where = `answers[${index}]`;
   if (!isObj(row)) throw new Error(`${where} is not an object`);
-  if (!isNum(row.id)) throw new Error(`${where}.id is not a number`);
+  if (!isCount(row.id) || row.id === 0) throw new Error(`${where}.id is not a positive integer`);
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
   if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
   if (!isRung(row.rating)) throw new Error(`${where}.rating is not 1-4`);
@@ -90,12 +98,14 @@ function checkUnique(keys: (string | number)[], what: string) {
   }
 }
 
-/** Checks a parsed progress file and returns it typed. Throws an `Error` naming the first problem. */
+/** Checks a parsed progress file and returns the same object, typed (not a copy). Throws an `Error` naming the first problem. */
 export function validateProgressFile(parsed: unknown): ProgressFile {
   if (!isObj(parsed)) throw new Error('The file is not a progress export');
   if (parsed.format !== FILE_FORMAT) throw new Error(`Wrong format: expected "${FILE_FORMAT}"`);
   if (parsed.version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(parsed.version)}`);
-  if (typeof parsed.exportedAt !== 'string') throw new Error('exportedAt is not a string');
+  if (typeof parsed.exportedAt !== 'string' || !Number.isFinite(Date.parse(parsed.exportedAt))) {
+    throw new Error('exportedAt is not a date string');
+  }
   if (!Array.isArray(parsed.progress)) throw new Error('progress is not an array');
   if (!Array.isArray(parsed.answers)) throw new Error('answers is not an array');
   parsed.progress.forEach(checkProgress);
