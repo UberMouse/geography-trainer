@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { REGIONS_TIER_MIN_PLACES, REGIONS_TIER_MIN_REGIONS } from '../../src/engine/config';
 import {
   adminDisagrees,
+  applyRegionNameOverrides,
+  assertDistinctRegionNames,
   admin1Rows,
   assignRegion,
   buildRegions,
@@ -133,5 +135,50 @@ describe('hasRegionsTier', () => {
     expect(hasRegionsTier(4, 15)).toBe(true);
     expect(hasRegionsTier(3, 15)).toBe(false);
     expect(hasRegionsTier(4, 14)).toBe(false);
+  });
+});
+
+describe('region name overrides', () => {
+  const rows = [
+    admin1('AAA-1', 'Galway', [0, 0]),
+    admin1('AAA-2', 'Galway', [1, 0]),
+    admin1('AAA-3', 'Mayo', [2, 0]),
+  ];
+  const overrides = {
+    'AAA-1': { name: 'Galway (county)', reason: 'test' },
+    'AAA-2': { name: 'Galway (city)', reason: 'test' },
+  };
+
+  it('gives an overridden pair distinct names and slug ids, and leaves other rows alone', () => {
+    const named = applyRegionNameOverrides(rows, overrides);
+    expect(named[2]).toBe(rows[2]);
+    const regions = buildRegions('ireland', named, false);
+    expect(regions.map((r) => [r.id, r.name])).toEqual([
+      ['ireland.galway-city', 'Galway (city)'],
+      ['ireland.galway-county', 'Galway (county)'],
+      ['ireland.mayo', 'Mayo'],
+    ]);
+    assertDistinctRegionNames('ireland', regions);
+  });
+
+  it("still matches maptap's admin against the NE name", () => {
+    const regions = buildRegions('ireland', applyRegionNameOverrides(rows, overrides), false);
+    expect(regions[0]!.units[0]!.row.neName).toBe('Galway');
+    const hit = assignRegion(regions, 1, 0, 'Galway (city)');
+    expect(hit.adminMatches.map((r) => r.name)).toContain('Galway (city)');
+    expect(assignRegion(regions, 1, 0, 'Galway').adminMatches).toHaveLength(2);
+  });
+
+  it('fails for an override whose code is not in NE', () => {
+    expect(() => applyRegionNameOverrides(rows, { 'ZZZ-9': { name: 'X', reason: 'r' } })).toThrow(
+      /ZZZ-9/,
+    );
+  });
+
+  it('fails when two regions of a country share a name, naming the country and rows', () => {
+    const regions = buildRegions('ireland', rows, false);
+    expect(() => assertDistinctRegionNames('ireland', regions)).toThrow(
+      /ireland.*Galway.*AAA-1.*AAA-2/,
+    );
   });
 });

@@ -33,6 +33,8 @@ export interface NeUnit {
 export interface NeAdmin1 {
   code: string;
   name: string;
+  /** The name NE gave the row, when a region-name override replaced `name`. */
+  neName?: string;
   nameEn: string | null;
   nameAlt: string | null;
   region: string | null;

@@ -79,6 +79,43 @@ export function admin1Rows(
 }
 
 /**
+ * Applies region-name overrides (by NE code) to admin-1 rows: the row's `name` becomes the
+ * override and NE's own name moves to `neName`. An override naming no row throws, so a stale one
+ * cannot go unnoticed.
+ */
+export function applyRegionNameOverrides(
+  admin1: NeAdmin1[],
+  overrides: Record<string, { name: string; reason: string }>,
+): NeAdmin1[] {
+  const codes = new Set(admin1.map((row) => row.code));
+  const stale = Object.keys(overrides).filter((code) => !codes.has(code));
+  if (stale.length > 0) {
+    throw new Error(`region name overrides for codes not in NE admin-1: ${stale.join(', ')}`);
+  }
+  return admin1.map((row) => {
+    const override = overrides[row.code];
+    return override ? { ...row, name: override.name, neName: row.name } : row;
+  });
+}
+
+/** Throws when two regions of a country share a display name, naming the country and rows. */
+export function assertDistinctRegionNames(countryId: string, regions: Region[]): void {
+  const byName = new Map<string, Region[]>();
+  for (const region of regions) {
+    const key = normalizeName(region.name);
+    byName.set(key, [...(byName.get(key) ?? []), region]);
+  }
+  const clashes = [...byName.values()].filter((same) => same.length > 1);
+  if (clashes.length > 0) {
+    const lines = clashes.map(
+      (same) =>
+        `"${same[0]!.name}": ${same.map((r) => `${r.id} (${r.units.map((u) => u.row.code).join('+')})`).join(', ')}`,
+    );
+    throw new Error(`${countryId} has regions with the same name: ${lines.join('; ')}`);
+  }
+}
+
+/**
  * Groups admin-1 rows into regions with unique ids. When dissolving, rows sharing a `region`
  * become one region named after it; a row NE gives no `region` (France's southern lands) stays a
  * region of its own.
@@ -134,6 +171,7 @@ function namesOf(region: Region): string[] {
   const names = [region.name];
   for (const { row } of region.units) {
     names.push(row.name);
+    if (row.neName) names.push(row.neName);
     if (row.nameEn) names.push(row.nameEn);
     if (row.nameAlt) names.push(...row.nameAlt.split('|'));
   }

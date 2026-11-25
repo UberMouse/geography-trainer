@@ -9,6 +9,8 @@ import {
   adminDisagrees,
   admin1Rows,
   assignRegion,
+  applyRegionNameOverrides,
+  assertDistinctRegionNames,
   buildRegions,
   hasRegionsTier,
 } from './assign-regions';
@@ -35,6 +37,7 @@ import {
   BOUNDARY_NOTE,
   CONTAINMENT_ALLOW_LIST,
   OVERRIDES,
+  REGION_NAME_OVERRIDES,
   TERRITORY_MOVES,
 } from './overrides';
 import { applyTerritoryMoves } from './territory';
@@ -91,15 +94,15 @@ async function main(): Promise<number> {
 
   const regionsByCountry = new Map<string, Region[]>();
   const droppedAdmin1: DroppedRow[] = [];
+  const namedAdmin1 = applyRegionNameOverrides(moved.admin1, REGION_NAME_OVERRIDES);
   for (const country of matched) {
     if (!country.area) continue;
-    const { rows, dropped } = admin1Rows(country, moved.admin1, matched);
+    const { rows, dropped } = admin1Rows(country, namedAdmin1, matched);
     droppedAdmin1.push(...dropped);
     if (rows.length > 0) {
-      regionsByCountry.set(
-        country.id,
-        buildRegions(country.id, rows, DISSOLVE_BY_REGION.has(country.id)),
-      );
+      const regions = buildRegions(country.id, rows, DISSOLVE_BY_REGION.has(country.id));
+      assertDistinctRegionNames(country.id, regions);
+      regionsByCountry.set(country.id, regions);
     }
   }
 

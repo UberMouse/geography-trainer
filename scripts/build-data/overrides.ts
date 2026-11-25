@@ -108,3 +108,41 @@ export const CONTAINMENT_ALLOW_LIST: Record<string, string> = {
   santa_cruz_del_islote_colombia: NO_LAND,
   skellig_michael_ireland: NO_LAND,
 };
+
+// Display names for admin-1 rows (NE `adm1_code`) whose NE name is wrong or shared with another
+// row of the same country, so no two regions of a country share a name.
+export const REGION_NAME_OVERRIDES: Record<string, { name: string; reason: string }> = {
+  'IRL-713': { name: 'Galway (county)', reason: 'NE type County; shares a name with the city' },
+  'IRL-5568': { name: 'Galway (city)', reason: 'NE type City; shares a name with the county' },
+  'IRL-78': { name: 'Cork (county)', reason: 'NE type County; shares a name with the city' },
+  'IRL-5569': { name: 'Cork (city)', reason: 'NE type City; shares a name with the county' },
+  'IRL-726': { name: 'Limerick (county)', reason: 'NE type County; shares a name with the city' },
+  'IRL-5570': { name: 'Limerick (city)', reason: 'NE type City; shares a name with the county' },
+  'IRL-1444': { name: 'Waterford (county)', reason: 'NE type County; shares a name with the city' },
+  'IRL-5571': { name: 'Waterford (city)', reason: 'NE type City; shares a name with the county' },
+  'MOZ-1927': {
+    name: 'Maputo (province)',
+    reason: 'NE gn_name "Maputo Province"; same name as the city',
+  },
+  'MOZ-5854': {
+    name: 'Maputo (city)',
+    reason: 'NE gn_name "Cidade de Maputo"; same name as the province',
+  },
+  'UZB-372': {
+    name: 'Tashkent (region)',
+    reason: 'NE gn_name "Toshkent Viloyati"; same name as the city',
+  },
+  'UZB-4828': {
+    name: 'Tashkent (city)',
+    reason: 'NE gn_name "Toshkent Shahri"; same name as the region',
+  },
+  'AFG-1769': {
+    name: 'Panjshir',
+    reason: 'NE labels it "Parwan", but gn_name/woe_name say Panjshir (split from Parwan in 2004)',
+  },
+  'AFG-1753': {
+    name: 'Daykundi',
+    reason:
+      'NE labels it "Uruzgan", but gn_name/woe_name say Daykundi (split from Uruzgan in 2004)',
+  },
+};
