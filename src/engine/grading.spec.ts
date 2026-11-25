@@ -80,4 +80,26 @@ describe('gradeTap', () => {
     expect(at(200)).toBe(Rating.Again);
     expect(gradeTap({ ...place, inside: true, kmFromAnswer: 500 })).toBe(Rating.Again);
   });
+  describe('bad input throws RangeError for the distances the branch uses', () => {
+    it('place: NaN or negative kmFromAnswer', () => {
+      const place = { ...base, tier: 'place' as const };
+      expect(() => gradeTap({ ...place, kmFromAnswer: NaN })).toThrow(RangeError);
+      expect(() => gradeTap({ ...place, kmFromAnswer: -1 })).toThrow(RangeError);
+    });
+    it('inside: NaN or negative kmFromAnswer, NaN featureSizeKm', () => {
+      expect(() => gradeTap({ ...base, kmFromAnswer: NaN })).toThrow(RangeError);
+      expect(() => gradeTap({ ...base, kmFromAnswer: -1 })).toThrow(RangeError);
+      expect(() => gradeTap({ ...base, featureSizeKm: NaN })).toThrow(RangeError);
+    });
+    it('outside: NaN or negative kmOutsideBorder', () => {
+      const out = { ...base, inside: false };
+      expect(() => gradeTap({ ...out, kmOutsideBorder: NaN })).toThrow(RangeError);
+      expect(() => gradeTap({ ...out, kmOutsideBorder: -1 })).toThrow(RangeError);
+    });
+    it('a field the branch ignores may be NaN; Infinity is valid', () => {
+      expect(gradeTap({ ...base, kmOutsideBorder: NaN })).toBe(Rating.Easy);
+      expect(gradeTap({ ...base, tier: 'place', kmFromAnswer: Infinity })).toBe(Rating.Again);
+      expect(gradeTap({ ...base, inside: false, kmOutsideBorder: Infinity })).toBe(Rating.Again);
+    });
+  });
 });

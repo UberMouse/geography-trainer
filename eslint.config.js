@@ -38,6 +38,10 @@ export default defineConfig([
           selector: "NewExpression[callee.name='Date'][arguments.length=0]",
           message: 'src/engine takes time as an argument: no argument-less new Date().',
         },
+        {
+          selector: "CallExpression[callee.name='Date']",
+          message: 'src/engine takes time as an argument: no Date() (it returns the current time).',
+        },
       ],
       'no-restricted-properties': [
         'error',
@@ -50,6 +54,11 @@ export default defineConfig([
           object: 'Date',
           property: 'now',
           message: 'src/engine takes time as an argument: no Date.now().',
+        },
+        {
+          object: 'performance',
+          property: 'now',
+          message: 'src/engine takes time as an argument: no performance.now().',
         },
       ],
       'no-restricted-imports': [
