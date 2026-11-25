@@ -23,7 +23,8 @@ export function questionSeed(itemId: string, position: number, salt: number): nu
 
 /**
  * The item's progress after the learner's answer, and the entry to save for it. A first answer
- * starts from `createProgress`; `tzOffsetMinutes` is minutes east of UTC.
+ * starts from `createProgress`; `tzOffsetMinutes` is minutes east of UTC. The card is scheduled
+ * from the later of `now` and its last review; the day key and the answer's `at` use `now`.
  */
 export function answerEntry(
   before: ItemProgress | undefined,
@@ -33,11 +34,14 @@ export function answerEntry(
   tzOffsetMinutes: number,
 ): { after: ItemProgress; entry: AnswerEntry } {
   const dayKey = localDayKey(now, tzOffsetMinutes);
+  // ts-fsrs throws when `now` is before the card's last review (a clock that ran ahead), so schedule from the later time.
+  const lastReview = before?.cards[question.rung]?.last_review;
+  const scheduledAt = lastReview !== undefined && lastReview > now.getTime() ? new Date(lastReview) : now;
   const after = applyAnswer(
     before ?? createProgress(question.itemId, now),
     question.rung,
     result.rating,
-    now,
+    scheduledAt,
     dayKey,
   );
   return {

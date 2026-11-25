@@ -83,20 +83,21 @@ export function answerCurrent(run: SessionRun, answer: RunAnswer): SessionRun {
 }
 
 /**
- * Drops the current question (the head of the queue) without re-queuing it, counting it as an answered,
- * incorrect question. For an answer that could not be recorded. Throws when the queue is empty.
+ * Drops the current question (the head of the queue) without re-queuing it. It counts towards
+ * `answered` (so the next question remounts) and the item's asks, but not the round's answered or
+ * correct counts: it was never graded. For an answer that could not be recorded. Throws when the
+ * queue is empty.
  */
 export function skipCurrent(run: SessionRun): SessionRun {
   const [current, ...queue] = run.queue;
   if (!current) throw new Error('No current question');
-  const answeredInRound = run.answeredInRound + 1;
   return {
     queue,
     answered: run.answered + 1,
-    answeredInRound,
+    answeredInRound: run.answeredInRound,
     correctInRound: run.correctInRound,
     asks: { ...run.asks, [current.itemId]: (run.asks[current.itemId] ?? 0) + 1 },
-    roundTotal: roundTotalOf(answeredInRound, queue.length),
+    roundTotal: roundTotalOf(run.answeredInRound, queue.length),
   };
 }
 

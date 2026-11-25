@@ -23,6 +23,11 @@ export interface SaveQueue<T> {
   unsavedEntries(): readonly T[];
   /** Drops every unsaved entry and resets the state. Throws while a write is running. */
   discard(): void;
+  /**
+   * Puts `entries` back ahead of every unsaved entry except one being written, keeping their order; `failed` is
+   * `failed || state.failed`. Writes again at once unless the queue is now failed.
+   */
+  restore(entries: readonly T[], failed: boolean): void;
   /** Calls `listener` after every state change; returns the unsubscribe function. */
   subscribe(listener: () => void): () => void;
 }
@@ -96,6 +101,12 @@ export function createSaveQueue<T>(write: (entry: T) => Promise<void>): SaveQueu
       if (running) throw new Error('Cannot discard the save queue while a write is running');
       pending.length = 0;
       setState({ unsaved: 0, failed: false });
+    },
+    restore(entries, failed) {
+      // Index 1 while a write is running: `drain` shifts the entry at index 0 when its write ends.
+      pending.splice(running ? 1 : 0, 0, ...entries);
+      setState({ unsaved: pending.length, failed: failed || state.failed });
+      if (!state.failed) void start();
     },
     subscribe(listener) {
       listeners.add(listener);

@@ -53,6 +53,16 @@ describe('answerEntry', () => {
     expect(after.itemId).toBe(before.itemId);
   });
 
+  it('answers a card whose last review is after now without throwing', () => {
+    const early = new Date('2026-03-01T00:00:00Z');
+    const first = answerEntry(undefined, question, result, early, 0).after;
+    const card = first.cards[1];
+    if (!card) throw new Error('no card');
+    const ahead = { ...first, cards: { ...first.cards, 1: { ...card, last_review: now.getTime() + 2 * 86_400_000 } } };
+    const { entry } = answerEntry(ahead, question, result, now, 0);
+    expect(entry.answer.at).toBe(now.getTime());
+  });
+
   it('takes the day key from the timezone offset', () => {
     expect(answerEntry(undefined, question, result, now, 0).entry.answer.dayKey).toBe('2026-03-10');
     expect(answerEntry(undefined, question, result, now, 120).entry.answer.dayKey).toBe(

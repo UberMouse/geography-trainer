@@ -133,6 +133,31 @@ describe('createProgressStore', () => {
     }
   });
 
+  it('a failed importProgress on a failed queue restores the dropped entries first, still failed', async () => {
+    const source = createRepo(`store-source-${counter}`);
+    try {
+      await source.recordAnswer(entry('country:peru'));
+      const file = await source.exportProgress(NOW);
+      const store = createProgressStore({
+        ...flaky(Infinity),
+        async importProgress() {
+          throw new Error('quota');
+        },
+      });
+      store.answers.push(entry('country:france'));
+      store.answers.push(entry('country:chile'));
+      await store.answers.whenSettled();
+      await expect(store.importProgress(file)).rejects.toThrow('quota');
+      expect(store.answers.getState()).toEqual({ unsaved: 2, failed: true });
+      expect(store.answers.unsavedEntries().map((e) => e.progress.itemId)).toEqual([
+        'country:france',
+        'country:chile',
+      ]);
+    } finally {
+      source.close();
+    }
+  });
+
   it('a retry during the import does not write the old entry over it', async () => {
     const source = createRepo(`store-source-${counter}`);
     try {

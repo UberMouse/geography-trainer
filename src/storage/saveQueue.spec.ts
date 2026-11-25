@@ -57,6 +57,49 @@ describe('createSaveQueue', () => {
     expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
   });
 
+  it('restore puts entries ahead of a newer push and keeps a failed queue failed until retry', async () => {
+    const written: string[] = [];
+    const queue = createSaveQueue(async (entry: string) => {
+      written.push(entry);
+    });
+    queue.restore(['a', 'b'], true);
+    queue.push('c');
+    await tick();
+    expect(written).toEqual([]);
+    expect(queue.unsavedEntries()).toEqual(['a', 'b', 'c']);
+    expect(queue.getState()).toEqual({ unsaved: 3, failed: true });
+    await queue.retry();
+    expect(written).toEqual(['a', 'b', 'c']);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
+  });
+
+  it('restore during a write goes behind the entry being written, once each', async () => {
+    const written: string[] = [];
+    let release: () => void = () => {};
+    const queue = createSaveQueue(async (entry: string) => {
+      if (entry === 'A') await new Promise<void>((resolve) => (release = resolve));
+      written.push(entry);
+    });
+    queue.push('A');
+    await tick();
+    queue.restore(['R1', 'R2'], false);
+    release();
+    await queue.whenSettled();
+    expect(written).toEqual(['A', 'R1', 'R2']);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
+  });
+
+  it('restore with failed=false starts writing in order', async () => {
+    const written: string[] = [];
+    const queue = createSaveQueue(async (entry: string) => {
+      written.push(entry);
+    });
+    queue.restore(['a', 'b'], false);
+    await tick();
+    expect(written).toEqual(['a', 'b']);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
+  });
+
   it('a retry that fails again stops at that entry and keeps the failed state', async () => {
     const written: string[] = [];
     let failures = 2;

@@ -47,11 +47,12 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
       await answers.whenSettled();
       // Nothing is running now; an emptied queue has nothing for a retry or push to write over the import.
       const dropped = answers.unsavedEntries();
+      const wasFailed = answers.getState().failed;
       answers.discard();
       try {
         await repository.importProgress(parsed);
       } catch (error) {
-        for (const entry of dropped) answers.push(entry);
+        answers.restore(dropped, wasFailed);
         throw error;
       }
     },

@@ -155,21 +155,22 @@ describe('sessionRun', () => {
   });
 
   describe('skipCurrent', () => {
-    it('removes the head without a re-queue and counts an incorrect answered question', () => {
+    it('removes the head without a re-queue and leaves the round counts alone', () => {
       const run = startRun(queueOf(4));
       const next = skipCurrent(run);
       expect(ids(next)).toEqual(['1', '2', '3']);
       expect(next.answered).toBe(1);
-      expect(next.answeredInRound).toBe(1);
+      expect(next.answeredInRound).toBe(0);
       expect(next.correctInRound).toBe(0);
       expect(next.asks).toEqual({ 'country:c0': 1 });
-      expect(next.roundTotal).toBe(4);
+      expect(next.roundTotal).toBe(3);
     });
 
-    it('still ends the round at SESSION_ROUND_SIZE', () => {
+    it('does not move the round towards SESSION_ROUND_SIZE', () => {
       let run = startRun(queueOf(SESSION_ROUND_SIZE + 5));
       for (let i = 0; i < SESSION_ROUND_SIZE; i++) run = skipCurrent(run);
-      expect(roundEnded(run)).toBe(true);
+      expect(run.answeredInRound).toBe(0);
+      expect(roundEnded(run)).toBe(false);
       expect(questionsRemain(run)).toBe(true);
     });
 

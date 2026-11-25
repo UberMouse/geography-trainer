@@ -23,8 +23,13 @@ function isObj(value: unknown): value is Obj {
 }
 
 const isNum = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-/** An epoch-ms instant `new Date` can format: `Date.getTime()` is always an integer, within +-8.64e15. */
-const isEpochMs = (value: unknown): value is number => Number.isSafeInteger(value) && Math.abs(value as number) <= 8.64e15;
+/** Midnight UTC at the start of 31 Dec 9999: with a timezone offset (up to 14 h) added, `localDayKey` can still format it. */
+const MAX_EPOCH_MS = Date.UTC(9999, 11, 31);
+/** An epoch-ms instant from 1970 to the end of 9999, so every date helper can format it. */
+const isEpochMs = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= MAX_EPOCH_MS;
+/** The largest answer id accepted: a larger one would push Dexie's auto-increment key to its 2^53 limit. */
+const MAX_ANSWER_ID = 2 ** 52;
 const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 4;
 
 const isCount = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 0;
@@ -92,7 +97,9 @@ function checkProgress(row: unknown, index: number) {
 function checkAnswer(row: unknown, index: number) {
   const where = `answers[${index}]`;
   if (!isObj(row)) throw new Error(`${where} is not an object`);
-  if (!Number.isSafeInteger(row.id) || (row.id as number) < 1) throw new Error(`${where}.id is not a positive integer`);
+  if (!Number.isSafeInteger(row.id) || (row.id as number) < 1 || (row.id as number) > MAX_ANSWER_ID) {
+    throw new Error(`${where}.id is not an integer from 1 to 2^52`);
+  }
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
   if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
   if (!isRung(row.rating)) throw new Error(`${where}.rating is not 1-4`);
@@ -118,7 +125,7 @@ export function validateProgressFile(parsed: unknown): ProgressFile {
   if (!isObj(parsed)) throw new Error('The file is not a progress export');
   if (parsed.format !== FILE_FORMAT) throw new Error(`Wrong format: expected "${FILE_FORMAT}"`);
   if (parsed.version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(parsed.version)}`);
-  if (typeof parsed.exportedAt !== 'string' || !Number.isFinite(Date.parse(parsed.exportedAt))) {
+  if (typeof parsed.exportedAt !== 'string' || !isEpochMs(Date.parse(parsed.exportedAt))) {
     throw new Error('exportedAt is not a date string');
   }
   if (!Array.isArray(parsed.progress)) throw new Error('progress is not an array');
