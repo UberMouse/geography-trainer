@@ -19,6 +19,8 @@
     "build:data": "tsx scripts/build-data/index.ts"
   },
   "dependencies": {
+    "@mantine/core": "9.8.2",
+    "@mantine/hooks": "9.8.2",
     "d3-geo": "3.1.2",
     "dexie": "4.4.7",
     "react": "^19.3.1",
