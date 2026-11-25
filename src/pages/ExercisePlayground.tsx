@@ -37,6 +37,13 @@ function locate(itemId: string, places: Place[]): { tier: Tier; countryId: strin
   return null;
 }
 
+/** A small deterministic 32-bit string hash (FNV-1a). */
+function hashOf(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+}
+
 /**
  * Dev-only: run one exercise. The item and rung live in the URL (`?item=<id>&rung=<1-4>`, and the
  * globes start from `?view=`), so e2e can open any question directly.
@@ -244,6 +251,11 @@ function Run({
     }
   }, [itemId, data]);
   const items = useMemo(() => itemsOf(tier, countryId, data), [tier, countryId, data]);
+  // Seed, item and round together, so each item shuffles its options differently yet reproducibly.
+  const exerciseRng = useMemo(
+    () => mulberry32(seed ^ hashOf(itemId) ^ round),
+    [seed, itemId, round],
+  );
 
   const random = () => {
     const pick = items[Math.floor(mulberry32(seed)() * items.length)];
@@ -296,7 +308,7 @@ function Run({
         key={round}
         item={item}
         rung={rung}
-        rng={mulberry32(seed)}
+        rng={exerciseRng}
         onAnswer={onAnswer}
         onNext={next}
         initialView={initialView}
