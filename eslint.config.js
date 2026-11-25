@@ -27,6 +27,14 @@ export default defineConfig([
     // The engine is pure TypeScript: no UI, storage or map code (d3-geo is pure math, so allowed).
     files: ['src/engine/**/*.{ts,tsx}'],
     rules: {
+      // JSX compiles to react/jsx-runtime calls with no import statement to catch.
+      'no-restricted-syntax': [
+        'error',
+        ...['JSXElement', 'JSXFragment'].map((selector) => ({
+          selector,
+          message: 'src/engine must stay pure: no JSX.',
+        })),
+      ],
       'no-restricted-imports': [
         'error',
         {

@@ -49,6 +49,12 @@ export function sliceArrayLiteral(source: string, marker: string): string {
   throw new Error(`maptap file: the array after "${marker.trim()}" never closes`);
 }
 
+const OPTIONAL: Array<[keyof MaptapEntry, 'string' | 'number' | 'boolean']> = [
+  ['population', 'number'],
+  ['admin', 'string'],
+  ['disabled', 'boolean'],
+];
+
 const REQUIRED: Array<[keyof MaptapEntry, 'string' | 'number']> = [
   ['id', 'string'],
   ['name', 'string'],
@@ -83,6 +89,11 @@ export function parseMaptap(source: string): MaptapList {
     typeof e === 'object' && e !== null && !Array.isArray(e);
   const notObjects = parsed.flatMap((e, i) => (isObject(e) ? [] : [`#${i} ${JSON.stringify(e)}`]));
   const entries = parsed.filter(isObject);
+  const badOptional = entries.flatMap((entry) =>
+    OPTIONAL.filter(
+      ([field, type]) => entry[field] !== undefined && typeof entry[field] !== type,
+    ).map(([field]) => `${JSON.stringify(entry.id ?? entry.name)}.${field}`),
+  );
   const active = entries.filter((entry) => entry.disabled !== true);
   const malformed = active.filter((entry) =>
     REQUIRED.some(([field, type]) => typeof entry[field] !== type),
@@ -97,6 +108,11 @@ export function parseMaptap(source: string): MaptapList {
     const ids = malformed.slice(0, 5).map((entry) => JSON.stringify(entry.id ?? entry.name));
     problems.push(
       `${malformed.length} active entries lack a required field (${REQUIRED.map(([f]) => f).join(', ')}), e.g. ${ids.join(', ')}`,
+    );
+  }
+  if (badOptional.length > 0) {
+    problems.push(
+      `${badOptional.length} optional fields have the wrong type, e.g. ${badOptional.slice(0, 5).join(', ')}`,
     );
   }
   if (problems.length > 0) throw new Error(`maptap file: ${problems.join('; ')}`);

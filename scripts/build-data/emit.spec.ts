@@ -35,6 +35,7 @@ describe('toTopology', () => {
 describe('publishData', () => {
   let root: string;
   let target: string;
+  let staging: string;
   const data = (marker: string): DataOut => ({
     places: [],
     countries: { type: 'Topology', objects: {} },
@@ -42,11 +43,15 @@ describe('publishData', () => {
     manifest: { source: marker } as unknown as Manifest,
     sourceMd: marker,
   });
-  const leftovers = async () => (await readdir(root)).filter((f) => f !== 'data');
+  const leftovers = async () => [
+    ...(await readdir(root)).filter((f) => f !== 'data' && f !== 'staging'),
+    ...(existsSync(staging) ? await readdir(staging) : []),
+  ];
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'publish-'));
     target = join(root, 'data');
+    staging = join(root, 'staging');
     await mkdir(target);
     await writeFile(join(target, 'SOURCE.md'), 'committed');
   });
@@ -54,7 +59,7 @@ describe('publishData', () => {
 
   it('leaves the target byte-unchanged when validation reports problems', async () => {
     let validated = '';
-    const problems = await publishData(target, data('new'), async (dir) => {
+    const problems = await publishData(target, staging, data('new'), async (dir) => {
       validated = await readFile(join(dir, 'SOURCE.md'), 'utf8');
       return ['bad'];
     });
@@ -66,14 +71,14 @@ describe('publishData', () => {
 
   it('leaves the target unchanged and cleans up when validation throws', async () => {
     await expect(
-      publishData(target, data('new'), () => Promise.reject(new Error('boom'))),
+      publishData(target, staging, data('new'), () => Promise.reject(new Error('boom'))),
     ).rejects.toThrow('boom');
     expect(await readFile(join(target, 'SOURCE.md'), 'utf8')).toBe('committed');
     expect(await leftovers()).toEqual([]);
   });
 
   it('replaces the target when validation passes', async () => {
-    expect(await publishData(target, data('new'), async () => [])).toEqual([]);
+    expect(await publishData(target, staging, data('new'), async () => [])).toEqual([]);
     expect(await readFile(join(target, 'SOURCE.md'), 'utf8')).toBe('new');
     expect(existsSync(join(target, 'places.json'))).toBe(true);
     expect(await leftovers()).toEqual([]);
@@ -81,7 +86,7 @@ describe('publishData', () => {
 
   it('creates the target when there was none', async () => {
     await rm(target, { recursive: true });
-    expect(await publishData(target, data('new'), async () => [])).toEqual([]);
+    expect(await publishData(target, staging, data('new'), async () => [])).toEqual([]);
     expect(await readFile(join(target, 'SOURCE.md'), 'utf8')).toBe('new');
     expect(await leftovers()).toEqual([]);
   });

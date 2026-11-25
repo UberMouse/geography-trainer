@@ -129,6 +129,10 @@ describe('resolveBorderCountry', () => {
     expect(resolveBorderCountry(all, 'a/b', 1.6, 0.5).id).toBe('b');
   });
 
+  it('trims spaces around the slash', () => {
+    expect(resolveBorderCountry(all, 'a / b', 1.6, 0.5).id).toBe('b');
+  });
+
   it('otherwise picks the nearest named polygon', () => {
     expect(resolveBorderCountry(all, 'a/b', 1.5, 1.2).id).toBe('b');
     expect(resolveBorderCountry(all, 'a/b', -0.3, 0.5).id).toBe('a');

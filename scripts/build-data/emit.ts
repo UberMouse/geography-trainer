@@ -1,6 +1,6 @@
 // Simplifies geometry with mapshaper and writes public/data/*.
 import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import type { Feature, FeatureCollection } from 'geojson';
 import mapshaper from 'mapshaper';
 import type { DroppedRow } from './assign-regions';
@@ -132,20 +132,21 @@ export async function writeData(dir: string, data: DataOut): Promise<void> {
 }
 
 /**
- * Writes the files into a temporary sibling of `dir` (`.<name>-tmp-<pid>`, gitignored), runs
- * `validate` on it, and only when it reports no problems swaps it in for `dir`. On problems or
- * an error `dir` is left as it was, and no temporary directory is left behind, except when the
- * swap fails and putting the old `dir` back fails too: then the old data stays in
- * `.<name>-old-<pid>` and the error names it.
+ * Writes the files into `<stagingParent>/publish-tmp-<pid>`, runs `validate` on it, and only
+ * when it reports no problems swaps it in for `dir`. `stagingParent` must be on the same
+ * filesystem as `dir` (so `rename` works) and outside anything served or built from it (not
+ * under `public/`). On problems or an error `dir` is left as it was, and no temporary directory
+ * is left behind, except when the swap fails and putting the old `dir` back fails too: then the
+ * old data stays in `<stagingParent>/publish-old-<pid>` and the error names it.
  */
 export async function publishData(
   dir: string,
+  stagingParent: string,
   data: DataOut,
   validate: (dir: string) => Promise<string[]>,
 ): Promise<string[]> {
-  const sibling = (kind: string) => join(dirname(dir), `.${basename(dir)}-${kind}-${process.pid}`);
-  const staged = sibling('tmp');
-  const previous = sibling('old');
+  const staged = join(stagingParent, `publish-tmp-${process.pid}`);
+  const previous = join(stagingParent, `publish-old-${process.pid}`);
   let keepPrevious = false;
   try {
     await writeData(staged, data);

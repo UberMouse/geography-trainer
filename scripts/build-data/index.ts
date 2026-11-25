@@ -43,12 +43,15 @@ import { validateDataDir } from './validate';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const OUT_DIR = join(ROOT, 'public', 'data');
 const CACHE_DIR = join(ROOT, '.cache', 'natural-earth');
+// Gitignored, outside public/ (so a leftover is never served or built), same filesystem as OUT_DIR.
+const STAGING_DIR = join(ROOT, '.cache');
 
 const round4 = (x: number) => Math.round(x * 1e4) / 1e4;
 const byId = <T extends { id: string }>(a: T, b: T) => compareStrings(a.id, b.id);
 
 async function main(): Promise<number> {
   const maptap = await fetchMaptap();
+  const fetchedAt = new Date();
   const ne = await loadNaturalEarth(CACHE_DIR);
 
   const names = maptap.active.map((e) => e.country);
@@ -216,7 +219,7 @@ async function main(): Promise<number> {
     countries,
     regions,
     manifest,
-    sourceMd: sourceMarkdown(manifest, new Date()),
+    sourceMd: sourceMarkdown(manifest, fetchedAt),
   };
 
   const { counts } = manifest;
@@ -243,7 +246,7 @@ async function main(): Promise<number> {
     `beyond ${CONTAINMENT_TOLERANCE_KM} km of country or region, allow-listed (${containment.outside.length}):\n  ${containment.outside.map((o) => `${o.id} (${o.region ?? o.country}) ${o.km} km: ${o.reason}`).join('\n  ')}`,
   );
 
-  const problems = await publishData(OUT_DIR, data, (dir) => validateDataDir(dir));
+  const problems = await publishData(OUT_DIR, STAGING_DIR, data, (dir) => validateDataDir(dir));
   if (problems.length > 0) {
     console.error(
       `\nvalidation failed (${problems.length}), ${OUT_DIR} left unchanged:\n  ${problems.join('\n  ')}`,

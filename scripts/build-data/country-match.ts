@@ -197,7 +197,8 @@ export function resolveBorderCountry(
   lat: number,
   aliases: Record<string, string> = {},
 ): MatchedCountry {
-  const candidates = borderName.split('/').map((part) => {
+  const candidates = borderName.split('/').map((rawPart) => {
+    const part = rawPart.trim();
     const name = aliases[part] ?? part;
     const country = countries.find((c) => c.name === name);
     if (!country?.area || !country.box) {

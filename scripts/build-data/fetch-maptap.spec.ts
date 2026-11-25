@@ -61,6 +61,25 @@ describe('parseMaptap', () => {
     expect(() => parseMaptap(source)).toThrow(/lack a required field/);
   });
 
+  it('names the entry and field of a wrongly typed optional field', () => {
+    const entry = {
+      id: 'x',
+      name: 'x',
+      country: 'c',
+      lat: 0,
+      lng: 0,
+      type: 't',
+      difficultyLevel: 1,
+    };
+    const source = `const masterLocationsV2 = ${JSON.stringify([
+      { ...entry, admin: 5 },
+      { ...entry, id: 'y', disabled: 'true' },
+    ])};`;
+    expect(() => parseMaptap(source)).toThrow(
+      '2 optional fields have the wrong type, e.g. "x".admin, "y".disabled',
+    );
+  });
+
   it('reports non-object elements alongside malformed entries', () => {
     const source = `const masterLocationsV2 = ${JSON.stringify([null, 7, { id: 'x', name: 'x' }])};`;
     expect(() => parseMaptap(source)).toThrow(
