@@ -34,6 +34,23 @@ export default defineConfig([
           selector,
           message: 'src/engine must stay pure: no JSX.',
         })),
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message: 'src/engine takes time as an argument: no argument-less new Date().',
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'src/engine takes an rng argument: no Math.random().',
+        },
+        {
+          object: 'Date',
+          property: 'now',
+          message: 'src/engine takes time as an argument: no Date.now().',
+        },
       ],
       'no-restricted-imports': [
         'error',
