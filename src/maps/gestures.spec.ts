@@ -18,10 +18,17 @@ describe('GestureTracker', () => {
     expect(g.up(1, 10, 10)).toEqual([{ type: 'tap', x: 10, y: 10 }]);
   });
 
-  it('counts total travel, so a wiggle that returns to the start is not a tap', () => {
+  it('keeps a slow press with finger jitter a tap, however long its path', () => {
     const g = new GestureTracker();
     g.down(1, 0, 0);
-    g.move(1, 4, 0);
+    for (let i = 0; i < 40; i++) expect(g.move(1, i % 2 ? 2 : -1, i % 2 ? -1 : 2)).toEqual([]);
+    expect(g.up(1, 1, 1)).toEqual([{ type: 'tap', x: 1, y: 1 }]);
+  });
+
+  it('is not a tap once it has gone past the slop, even if it comes back', () => {
+    const g = new GestureTracker();
+    g.down(1, 0, 0);
+    g.move(1, 10, 0);
     g.move(1, 0, 0);
     expect(g.up(1, 0, 0)).toEqual([]);
   });

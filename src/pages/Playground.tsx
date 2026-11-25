@@ -101,6 +101,12 @@ function CountryMaps({
   const [regions, retryRegions] = useLoaded(`regions:${country.id}`, () =>
     hasRegions ? loadRegions(country.id) : Promise.resolve({ features: NO_REGIONS, regions: [] }),
   );
+  // Stable across renders: a new array would make the tap map treat it as a new map.
+  const loadedRegions = regions.status === 'ready' ? regions.data.features : NO_REGIONS;
+  const tapFeatures = useMemo(
+    () => (loadedRegions.length > 0 ? loadedRegions : [country]),
+    [loadedRegions, country],
+  );
   const [pins, setPins] = useState<Record<PinnedMap, LngLat | null>>({
     tap: null,
     bare: null,
@@ -145,7 +151,6 @@ function CountryMaps({
         </Panel>
         <Status state={regions} retry={retryRegions}>
           {({ features }) => {
-            const tapFeatures = features.length > 0 ? features : [country];
             // Highlight and reveal a region that shows in the frame.
             const shown =
               tapFeatures.find((f) => geoContains(frame, answerPoint(f))) ?? tapFeatures[0]!;

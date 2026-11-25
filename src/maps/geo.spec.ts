@@ -69,6 +69,22 @@ describe('measureTap on a polygon', () => {
     expect(measureTap({ ...target, alsoInside: [twin] }, [15, 0]).inside).toBe(false);
   });
 
+  it('measures a tap outside everything to the nearest of the target and its alsoInside', () => {
+    const twin = poly([
+      [20, -5],
+      [20, 5],
+      [30, 5],
+      [30, -5],
+      [20, -5],
+    ]);
+    const alone = measureTap(target, [15, 0]);
+    const withTwin = measureTap({ ...target, alsoInside: [twin] }, [15, 0]);
+    // 5 degrees from the twin's west edge, 10 from the target's east edge.
+    expect(withTwin.kmOutsideBorder).toBeCloseTo(5 * KM_PER_DEG, -1);
+    expect(withTwin.kmOutsideBorder).toBeLessThan(alone.kmOutsideBorder);
+    expect(withTwin.kmFromAnswer).toBeCloseTo(alone.kmFromAnswer, 6);
+  });
+
   it('measures a tap east of the east edge to the edge, not a vertex', () => {
     const m = measureTap(target, [6, 0]);
     expect(m.inside).toBe(false);

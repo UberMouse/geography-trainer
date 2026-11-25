@@ -105,3 +105,19 @@ test('a failed load shows an error whose Retry loads again', async ({ page }) =>
   await page.getByRole('button', { name: 'Retry' }).click();
   await expect(page.getByRole('combobox', { name: 'Country' })).toBeVisible({ timeout: 30_000 });
 });
+
+test('a tap on a country without regions keeps the tap map zoom', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'wheel zoom needs a mouse');
+  await page.goto('/playground');
+  await page.getByRole('combobox', { name: 'Country' }).selectOption({ label: 'Japan' });
+  const map = page.getByRole('img', { name: 'Tap map', exact: true });
+  await map.scrollIntoViewIfNeeded();
+  const box = (await map.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect(map).not.toHaveAttribute('data-zoom', '1.000');
+  const zoomed = await map.getAttribute('data-zoom');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByTestId('last-pin')).not.toHaveText('none');
+  await expect(map).toHaveAttribute('data-zoom', zoomed!);
+});

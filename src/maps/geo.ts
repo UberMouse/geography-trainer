@@ -447,7 +447,8 @@ function kmToBoundary(feature: AreaFeature, tap: LngLat): number {
 
 /**
  * Measure a tap against its target, in the quantities `gradeTap` takes. A tap in the target or in
- * any of its `alsoInside` features is inside. A place target has no polygon: `inside` is false and
+ * any of its `alsoInside` features is inside; a tap outside all of them is as far outside the
+ * border as the nearest of them. A place target has no polygon: `inside` is false and
  * the border and size distances are 0.
  */
 export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
@@ -464,7 +465,9 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
   return {
     inside,
     kmFromAnswer: distanceKm(tap, target.answer),
-    kmOutsideBorder: inside ? 0 : kmToBoundary(target.feature, tap),
+    kmOutsideBorder: inside
+      ? 0
+      : Math.min(...[target.feature, ...(target.alsoInside ?? [])].map((f) => kmToBoundary(f, tap))),
     // The main part, like the answer point: a far part (Alaska) is not the country's size.
     featureSizeKm: Math.sqrt(geoArea(mainPart(target.feature))) * EARTH_RADIUS_KM,
   };

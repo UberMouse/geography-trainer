@@ -32,9 +32,9 @@ import {
 /**
  * A flat bordered map fitted to `frame` when given (such as a country's main part), else to
  * `features`, to tap on. Wheel or pinch zooms (1–16×), drag pans (never beyond the fitted frame),
- * and a tap calls `onPin` with the tapped lng/lat. `reveal` shades the target feature (or draws
- * its point) under the pin, with ring markers when it is drawn too small to see at the current
- * zoom (`smallTargetRings`).
+ * and a tap calls `onPin` with the tapped lng/lat. `reveal` shades the target feature and its
+ * `alsoInside` twins (or draws its point) under the pin, with ring markers when it is drawn too
+ * small to see at the current zoom (`smallTargetRings`).
  */
 export default function TapMap({
   features,
@@ -54,15 +54,20 @@ export default function TapMap({
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState<FlatTransform>(IDENTITY);
   const transformRef = useRef(transform);
-  const projection = useMemo(() => fitFlat(frame ? [frame] : features), [frame, features]);
+  // The fit follows `frame` alone when there is one, so a fresh `features` array over the same
+  // frame neither refits nor resets the view.
+  const fit = frame ?? features;
+  const projection = useMemo(() => fitFlat(Array.isArray(fit) ? fit : [fit]), [fit]);
   const paths = useMemo(() => {
     const path = geoPath(projection);
     return features.map((f) => ({ id: f.id, d: path(f) ?? '' }));
   }, [projection, features]);
-  const revealD = useMemo(
-    () => (reveal && 'feature' in reveal ? (geoPath(projection)(reveal.feature) ?? '') : null),
-    [projection, reveal],
-  );
+  // The target and its same-named twins, shaded together.
+  const revealD = useMemo(() => {
+    if (!reveal || !('feature' in reveal)) return null;
+    const path = geoPath(projection);
+    return [reveal.feature, ...(reveal.alsoInside ?? [])].map((f) => path(f) ?? '').join('');
+  }, [projection, reveal]);
 
   // In map units, so they follow the zoom; drawn through `toScreen` at a fixed size.
   const rings = useMemo(

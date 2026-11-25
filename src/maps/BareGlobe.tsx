@@ -100,8 +100,10 @@ export default function BareGlobe(props: Props) {
     if (withBorders) stroke(land, colour('--map-border'), 0.6);
     if (target) {
       if ('feature' in target) {
-        fill(target.feature, colour('--map-reveal'));
-        stroke(target.feature, colour('--map-border'), 1);
+        for (const f of [target.feature, ...(target.alsoInside ?? [])]) {
+          fill(f, colour('--map-reveal'));
+          stroke(f, colour('--map-border'), 1);
+        }
         const rings = smallTargetRings(path, target.feature, SMALL_TARGET_PX, RING_RADIUS_PX);
         ctx.beginPath();
         for (const [x, y] of rings) {

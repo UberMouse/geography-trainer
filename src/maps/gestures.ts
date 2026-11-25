@@ -1,4 +1,8 @@
-/** A pointer gesture shorter than this (total travel, CSS px) is a tap, not a drag. */
+/**
+ * A pointer gesture that never strays this far (CSS px) from where it was pressed is a tap, not a
+ * drag. The farthest it got counts, not the path length, so finger jitter over a slow press is
+ * still a tap.
+ */
 export const TAP_SLOP_PX = 6;
 
 export type GestureEvent =
@@ -13,15 +17,18 @@ const mid = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y)
 
 /**
  * Turns pointer down/move/up into taps, drags and pinches. Coordinates are CSS px relative to the
- * surface. One pointer that travels less than `TAP_SLOP_PX` in total is a tap; once it travels
- * further, its movement is reported as drags (the first drag carries everything since the press).
+ * surface. One pointer that never gets `TAP_SLOP_PX` or more from its press point is a tap; once it
+ * does (even if it comes back), it is a drag, and its movement is reported as drags (the first
+ * drag carries everything since the press).
  * Two pointers pinch: each move reports the change in their spacing (`factor`), their midpoint and
  * the midpoint's movement. A gesture that ever had two pointers is never a tap. Pointers past the
  * second are ignored.
  */
 export class GestureTracker {
   private pointers = new Map<number, Point>();
-  private travel = 0;
+  /** Where the single pointer was pressed, and the farthest it has been from there. */
+  private origin: Point = { x: 0, y: 0 };
+  private farthest = 0;
   private multi = false;
   /** Where the single-pointer drag last reported from. */
   private anchor: Point | null = null;
@@ -35,8 +42,9 @@ export class GestureTracker {
     this.pointers.delete(id);
     if (this.pointers.size >= 2) return;
     if (this.pointers.size === 0) {
-      this.travel = 0;
+      this.farthest = 0;
       this.multi = false;
+      this.origin = { x, y };
       this.anchor = { x, y };
     } else {
       this.multi = true;
@@ -49,9 +57,9 @@ export class GestureTracker {
     if (!prev) return [];
     const next = { x, y };
     if (this.pointers.size === 1) {
-      this.travel += dist(prev, next);
+      this.farthest = Math.max(this.farthest, dist(this.origin, next));
       this.pointers.set(id, next);
-      if (!this.multi && this.travel < TAP_SLOP_PX) return [];
+      if (!this.multi && this.farthest < TAP_SLOP_PX) return [];
       const from = this.anchor ?? prev;
       this.anchor = next;
       return [{ type: 'drag', dx: x - from.x, dy: y - from.y }];
@@ -77,14 +85,13 @@ export class GestureTracker {
 
   /** A pointer lifted: a tap when it ends a short single-pointer gesture. */
   up(id: number, x: number, y: number): GestureEvent[] {
-    const last = this.pointers.get(id);
-    if (!last) return [];
+    if (!this.pointers.has(id)) return [];
     const single = this.pointers.size === 1;
     this.pointers.delete(id);
     if (single) {
       this.anchor = null;
-      const travel = this.travel + dist(last, { x, y });
-      return !this.multi && travel < TAP_SLOP_PX ? [{ type: 'tap', x, y }] : [];
+      const farthest = Math.max(this.farthest, dist(this.origin, { x, y }));
+      return !this.multi && farthest < TAP_SLOP_PX ? [{ type: 'tap', x, y }] : [];
     }
     this.reanchor();
     return [];
