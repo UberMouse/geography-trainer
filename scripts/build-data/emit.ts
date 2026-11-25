@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Feature, FeatureCollection } from 'geojson';
 import mapshaper from 'mapshaper';
+import type { OutsidePlace } from './containment';
 import type { Area } from './geo';
 import { compareStrings } from './normalize';
 
@@ -42,6 +43,8 @@ export interface Manifest {
   excluded: Array<{ id: string; name: string; country: string; reason: string }>;
   countries: { byName: number; byOverride: number; pointOnly: number; excludedNames: string[] };
   regionsTierCountries: string[];
+  /** Places beyond the containment tolerance, each allow-listed with a reason. */
+  outsideTolerance: OutsidePlace[];
 }
 
 /** A feature to write: polygons (several get dissolved into one) or a point, plus properties. */
@@ -54,8 +57,8 @@ export interface ShapeOut {
 
 /**
  * One TopoJSON object named `name` holding one geometry per shape, sorted by id: polygons are
- * dissolved by id and simplified (keeping every shape), points pass through. Fails when a shape
- * comes out empty.
+ * exploded into parts, simplified keeping every part (so no island vanishes), then dissolved by
+ * id; points pass through. Fails when a shape comes out empty.
  */
 export async function toTopology(name: string, shapes: ShapeOut[]): Promise<Topology> {
   const feature = (id: string, geometry: Feature['geometry']): Feature => ({
@@ -79,8 +82,9 @@ export async function toTopology(name: string, shapes: ShapeOut[]): Promise<Topo
   const output = await mapshaper.applyCommands(
     [
       `-i ${Object.keys(inputs).join(' ')} combine-files`,
-      `-dissolve id target=${name}`,
+      `-explode target=${name}`,
       `-simplify ${SIMPLIFY} keep-shapes target=${name}`,
+      `-dissolve id target=${name}`,
       `-o format=topojson quantization=${QUANTIZATION} id-field=id target=* out.json`,
     ].join(' '),
     inputs,

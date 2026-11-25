@@ -9,6 +9,7 @@ export const NE_FILES = {
   mapUnits: 'ne_10m_admin_0_map_units',
   mapSubunits: 'ne_10m_admin_0_map_subunits',
   admin1: 'ne_10m_admin_1_states_provinces',
+  disputedAreas: 'ne_10m_admin_0_disputed_areas',
 } as const;
 
 export function naturalEarthUrl(file: string): string {
@@ -42,6 +43,8 @@ export interface NaturalEarth {
   mapUnits: NeUnit[];
   mapSubunits: NeUnit[];
   admin1: NeAdmin1[];
+  /** Disputed-area polygons by BRK_A3. */
+  disputedAreas: Map<string, Area>;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -102,10 +105,11 @@ function toAdmin1(feature: Feature, file: string): NeAdmin1 {
 }
 
 export async function loadNaturalEarth(cacheDir: string): Promise<NaturalEarth> {
-  const [mapUnits, mapSubunits, admin1] = await Promise.all([
+  const [mapUnits, mapSubunits, admin1, disputedAreas] = await Promise.all([
     loadCached(cacheDir, NE_FILES.mapUnits),
     loadCached(cacheDir, NE_FILES.mapSubunits),
     loadCached(cacheDir, NE_FILES.admin1),
+    loadCached(cacheDir, NE_FILES.disputedAreas),
   ]);
   return {
     mapUnits: mapUnits.features.map((f) => toUnit(f, NE_FILES.mapUnits)),
@@ -115,5 +119,11 @@ export async function loadNaturalEarth(cacheDir: string): Promise<NaturalEarth> 
     admin1: admin1.features
       .filter((f) => f.properties?.name)
       .map((f) => toAdmin1(f, NE_FILES.admin1)),
+    disputedAreas: new Map(
+      disputedAreas.features.map((f) => [
+        f.properties?.BRK_A3 as string,
+        areaOf(f, NE_FILES.disputedAreas),
+      ]),
+    ),
   };
 }

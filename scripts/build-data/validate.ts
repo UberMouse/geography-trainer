@@ -1,7 +1,9 @@
 // Checks the files under public/data/ against each other. Offline: it reads only that directory.
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { checkContainment } from './containment';
 import type { Manifest, PlaceOut, Topology } from './emit';
+import { CONTAINMENT_ALLOW_LIST } from './overrides';
 
 export const MAX_COUNTRIES_BYTES = 1_500_000;
 export const MAX_REGION_FILE_BYTES = 600_000;
@@ -28,7 +30,10 @@ function geometries(topology: Topology, name: string) {
 }
 
 /** Every problem found, as one line each; empty when the data is consistent. */
-export function validateData(files: DataFiles): string[] {
+export function validateData(
+  files: DataFiles,
+  allowList: Record<string, string> = CONTAINMENT_ALLOW_LIST,
+): string[] {
   const problems: string[] = [];
   const countries = geometries(files.countries, 'countries');
   const countryIds = new Set(countries.map((g) => g.id));
@@ -87,6 +92,12 @@ export function validateData(files: DataFiles): string[] {
           : Infinity;
     if (bytes > limit) problems.push(`${path} is ${bytes} bytes, over the ${limit} byte limit`);
   }
+
+  const containment = checkContainment(files.places, files.countries, files.regions, allowList);
+  problems.push(...containment.problems);
+  if (JSON.stringify(containment.outside) !== JSON.stringify(files.manifest.outsideTolerance)) {
+    problems.push('manifest.json outsideTolerance does not match the containment check');
+  }
   return problems;
 }
 
@@ -116,6 +127,9 @@ export async function readDataDir(dir: string): Promise<DataFiles> {
   };
 }
 
-export async function validateDataDir(dir: string): Promise<string[]> {
-  return validateData(await readDataDir(dir));
+export async function validateDataDir(
+  dir: string,
+  allowList: Record<string, string> = CONTAINMENT_ALLOW_LIST,
+): Promise<string[]> {
+  return validateData(await readDataDir(dir), allowList);
 }

@@ -11,6 +11,7 @@ import {
   buildRegions,
   hasRegionsTier,
 } from './assign-regions';
+import { CONTAINMENT_TOLERANCE_KM, checkContainment } from './containment';
 import {
   type MatchedCountry,
   isBorderName,
@@ -28,7 +29,8 @@ import {
 import { MAPTAP_URL, type MaptapEntry, fetchMaptap } from './fetch-maptap';
 import { NE_FILES, NE_VERSION, loadNaturalEarth } from './natural-earth';
 import { compareStrings } from './normalize';
-import { OVERRIDES } from './overrides';
+import { BOUNDARY_NOTE, CONTAINMENT_ALLOW_LIST, OVERRIDES, TERRITORY_MOVES } from './overrides';
+import { applyTerritoryMoves } from './territory';
 import { validateDataDir } from './validate';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -49,7 +51,9 @@ async function main(): Promise<number> {
     ne.mapSubunits,
     OVERRIDES,
   );
-  const countryByName = new Map(match.countries.map((c) => [c.name, c]));
+  const moved = applyTerritoryMoves(match.countries, ne.admin1, ne.disputedAreas, TERRITORY_MOVES);
+  const matched = moved.countries;
+  const countryByName = new Map(matched.map((c) => [c.name, c]));
   const exclusionReason = new Map(match.excluded.map((e) => [e.name, e.reason]));
 
   // Each active place: excluded, a border place resolved to a polygon country, or its country.
@@ -61,7 +65,7 @@ async function main(): Promise<number> {
     if (reason) {
       excluded.push({ id: entry.id, name: entry.name, country: entry.country, reason });
     } else if (isBorderName(entry.country)) {
-      const country = resolveBorderCountry(match.countries, entry.lng, entry.lat);
+      const country = resolveBorderCountry(matched, entry.lng, entry.lat);
       border.push(`${entry.id} (${entry.country}) → ${country.id}`);
       kept.push({ entry, country });
     } else {
@@ -70,9 +74,9 @@ async function main(): Promise<number> {
   }
 
   const regionsByCountry = new Map<string, Region[]>();
-  for (const country of match.countries) {
+  for (const country of matched) {
     if (!country.area) continue;
-    const rows = admin1Rows(country, ne.admin1, match.countries);
+    const rows = admin1Rows(country, moved.admin1, matched);
     if (rows.length > 0) {
       regionsByCountry.set(
         country.id,
@@ -135,7 +139,7 @@ async function main(): Promise<number> {
     ...(typeof entry.population === 'number' ? { pop: entry.population } : {}),
   }));
 
-  const countryShapes: ShapeOut[] = match.countries.map((c) => ({
+  const countryShapes: ShapeOut[] = matched.map((c) => ({
     id: c.id,
     areas: c.area ? [c.area] : [],
     ...(c.point ? { point: [c.point.lng, c.point.lat] as [number, number] } : {}),
@@ -158,7 +162,14 @@ async function main(): Promise<number> {
     regions.set(countryId, await toTopology('regions', shapes));
   }
 
-  const count = (how: (c: MatchedCountry) => boolean) => match.countries.filter(how).length;
+  const containment = checkContainment(
+    places,
+    countries,
+    Object.fromEntries(regions),
+    CONTAINMENT_ALLOW_LIST,
+  );
+
+  const count = (how: (c: MatchedCountry) => boolean) => matched.filter(how).length;
   const manifest: Manifest = {
     source: MAPTAP_URL,
     naturalEarth: {
@@ -179,6 +190,7 @@ async function main(): Promise<number> {
       excludedNames: match.excluded.map((e) => e.name),
     },
     regionsTierCountries: [...tier].sort(),
+    outsideTolerance: containment.outside,
   };
 
   await writeData(OUT_DIR, {
@@ -196,12 +208,16 @@ async function main(): Promise<number> {
   for (const e of excluded) console.log(`  excluded ${e.id} (${e.country}): ${e.reason}`);
   const c = manifest.countries;
   console.log(
-    `countries: ${match.countries.length} kept (by name ${c.byName}, by override ${c.byOverride}, point-only ${c.pointOnly}), excluded: ${c.excludedNames.join(', ')}`,
+    `countries: ${matched.length} kept (by name ${c.byName}, by override ${c.byOverride}, point-only ${c.pointOnly}), excluded: ${c.excludedNames.join(', ')}`,
   );
   console.log(`border places (${border.length}):\n  ${border.join('\n  ')}`);
   console.log(`regions tier (${tier.size}): ${manifest.regionsTierCountries.join(', ')}`);
   console.log(`admin mismatches (${mismatches.length}):\n  ${mismatches.join('\n  ')}`);
   console.log(`snapped points (${snapped.length}):\n  ${snapped.join('\n  ')}`);
+  console.log(`boundaries: ${BOUNDARY_NOTE}`);
+  console.log(
+    `beyond ${CONTAINMENT_TOLERANCE_KM} km of country or region, allow-listed (${containment.outside.length}):\n  ${containment.outside.map((o) => `${o.id} (${o.region ?? o.country}) ${o.km} km: ${o.reason}`).join('\n  ')}`,
+  );
 
   const problems = await validateDataDir(OUT_DIR);
   if (problems.length > 0) {
@@ -228,6 +244,8 @@ function sourceMarkdown(manifest: Manifest, fetchedAt: Date): string {
     'Place list courtesy of MapTap.gg',
     '',
     'Boundaries: Natural Earth (public domain)',
+    '',
+    `Boundary decisions: ${BOUNDARY_NOTE}.`,
     '',
     '## Counts',
     '',

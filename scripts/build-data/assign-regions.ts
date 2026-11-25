@@ -1,5 +1,6 @@
 // Builds a country's regions from NE admin-1 rows and assigns places to them.
 import { REGIONS_TIER_MIN_PLACES, REGIONS_TIER_MIN_REGIONS } from '../../src/engine/config';
+import { CONTAINMENT_TOLERANCE_KM } from './containment';
 import type { MatchedCountry } from './country-match';
 import { type BBox, areaContains, bboxOf, distanceToEdgeKm, haversineKm } from './geo';
 import type { NeAdmin1 } from './natural-earth';
@@ -122,10 +123,19 @@ function namesOf(region: Region): string[] {
   return names.map(normalizeName);
 }
 
+function kmOutsideRegion(region: Region, lng: number, lat: number): number {
+  let km = Infinity;
+  for (const u of region.units) {
+    if (areaContains(u.row.geometry, u.box, lng, lat)) return 0;
+    km = Math.min(km, distanceToEdgeKm(u.row.geometry, lng, lat));
+  }
+  return km;
+}
+
 /**
  * The region for a place: the one maptap's `admin` names (by region name or by one of its
- * admin-1 rows' name, name_en or name_alt), else the one containing the point, else the one
- * with the nearest edge.
+ * admin-1 rows' name, name_en or name_alt) when the point lies within CONTAINMENT_TOLERANCE_KM
+ * of it, else the one containing the point, else the one with the nearest edge.
  */
 export function assignRegion(
   regions: Region[],
@@ -139,10 +149,11 @@ export function assignRegion(
   const key = admin ? normalizeName(admin) : '';
   const adminMatches = key ? regions.filter((r) => namesOf(r).includes(key)) : [];
 
-  if (adminMatches.length > 0) {
-    const region = inside && adminMatches.includes(inside) ? inside : adminMatches[0]!;
-    return { region, how: 'admin', inside, adminMatches };
-  }
+  const nearMatch =
+    inside && adminMatches.includes(inside)
+      ? inside
+      : adminMatches.find((r) => kmOutsideRegion(r, lng, lat) <= CONTAINMENT_TOLERANCE_KM);
+  if (nearMatch) return { region: nearMatch, how: 'admin', inside, adminMatches };
   if (inside) return { region: inside, how: 'inside', inside, adminMatches };
 
   let region = regions[0]!;

@@ -1,6 +1,7 @@
 // maptap country names the normalized name match cannot resolve on its own, keyed by maptap's
 // exact name. Unit codes are Natural Earth SU_A3 codes (map units, or map subunits when marked).
 import type { Override } from './country-match';
+import type { TerritoryMove } from './territory';
 
 const units = (...codes: string[]): Override => ({ kind: 'units', codes });
 const subunits = (...codes: string[]): Override => ({ kind: 'units', codes, subunits: true });
@@ -48,4 +49,73 @@ export const OVERRIDES: Record<string, Override> = {
   'North Atlantic': { kind: 'exclude', reason: OCEAN },
   'North Sea': { kind: 'exclude', reason: OCEAN },
   'Arctic Ocean': { kind: 'exclude', reason: OCEAN },
+};
+
+// Boundary decisions (user-confirmed): follow maptap's place labels where NE draws a de facto line.
+export const BOUNDARY_NOTE =
+  "Crimea shown as part of Ukraine and Western Sahara as a whole territory, following maptap's place labels";
+export const TERRITORY_MOVES: TerritoryMove[] = [
+  // NE files the Crimea and Sevastopol admin-1 rows under RUS.
+  {
+    from: 'Russia',
+    to: 'Ukraine',
+    territory: { admin1: ['RUS-283', 'RUS-5482'] },
+    region: 'Crimea',
+  },
+  // NE disputed area B19 (ne_10m_admin_0_disputed_areas) is the part of Western Sahara Morocco
+  // administers, on NE's own line: it also takes the Smara part of Guelmim - Es-Semara, which no
+  // admin-1 row splits off.
+  { from: 'Morocco', to: 'Western Sahara', territory: { disputedArea: 'B19' } },
+];
+
+const NO_LAND = 'no NE 10m land of this country at this point';
+const WATER = 'a feature on open water: no land at this point';
+const BORDER = 'border place resolved to the nearest country; NE 10m has no land of its own here';
+const SIMPLIFIED = 'inside on NE 10m, pushed outside by the 10% simplification of a thin coast';
+
+// Places allowed to lie more than CONTAINMENT_TOLERANCE_KM outside their country or region on
+// the emitted geometry, keyed by place id, each with the reason.
+export const CONTAINMENT_ALLOW_LIST: Record<string, string> = {
+  african_renaissance_monument_senegal: SIMPLIFIED,
+  ailsa_craig_scotland: NO_LAND,
+  balls_pyramid_australia: NO_LAND,
+  bikini_atoll_marshall_islands: NO_LAND,
+  cape_of_good_hope_south_africa: SIMPLIFIED,
+  capri: SIMPLIFIED,
+  ciudad_del_carmen_mexico: SIMPLIFIED,
+  dakar_senegal: SIMPLIFIED,
+  dakhla_western_sahara: SIMPLIFIED,
+  danger_islands_antarctica: NO_LAND,
+  devil: NO_LAND,
+  farewell_spit_new_zealand: SIMPLIFIED,
+  finisterre_spain: SIMPLIFIED,
+  fort_jefferson_dry_tortugas_national_park_united_states: NO_LAND,
+  great_blue_hole: WATER,
+  hel_poland: SIMPLIFIED,
+  ilha_da_queimada_grande_sao_paulo_brazil: NO_LAND,
+  inaccessible_island_tristan_da_cunha: NO_LAND,
+  isla_martin_garcia_buenos_aires_argentina: NO_LAND,
+  kavachi_volcano_solomon_islands: WATER,
+  kavieng_papua_new_guinea: SIMPLIFIED,
+  key_largo_florida_united_states: SIMPLIFIED,
+  kitty_hawk_north_carolina: SIMPLIFIED,
+  krakatoa: NO_LAND,
+  lake_pontchartrain_causeway_louisiana_usa: WATER,
+  machias_seal_island_usa_canada: NO_LAND,
+  maya_bay: NO_LAND,
+  mcmurdo_station_antarctica: SIMPLIFIED,
+  mer_torres_strait_islands_queensland_australia: NO_LAND,
+  montebello_islands_western_australia_australia: NO_LAND,
+  nangan_matsu_islands_taiwan: NO_LAND,
+  navassa_island_usa_haiti: BORDER,
+  nouadhibou_mauritania: SIMPLIFIED,
+  nukunonu_new_zealand: NO_LAND,
+  perhentian_islands_malaysia: NO_LAND,
+  provincetown_massachusetts: SIMPLIFIED,
+  rameswaram_tamil_nadu_india: SIMPLIFIED,
+  saint_martin_s_island_bangladesh: NO_LAND,
+  san_pedro_belize: SIMPLIFIED,
+  santa_cruz_del_islote_colombia: NO_LAND,
+  skellig_michael_ireland: NO_LAND,
+  teknaf_bangladesh: SIMPLIFIED,
 };

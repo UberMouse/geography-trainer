@@ -75,21 +75,27 @@ describe('assignRegion', () => {
     expect(adminDisagrees(a, undefined)).toBe(false);
   });
 
-  it("prefers the region maptap's admin names over the point-in-polygon result", () => {
-    const a = assignRegion(regions, 1.5, 0.5, 'Coast');
+  it("prefers the region maptap's admin names when the point is within tolerance of it", () => {
+    const a = assignRegion(regions, 1.95, 0.5, 'Coast');
     expect([a.region.id, a.how, a.inside?.id]).toEqual(['aland.coast', 'admin', 'aland.south']);
     expect(adminDisagrees(a, 'Coast')).toBe(true);
   });
 
+  it('keeps the point-in-polygon result when the admin region is beyond tolerance', () => {
+    const a = assignRegion(regions, 1.5, 0.5, 'Coast');
+    expect([a.region.id, a.how]).toEqual(['aland.south', 'inside']);
+    expect(adminDisagrees(a, 'Coast')).toBe(true);
+  });
+
   it('matches admin against name_en and name_alt, normalized', () => {
-    expect(assignRegion(regions, 2.5, 0.5, 'southshire').region).toBe(byId('aland.south'));
-    expect(assignRegion(regions, 2.5, 0.5, 'Nordland').region).toBe(byId('aland.north'));
+    expect(assignRegion(regions, 2.05, 0.5, 'southshire').region).toBe(byId('aland.south'));
+    expect(assignRegion(regions, 1.05, 0.5, 'Nordland').region).toBe(byId('aland.north'));
   });
 
   it('matches admin against a dissolved region and its underlying rows', () => {
     const dissolved = buildRegions('aland', ROWS, true);
-    expect(assignRegion(dissolved, 2.5, 0.5, 'Upland').region.id).toBe('aland.upland');
-    expect(assignRegion(dissolved, 2.5, 0.5, 'Top').region.id).toBe('aland.upland');
+    expect(assignRegion(dissolved, 2.05, 0.5, 'Upland').region.id).toBe('aland.upland');
+    expect(assignRegion(dissolved, 2.05, 0.5, 'Top').region.id).toBe('aland.upland');
   });
 
   it('reports an admin that names no region, keeping the point-in-polygon result', () => {

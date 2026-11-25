@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,8 +12,18 @@ import {
   validateDataDir,
 } from './validate';
 
+// Every geometry is the same square around (0, 0), where every place sits.
 const topo = (name: string, geometries: TopoGeometry[]): Topology => ({
   type: 'Topology',
+  arcs: [
+    [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+      [-1, -1],
+    ],
+  ],
   objects: { [name]: { type: 'GeometryCollection', geometries } },
 });
 const geometry = (id: string, properties: Record<string, unknown> = {}): TopoGeometry => ({
@@ -40,6 +51,7 @@ function valid(): DataFiles {
     excluded: [{ id: 'nemo', name: 'Point Nemo', country: 'Pacific Ocean', reason: 'ocean' }],
     countries: { byName: 2, byOverride: 0, pointOnly: 0, excludedNames: ['Pacific Ocean'] },
     regionsTierCountries: ['aland'],
+    outsideTolerance: [],
   };
   return {
     places: [place('p1', 'aland', 'aland.north'), place('p2', 'bland', null)],
@@ -53,15 +65,18 @@ function valid(): DataFiles {
   };
 }
 
-function problemsAfter(change: (files: DataFiles) => void): string[] {
+function problemsAfter(
+  change: (files: DataFiles) => void,
+  allowList: Record<string, string> = {},
+): string[] {
   const files = valid();
   change(files);
-  return validateData(files);
+  return validateData(files, allowList);
 }
 
 describe('validateData', () => {
   it('passes consistent data', () => {
-    expect(validateData(valid())).toEqual([]);
+    expect(validateData(valid(), {})).toEqual([]);
   });
 
   it('fails on a place whose country is not in countries.topo.json', () => {
@@ -135,6 +150,26 @@ describe('validateData', () => {
       `regions/aland.topo.json is ${MAX_REGION_FILE_BYTES + 1} bytes, over the ${MAX_REGION_FILE_BYTES} byte limit`,
     ]);
   });
+
+  it('re-checks containment against the allow-list and the manifest', () => {
+    const far = (f: DataFiles) => (f.places[1]!.lng = 1.5);
+    expect(problemsAfter(far)).toEqual([
+      'place p2 lies 55.6 km outside bland and is not on the containment allow-list',
+    ]);
+    expect(problemsAfter(far, { p2: 'reef' })).toEqual([
+      'manifest.json outsideTolerance does not match the containment check',
+    ]);
+    const listed = (f: DataFiles) => {
+      far(f);
+      f.manifest.outsideTolerance = [
+        { id: 'p2', country: 'bland', region: null, km: 55.6, reason: 'reef' },
+      ];
+    };
+    expect(problemsAfter(listed, { p2: 'reef' })).toEqual([]);
+    expect(problemsAfter((f) => f, { p1: 'stale' })).toEqual([
+      'containment allow-list entry p1 is stale: no place with that id lies beyond 10 km',
+    ]);
+  });
 });
 
 describe('validateDataDir', () => {
@@ -147,15 +182,26 @@ describe('validateDataDir', () => {
       await writeFile(join(dir, 'countries.topo.json'), JSON.stringify(files.countries));
       await writeFile(join(dir, 'regions', 'aland.topo.json'), JSON.stringify(files.regions.aland));
       await writeFile(join(dir, 'manifest.json'), JSON.stringify(files.manifest));
-      expect(await validateDataDir(dir)).toEqual([]);
+      expect(await validateDataDir(dir, {})).toEqual([]);
 
       await writeFile(
         join(dir, 'places.json'),
         JSON.stringify([...files.places, place('p1', 'bland', null)]),
       );
-      expect(await validateDataDir(dir)).toContain('duplicate place id p1');
+      expect(await validateDataDir(dir, {})).toContain('duplicate place id p1');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   });
+});
+
+// The committed data, against the current allow-list: a stale or hand-edited entry fails here.
+describe('public/data', () => {
+  it.skipIf(!existsSync('public/data/manifest.json'))(
+    'passes validation',
+    async () => {
+      expect(await validateDataDir('public/data')).toEqual([]);
+    },
+    60_000,
+  );
 });

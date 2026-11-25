@@ -72,3 +72,19 @@ export function distanceToEdgeKm(area: Area, lng: number, lat: number): number {
   }
   return best;
 }
+
+/** Planar area in square degrees (holes subtracted): only for comparing nearby shapes. */
+export function planarArea(area: Area): number {
+  const ringArea = (ring: Position[]) => {
+    let sum = 0;
+    for (let i = 1; i < ring.length; i++) {
+      sum += ring[i - 1]![0]! * ring[i]![1]! - ring[i]![0]! * ring[i - 1]![1]!;
+    }
+    return Math.abs(sum) / 2;
+  };
+  let total = 0;
+  for (const [outer, ...holes] of polygonsOf(area)) {
+    total += ringArea(outer ?? []) - holes.reduce((s, hole) => s + ringArea(hole), 0);
+  }
+  return total;
+}
