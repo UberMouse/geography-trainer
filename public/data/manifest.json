@@ -336,5 +336,67 @@
       "km": 13.5,
       "reason": "no NE 10m land of this country at this point"
     }
+  ],
+  "droppedAdmin1": [
+    {
+      "code": "MAR-3456",
+      "name": "Laâyoune - Boujdour - Sakia El Hamra",
+      "country": "morocco",
+      "labelIn": "western-sahara"
+    },
+    {
+      "code": "NLD-5147",
+      "name": "Saba",
+      "country": "netherlands",
+      "labelIn": "saba"
+    },
+    {
+      "code": "NLD-5148",
+      "name": "St. Eustatius",
+      "country": "netherlands",
+      "labelIn": "sint-eustatius"
+    },
+    {
+      "code": "NLD-5149",
+      "name": "Bonaire",
+      "country": "netherlands",
+      "labelIn": "bonaire"
+    },
+    {
+      "code": "SHN-4863",
+      "name": "Ascension",
+      "country": "saint-helena",
+      "labelIn": "ascension-island"
+    },
+    {
+      "code": "SHN-4863",
+      "name": "Ascension",
+      "country": "tristan-da-cunha",
+      "labelIn": "ascension-island"
+    },
+    {
+      "code": "SHN-4864",
+      "name": "Saint Helena",
+      "country": "ascension-island",
+      "labelIn": "saint-helena"
+    },
+    {
+      "code": "SHN-4864",
+      "name": "Saint Helena",
+      "country": "tristan-da-cunha",
+      "labelIn": "saint-helena"
+    },
+    {
+      "code": "SHN-4865",
+      "name": "Tristan da Cunha",
+      "country": "ascension-island",
+      "labelIn": "tristan-da-cunha"
+    },
+    {
+      "code": "SHN-4865",
+      "name": "Tristan da Cunha",
+      "country": "saint-helena",
+      "labelIn": "tristan-da-cunha"
+    }
   ]
 }
