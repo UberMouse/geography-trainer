@@ -35,8 +35,12 @@ export interface ItemProgress {
   introducedAt: number;
 }
 
-/** How a placement test left an item. */
-export type PlacementOutcome = 'passed' | 'aboveEstimate' | 'untestedAtOrBelow';
+/**
+ * How a placement test left an item: `passed` (answered correctly), `failed` (tested and missed),
+ * `aboveEstimate` (above the estimated level, untested) or `untestedAtOrBelow` (at or below the
+ * estimate but never tested). Only `untestedAtOrBelow` skips ahead to L3.
+ */
+export type PlacementOutcome = 'passed' | 'failed' | 'aboveEstimate' | 'untestedAtOrBelow';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -108,10 +112,21 @@ export function applyAnswer(
       current = (current - 1) as Rung;
     }
     if (current > highestRung) highestRung = current;
-    cards[current] ??= newCard(now);
+    const target = cards[current];
+    // Stepping down to a rung with an old card: ask it again now, keeping its FSRS state.
+    cards[current] = target ? (current < rung ? { ...target, due: now.getTime() } : target) : newCard(now);
   }
 
   return { ...progress, rung: current, highestRung, cards, l4PassDays, inL4Lapse };
+}
+
+/**
+ * True once the item has been answered at least once (some stored card has `reps > 0`). A
+ * "not introduced" item (fresh, or seeded by placement without a pass) is still new: the session
+ * caps how many arrive per day and asks them at `dueRung`.
+ */
+export function isIntroduced(progress: ItemProgress): boolean {
+  return Object.values(progress.cards).some((card) => card.reps > 0);
 }
 
 /** True once L4 has been passed on enough different days; a later lapse never undoes it. */
@@ -136,6 +151,7 @@ export function seedFromPlacement(itemId: string, outcome: PlacementOutcome, now
   const base = createProgress(itemId, now);
   switch (outcome) {
     case 'aboveEstimate':
+    case 'failed':
       return base;
     case 'untestedAtOrBelow':
       return { ...base, rung: 3, highestRung: 3, cards: { 3: newCard(now) } };

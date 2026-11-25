@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
 import { buildCurriculum, newItems, unlockedItems, type Curriculum } from './curriculum';
-import { applyAnswer, createProgress, localDayKey, type ItemProgress } from './srs';
+import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
 const T0 = new Date('2026-03-01T00:00:00Z');
@@ -175,9 +175,21 @@ describe('unlockedItems', () => {
 });
 
 describe('newItems', () => {
-  it('excludes items that already have progress', () => {
-    const progress = { 'country:france': createProgress('country:france', T0) };
+  it('excludes items that have been answered', () => {
+    const progress = {
+      'country:france': applyAnswer(createProgress('country:france', T0), 1, Rating.Good, T0, localDayKey(T0, 0)),
+    };
     expect(ids(newItems(fixture(), progress))).not.toContain('country:france');
+  });
+
+  it('keeps unanswered progress as new: a placement seed without a pass', () => {
+    const progress = {
+      'country:france': seedFromPlacement('country:france', 'untestedAtOrBelow', T0),
+      'country:germany': seedFromPlacement('country:germany', 'passed', T0),
+    };
+    const got = ids(newItems(fixture(), progress));
+    expect(got).toContain('country:france');
+    expect(got).not.toContain('country:germany');
   });
 
   it('orders by difficulty, then country place count descending, then id', () => {

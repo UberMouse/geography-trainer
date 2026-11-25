@@ -1,6 +1,6 @@
 // The country -> region -> place tree, which items are unlocked, and the order new items arrive in.
 
-import { isMastered, type ItemProgress } from './srs';
+import { isIntroduced, isMastered, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
 export type Tier = 'country' | 'region' | 'place';
@@ -121,7 +121,8 @@ function compareNew(curriculum: Curriculum) {
   };
 }
 
-/** Unlocked items with no progress yet: lowest difficulty first, then the owning country's
+/** Unlocked items that are still new: no progress yet, or progress that has never been answered
+ * (a fresh or placement-seeded item, see `isIntroduced`). Lowest difficulty first, then the owning country's
  * place count (descending), then id. */
 export function newItems(
   curriculum: Curriculum,
@@ -129,6 +130,9 @@ export function newItems(
   opts: UnlockOptions = {},
 ): CurriculumItem[] {
   return unlockedItems(curriculum, progress, opts)
-    .filter((item) => !progress[item.id])
+    .filter((item) => {
+      const p = progress[item.id];
+      return !p || !isIntroduced(p);
+    })
     .sort(compareNew(curriculum));
 }

@@ -5,6 +5,7 @@ import {
   applyAnswer,
   createProgress,
   dueRung,
+  isIntroduced,
   isMastered,
   localDayKey,
   nextDue,
@@ -131,6 +132,52 @@ describe('ladder', () => {
     expect(p.cards[2]?.due).not.toBe(before.cards[2]?.due);
   });
 
+  it('Hard at L2, L3 and L4 stays put', () => {
+    let p = createProgress('a', T0);
+    p = answer(p, 1, Rating.Good);
+    expect(answer(p, 2, Rating.Hard).rung).toBe(2);
+    p = answer(p, 2, Rating.Good);
+    expect(answer(p, 3, Rating.Hard).rung).toBe(3);
+    expect(answer(atRung4(), 4, Rating.Hard)).toMatchObject({ rung: 4, inL4Lapse: false, l4PassDays: [] });
+  });
+
+  it('Easy at L4 records a pass day and stays at 4', () => {
+    expect(answer(atRung4(), 4, Rating.Easy)).toMatchObject({ rung: 4, l4PassDays: ['2026-03-01'] });
+  });
+
+  it('Again at L3 outside a lapse drops to L2 with no lapse flag', () => {
+    const p = answer(answer(answer(createProgress('a', T0), 1, Rating.Good), 2, Rating.Good), 3, Rating.Again);
+    expect(p).toMatchObject({ rung: 2, inL4Lapse: false });
+  });
+
+  it('Easy at L3 during a lapse returns to L4 and clears the flag', () => {
+    const p = answer(answer(atRung4(), 4, Rating.Again, 10), 3, Rating.Easy, 11);
+    expect(p).toMatchObject({ rung: 4, inL4Lapse: false });
+  });
+
+  it('a lapse at L4 is due again at once at L3, keeping the old L3 card otherwise', () => {
+    let p = createProgress('a', T0);
+    for (const r of [1, 2, 3] as const) p = answer(p, r, Rating.Easy);
+    const oldL3 = p.cards[3];
+    expect(oldL3?.due).toBeGreaterThan(at(1).getTime());
+    p = applyAnswer(p, 4, Rating.Again, at(0.0007), '2026-03-01');
+    expect(p.rung).toBe(3);
+    expect(nextDue(p)).toBe(at(0.0007).getTime());
+    expect(p.cards[3]).toEqual({ ...oldL3, due: at(0.0007).getTime() });
+  });
+
+  it('every step down brings the lower rung due now (L3 to L2 during a lapse)', () => {
+    let p = createProgress('a', T0);
+    for (const r of [1, 2, 3] as const) p = answer(p, r, Rating.Easy);
+    p = answer(p, 4, Rating.Again, 1);
+    const oldL2 = p.cards[2];
+    expect(oldL2?.due).toBeGreaterThan(at(2).getTime());
+    p = answer(p, 3, Rating.Again, 2);
+    expect(p).toMatchObject({ rung: 2, inL4Lapse: true });
+    expect(nextDue(p)).toBe(at(2).getTime());
+    expect(p.cards[2]).toEqual({ ...oldL2, due: at(2).getTime() });
+  });
+
   it('throws for a rung above the highest reached', () => {
     expect(() => answer(createProgress('a', T0), 3, Rating.Good)).toThrow();
   });
@@ -193,6 +240,19 @@ describe('seedFromPlacement', () => {
 
   it('aboveEstimate: rung 1', () => {
     expect(seedFromPlacement('a', 'aboveEstimate', T0)).toEqual(createProgress('a', T0));
+  });
+
+  it('failed: rung 1 with a new card', () => {
+    expect(seedFromPlacement('a', 'failed', T0)).toEqual(createProgress('a', T0));
+  });
+
+  it('only a passed seed counts as introduced', () => {
+    expect(isIntroduced(seedFromPlacement('a', 'passed', T0))).toBe(true);
+    for (const o of ['failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
+      expect(isIntroduced(seedFromPlacement('a', o, T0))).toBe(false);
+    }
+    expect(isIntroduced(createProgress('a', T0))).toBe(false);
+    expect(isIntroduced(answer(createProgress('a', T0), 1, Rating.Again))).toBe(true);
   });
 
   it('untestedAtOrBelow: rung 3 with a new card due now', () => {
