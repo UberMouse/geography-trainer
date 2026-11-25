@@ -93,17 +93,19 @@ export function countriesNeedingRegions(
  * The round summary's lines for the items mastered in the round, each with the mastered item's
  * id: "Unlocked: France's regions", "Unlocked: Brittany's places (France)". A region's line names
  * its country, so a region and a country of the same name stay apart. An item listed twice counts
- * once; one that unlocks nothing is left out. `nameOf` gives the display name of an item id.
+ * once; one that unlocks nothing, or that is no longer mastered (`stillMastered` false: it lapsed
+ * later in the round), is left out. `nameOf` gives the display name of an item id.
  */
 export function unlockLines(
   curriculum: Curriculum,
   masteredIds: readonly string[],
   nameOf: (itemId: string) => string,
+  stillMastered: (itemId: string) => boolean,
 ): { id: string; text: string }[] {
   const lines: { id: string; text: string }[] = [];
   for (const id of new Set(masteredIds)) {
     const unlocked = unlockedBy(curriculum, id);
-    if (!unlocked) continue;
+    if (!unlocked || !stillMastered(id)) continue;
     const item = curriculum.items.get(id);
     const owner = item?.tier === 'region' ? ` (${nameOf(item.countryId)})` : '';
     lines.push({ id, text: `Unlocked: ${nameOf(id)}'s ${unlocked.tier}s${owner}` });

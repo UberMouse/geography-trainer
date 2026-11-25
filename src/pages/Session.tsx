@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { buildCurriculum, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
 import { buildSession, type SessionQuestion } from '../engine/session';
@@ -13,11 +13,10 @@ import {
 } from '../engine/sessionRun';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import { introducedToday } from '../engine/today';
-import type { Place } from '../engine/types';
 import { loadCountries, loadPlaces, loadRegions, type CountriesData, type RegionsData } from '../data/loaders';
 import Exercise from '../exercises/Exercise';
 import { buildExerciseItem } from '../exercises/item';
-import type { ExerciseResult } from '../exercises/types';
+import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { progressStore } from '../storage/progressStore';
 import Status from './LoadStatus';
 import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
@@ -25,13 +24,14 @@ import { useLoaded } from './useLoaded';
 
 interface SessionData {
   countries: CountriesData;
-  places: Place[];
   progress: Record<string, ItemProgress>;
   curriculum: Curriculum;
   /** The session's first round queue, built when the data loaded. */
   questions: SessionQuestion[];
   /** The loaded regions of every country that owns a region or place question, by country id. */
   regions: ReadonlyMap<string, RegionsData>;
+  /** The exercise item of every question in the first queue, by item id. */
+  items: ReadonlyMap<string, ExerciseItem>;
 }
 
 const loadSessionData = async (): Promise<SessionData> => {
@@ -52,7 +52,15 @@ const loadSessionData = async (): Promise<SessionData> => {
   const needed = countriesNeedingRegions(curriculum, questions);
   const loaded = await Promise.all(needed.map((id) => loadRegions(id)));
   const regions = new Map(needed.map((id, i) => [id, loaded[i]!]));
-  return { countries, places, progress, curriculum, questions, regions };
+  // Built here so an item the data cannot build (a place naming a region its country lacks) fails
+  // the load, with Retry, rather than the render. Items are seed-free: the seed goes to `Exercise`.
+  const items = new Map<string, ExerciseItem>();
+  for (const { itemId } of questions) {
+    if (items.has(itemId)) continue;
+    const countryId = curriculum.items.get(itemId)!.countryId.replace(/^country:/, '');
+    items.set(itemId, buildExerciseItem(itemId, { countries, places, regions: regions.get(countryId) }));
+  }
+  return { countries, progress, curriculum, questions, regions, items };
 };
 
 /** Today's study session: countries, regions and places, in rounds, each answer saved as it is given. */
@@ -70,11 +78,12 @@ export default function Session() {
 }
 
 function Runner({ data }: { data: SessionData }) {
-  const { countries, places, curriculum, regions } = data;
+  const { countries, curriculum, regions, items } = data;
   const [run, setRun] = useState<SessionRun>(() => startRun(data.questions));
   const empty = data.questions.length === 0;
-  // Items that passed from not mastered to mastered in this round, in answer order.
-  const [mastered, setMastered] = useState<string[]>([]);
+  // Items that passed from not mastered to mastered in this round, in answer order, each with
+  // whether it is still mastered after its latest answer.
+  const [mastered, setMastered] = useState<Readonly<Record<string, boolean>>>({});
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   // True when the current question's answer could not be recorded and the question is skipped.
@@ -86,18 +95,9 @@ function Runner({ data }: { data: SessionData }) {
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const question = run.queue[0];
   const ended = roundEnded(run);
-  // Built once per question: a new `item.target` on every render would reset the globe's view.
-  const item = useMemo(
-    () =>
-      question
-        ? buildExerciseItem(question.itemId, {
-            countries,
-            places,
-            regions: regions.get(curriculum.items.get(question.itemId)!.countryId.replace(/^country:/, '')),
-          })
-        : null,
-    [question, countries, places, regions, curriculum],
-  );
+  // Prebuilt at load: a new `item.target` on every render would reset the globe's view. Re-asks
+  // and later rounds only repeat items of the first queue.
+  const item = question ? items.get(question.itemId)! : null;
   const questionRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLHeadingElement>(null);
   const lastSeen = useRef({ answered: run.answered, ended });
@@ -136,7 +136,7 @@ function Runner({ data }: { data: SessionData }) {
         <h2 ref={summaryRef} tabIndex={-1} className="session-summary">
           Round done: {run.correctInRound} of {run.answeredInRound} right
         </h2>
-        {unlockLines(curriculum, mastered, nameOf).map((line) => (
+        {unlockLines(curriculum, Object.keys(mastered), nameOf, (id) => mastered[id] === true).map((line) => (
           <p key={line.id}>{line.text}</p>
         ))}
         {questionsRemain(run) ? (
@@ -145,7 +145,7 @@ function Runner({ data }: { data: SessionData }) {
               type="button"
               className="session-button"
               onClick={() => {
-                setMastered([]);
+                setMastered({});
                 setRun(nextRound(run));
               }}
             >
@@ -177,8 +177,11 @@ function Runner({ data }: { data: SessionData }) {
       queue.push(recorded.entry);
       const before = progress.current[question.itemId];
       progress.current = { ...progress.current, [question.itemId]: after };
-      if (isMastered(after) && !(before && isMastered(before))) {
-        setMastered((ids) => [...ids, question.itemId]);
+      const nowMastered = isMastered(after);
+      if (nowMastered && !(before && isMastered(before))) {
+        setMastered((ids) => ({ ...ids, [question.itemId]: true }));
+      } else if (!nowMastered && question.itemId in mastered) {
+        setMastered((ids) => ({ ...ids, [question.itemId]: false }));
       }
     } catch (error) {
       console.error('[session] could not record answer', question.itemId, error);
