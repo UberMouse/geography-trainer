@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
 import {
-  buildCountryCurriculum,
   buildCurriculum,
   itemState,
   masteredShare,
@@ -293,44 +292,6 @@ describe('newItems', () => {
       'country:tuvalu',
       'region:france.corse',
     ]);
-  });
-});
-
-describe('buildCountryCurriculum', () => {
-  const countries = [country('france', 3, true), country('germany', 2, true), country('tuvalu', 1, false)];
-  const places = [
-    place('rennes', 'france', 'france.bretagne', 2, 'city'),
-    place('brest', 'france', 'france.bretagne', 3, 'monument'),
-    place('ajaccio', 'france', 'france.corse', 4, 'capital'),
-    place('munich', 'germany', 'germany.bayern', 1, 'city'),
-    place('nuremberg', 'germany', 'germany.bayern', 2, 'city'),
-    place('funafuti', 'tuvalu', null, 3, 'capital'),
-  ];
-
-  it('holds only childless country items, with difficulty and place counts equal to buildCurriculum', () => {
-    const full = fixture();
-    const c = buildCountryCurriculum(countries, places);
-    expect([...c.items.keys()]).toEqual(['country:france', 'country:germany', 'country:tuvalu']);
-    for (const item of c.items.values()) {
-      expect(item.tier).toBe('country');
-      expect(item.parent).toBeNull();
-      expect(item.children).toEqual([]);
-      expect(item.difficulty).toBe(full.items.get(item.id)!.difficulty);
-    }
-    expect(c.countryPlaceCount).toEqual(full.countryPlaceCount);
-  });
-
-  it('keeps the new-item order buildCurriculum gives the countries', () => {
-    const order = ids(newItems(fixture(), {})).filter((id) => id.startsWith('country:'));
-    expect(ids(newItems(buildCountryCurriculum(countries, places), {}))).toEqual(order);
-  });
-
-  it('gives a country with no places difficulty Infinity, and throws on bad input', () => {
-    expect(buildCountryCurriculum([country('x', 0, false)], []).items.get('country:x')!.difficulty).toBe(
-      Infinity,
-    );
-    expect(() => buildCountryCurriculum(countries, [place('p', 'nowhere', null, 1)])).toThrow();
-    expect(() => buildCountryCurriculum([countries[0]!, countries[0]!], [])).toThrow();
   });
 });
 

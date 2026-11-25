@@ -1,7 +1,7 @@
 import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { DAILY_NEW_CAP } from './config';
-import { buildCountryCurriculum } from './curriculum';
+import { buildCurriculum } from './curriculum';
 import { buildSession } from './session';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from './srs';
 import { introducedToday, todayNumbers } from './today';
@@ -25,7 +25,7 @@ const places: Place[] = countries.map((c) => ({
   type: 'city',
   level: 1,
 }));
-const cur = buildCountryCurriculum(countries, places);
+const cur = buildCurriculum(countries, [], places);
 const cid = (i: number) => `country:c${i}`;
 
 /** `itemId` answered Good once at `at`. */
@@ -76,7 +76,8 @@ describe('today', () => {
 
   it('feeds the same introducedToday into the session length', () => {
     const progress: Record<string, ItemProgress> = {};
-    for (let i = 0; i < 4; i++) progress[cid(i)] = answered(cid(i), new Date(NOW.getTime() - 60_000));
+    for (let i = 0; i < 4; i++)
+      progress[cid(i)] = answered(cid(i), new Date(NOW.getTime() - 60_000));
     const t = todayNumbers(cur, progress, NOW, 0);
     expect(t.newToday).toBe(4);
     expect(t.due).toBe(4); // a climb gives the next rung a card due at once
@@ -102,7 +103,10 @@ describe('today', () => {
   });
 
   it('ignores progress rows for ids outside the curriculum', () => {
-    const progress = { 'region:gone': answered('region:gone', NOW), 'place:x': mastered('place:x', NOW) };
+    const progress = {
+      'region:gone': answered('region:gone', NOW),
+      'place:x': mastered('place:x', NOW),
+    };
     expect(introducedToday(cur, progress, NOW, 0)).toBe(0);
     expect(todayNumbers(cur, progress, NOW, 0)).toMatchObject({
       due: 0,
@@ -110,5 +114,52 @@ describe('today', () => {
       learning: 0,
       learned: 0,
     });
+  });
+});
+
+describe('today across tiers', () => {
+  const NOW = new Date('2026-03-10T12:00:00Z');
+  const cs: Country[] = [
+    { id: 'rc', name: 'rc', places: 2, hasRegions: true },
+    ...[0, 1, 2].map((i) => ({ id: `s${i}`, name: `s${i}`, places: 1, hasRegions: false })),
+  ];
+  const place = (id: string, country: string, region: string | null): Place => ({
+    id,
+    name: id,
+    country,
+    region,
+    lat: 0,
+    lng: 0,
+    type: 'city',
+    level: 1,
+  });
+  const ps = [
+    place('pa', 'rc', 'rc.a'),
+    place('pb', 'rc', 'rc.a'),
+    ...[0, 1, 2].map((i) => place(`ps${i}`, `s${i}`, null)),
+  ];
+  const tiered = buildCurriculum(cs, [{ id: 'rc.a', country: 'rc' }], ps);
+  const justNow = new Date(NOW.getTime() - 60_000);
+  const progress = {
+    'country:rc': mastered('country:rc', new Date(NOW.getTime() - 30 * DAY)),
+    'region:rc.a': answered('region:rc.a', justNow),
+  };
+
+  it('counts a mastered country as learned and its new region toward newToday', () => {
+    const t = todayNumbers(tiered, progress, NOW, 0);
+    expect(t.learned).toBe(1);
+    expect(t.learning).toBe(1);
+    expect(t.newToday).toBe(1);
+  });
+
+  it('shares the daily cap between tiers', () => {
+    const capped = todayNumbers(tiered, progress, NOW, 0, 1);
+    expect(capped.newToday).toBe(1);
+    expect(capped.sessionLength).toBe(
+      buildSession({ curriculum: tiered, progress, now: NOW, introducedToday: 1, dailyCap: 1 })
+        .length,
+    );
+    const roomy = todayNumbers(tiered, progress, NOW, 0, 4);
+    expect(roomy.sessionLength).toBeGreaterThan(capped.sessionLength);
   });
 });

@@ -129,32 +129,6 @@ export function buildCurriculum(
 }
 
 /**
- * A curriculum of country items only (no regions, no places, so mastering a country unlocks
- * nothing). `difficulty` and `countryPlaceCount` equal what `buildCurriculum` gives each country.
- * Throws on a duplicate country id or a place of an unknown country.
- */
-export function buildCountryCurriculum(countries: readonly Country[], places: readonly Place[]): Curriculum {
-  const items = new Map<string, CurriculumItem>();
-  const countryPlaceCount = new Map<string, number>();
-  const difficulty = new Map<string, number>();
-  for (const c of countries) {
-    const id = countryItemId(c.id);
-    if (items.has(id)) throw new Error(`Duplicate country id ${c.id}`);
-    items.set(id, { id, tier: 'country', parent: null, children: [], countryId: id, difficulty: Infinity });
-    countryPlaceCount.set(id, 0);
-    difficulty.set(id, Infinity);
-  }
-  for (const p of places) {
-    const id = countryItemId(p.country);
-    if (!items.has(id)) throw new Error(`Place ${p.id} belongs to unknown country ${p.country}`);
-    countryPlaceCount.set(id, countryPlaceCount.get(id)! + 1);
-    difficulty.set(id, Math.min(difficulty.get(id)!, p.level));
-  }
-  for (const [id, item] of items) items.set(id, { ...item, difficulty: difficulty.get(id)! });
-  return { items, countryPlaceCount };
-}
-
-/**
  * Unlocked items, mastered and in-progress ones included. A mastered parent unlocks its children.
  * With `placeTypes`, places of other types are left out, and so are regions with no place of those
  * types; countries are always kept.
