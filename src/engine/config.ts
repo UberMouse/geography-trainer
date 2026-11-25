@@ -28,3 +28,9 @@ export const PLACE_EASY_KM = 25;
 export const PLACE_GOOD_KM = 75;
 /** ...below this Hard, otherwise Again. */
 export const PLACE_HARD_KM = 200;
+
+// Spaced repetition and the exercise ladder.
+/** An item is mastered once it has passed L4 on this many different local days. */
+export const MASTERY_DISTINCT_DAYS = 2;
+/** Stability, in days, of the L4 card a placement test seeds for an item the learner passed. */
+export const PLACEMENT_SEED_STABILITY_DAYS = 2;
