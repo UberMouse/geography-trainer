@@ -47,9 +47,9 @@ describe('resultLines', () => {
   it('pluralises a count of one', () => {
     expect(resultLines(result(3, { passed: 1, below: 1, above: 1 }), 'countries')).toEqual([
       'Your level: 3 of 8.',
-      '1 country you got right come back within a couple of days to confirm.',
-      '1 country at or below your level start at tapping on a bordered map.',
-      'The other 1 start from the beginning.',
+      '1 country you got right comes back within a couple of days to confirm.',
+      '1 country at or below your level starts at tapping on a bordered map.',
+      'The other 1 starts from the beginning.',
     ]);
   });
 
@@ -68,13 +68,26 @@ describe('resultLines', () => {
     ]);
   });
 
-  it('words an estimate of 0 as no level placed', () => {
-    expect(resultLines(result(0, { failed: 3, above: 5 }), 'countries')).toEqual([
-      'No level placed yet: everything starts from the beginning.',
-      'The other 8 start from the beginning.',
-    ]);
+  it('words an estimate of 0 with nothing placed as the single line', () => {
     expect(resultLines(result(0, {}), 'countries')).toEqual([
       'No level placed yet: everything starts from the beginning.',
+    ]);
+    expect(resultLines(result(0, { failed: 3, above: 5 }), 'countries')).toEqual([
+      'No level placed yet: everything starts from the beginning.',
+    ]);
+  });
+
+  it('words an estimate of 0 with something placed or left over as no level yet, then the rest', () => {
+    expect(resultLines(result(0, { below: 1, failed: 3, above: 5 }), 'countries')).toEqual([
+      'No level placed yet.',
+      '1 country at or below your level starts at tapping on a bordered map.',
+      'The other 8 start from the beginning.',
+    ]);
+    expect(resultLines(result(0, { passed: 1, below: 2, failed: 1 }), 'countries')).toEqual([
+      'No level placed yet.',
+      '1 country you got right comes back within a couple of days to confirm.',
+      '2 countries at or below your level start at tapping on a bordered map.',
+      'The other 1 starts from the beginning.',
     ]);
   });
 
@@ -84,7 +97,7 @@ describe('resultLines', () => {
     ['places', 'place', 'places'],
   ])('names the %s tier', (tier, one, many) => {
     const lines = resultLines(result(6, { passed: 1, below: 2 }), tier);
-    expect(lines[1]).toBe(`1 ${one} you got right come back within a couple of days to confirm.`);
+    expect(lines[1]).toBe(`1 ${one} you got right comes back within a couple of days to confirm.`);
     expect(lines[2]).toBe(`2 ${many} at or below your level start at tapping on a bordered map.`);
   });
 });

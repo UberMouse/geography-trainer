@@ -31,13 +31,18 @@ export function resultLines(result: PlacementResult, tier: PlacementTier): strin
   const passed = outcomes.filter((o) => o === 'passed').length;
   const below = outcomes.filter((o) => o === 'untestedAtOrBelow').length;
   const rest = outcomes.length - passed - below;
-  const lines = [
-    result.estimate === 0
-      ? 'No level placed yet: everything starts from the beginning.'
-      : `Your level: ${result.estimate} of 8.`,
-  ];
-  if (passed > 0) lines.push(`${count(passed, tier)} you got right come back within a couple of days to confirm.`);
-  if (below > 0) lines.push(`${count(below, tier)} at or below your level start at tapping on a bordered map.`);
-  if (rest > 0) lines.push(`The other ${rest} start from the beginning.`);
+  if (result.estimate === 0 && passed === 0 && below === 0) {
+    return ['No level placed yet: everything starts from the beginning.'];
+  }
+  const lines = [result.estimate === 0 ? 'No level placed yet.' : `Your level: ${result.estimate} of 8.`];
+  if (passed > 0) {
+    const verb = passed === 1 ? 'comes' : 'come';
+    lines.push(`${count(passed, tier)} you got right ${verb} back within a couple of days to confirm.`);
+  }
+  if (below > 0) {
+    const verb = below === 1 ? 'starts' : 'start';
+    lines.push(`${count(below, tier)} at or below your level ${verb} at tapping on a bordered map.`);
+  }
+  if (rest > 0) lines.push(`The other ${rest} ${rest === 1 ? 'starts' : 'start'} from the beginning.`);
   return lines;
 }

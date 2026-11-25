@@ -19,7 +19,7 @@ export default function App() {
           <Route path="/progress/:country" element={<ProgressDrill />} />
           <Route path="/progress/:country/:region" element={<ProgressDrill />} />
           <Route path="/placement" element={<Placement />} />
-          <Route path="/session"element={<Session />} />
+          <Route path="/session" element={<Session />} />
           {import.meta.env.DEV && <Route path="/playground" element={<Playground />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
