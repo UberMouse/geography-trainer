@@ -1,0 +1,106 @@
+import { geoPath } from 'd3-geo';
+import { useMemo, useRef, useState } from 'react';
+import type { LngLat, TapTarget } from './geo';
+import type { GestureEvent } from './gestures';
+import type { IdentifiedFeature } from './HighlightMap';
+import { Dot } from './marks';
+import { usePointerGestures } from './usePointerGestures';
+import {
+  IDENTITY,
+  MAP_SIZE,
+  fitFlat,
+  panFlat,
+  unapply,
+  wheelFactor,
+  zoomFlat,
+  type FlatTransform,
+} from './view';
+
+/**
+ * A flat bordered map fitted to `features`, to tap on. Wheel or pinch zooms (1–16×), drag pans,
+ * and a tap calls `onPin` with the tapped lng/lat. `reveal` shades the target feature (or draws
+ * its point) under the pin.
+ */
+export default function TapMap({
+  features,
+  highlightId,
+  pin,
+  onPin,
+  reveal,
+}: {
+  features: IdentifiedFeature[];
+  highlightId?: string;
+  pin: LngLat | null;
+  onPin: (at: LngLat) => void;
+  reveal?: TapTarget;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [transform, setTransform] = useState<FlatTransform>(IDENTITY);
+  const transformRef = useRef(transform);
+  const projection = useMemo(() => fitFlat(features), [features]);
+  const paths = useMemo(() => {
+    const path = geoPath(projection);
+    return features.map((f) => ({ id: f.id, d: path(f) ?? '' }));
+  }, [projection, features]);
+  const revealD = useMemo(
+    () => (reveal && 'feature' in reveal ? (geoPath(projection)(reveal.feature) ?? '') : null),
+    [projection, reveal],
+  );
+
+  const update = (next: FlatTransform) => {
+    transformRef.current = next;
+    setTransform(next);
+  };
+  /** CSS px relative to the svg to viewBox units. */
+  const toViewBox = (x: number, y: number): [number, number] => {
+    const scale = MAP_SIZE / (svgRef.current?.getBoundingClientRect().width || MAP_SIZE);
+    return [x * scale, y * scale];
+  };
+
+  usePointerGestures(svgRef, {
+    onGesture: (e: GestureEvent) => {
+      const t = transformRef.current;
+      if (e.type === 'tap') {
+        const at = projection.invert?.(unapply(t, toViewBox(e.x, e.y)));
+        if (at && at.every(Number.isFinite)) onPin([at[0], at[1]]);
+      } else if (e.type === 'drag') {
+        update(panFlat(t, ...toViewBox(e.dx, e.dy)));
+      } else {
+        const panned = panFlat(t, ...toViewBox(e.dx, e.dy));
+        update(zoomFlat(panned, e.factor, ...toViewBox(e.cx, e.cy)));
+      }
+    },
+    onWheel: (deltaY, x, y) =>
+      update(zoomFlat(transformRef.current, wheelFactor(deltaY), ...toViewBox(x, y))),
+  });
+
+  const toScreen = ([x, y]: [number, number]): [number, number] => [
+    x * transform.k + transform.x,
+    y * transform.k + transform.y,
+  ];
+  return (
+    <svg
+      ref={svgRef}
+      className="map map-interactive"
+      viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`}
+      role="img"
+      aria-label="Tap map"
+      data-zoom={transform.k.toFixed(3)}
+    >
+      <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+        {paths.map(({ id, d }) => (
+          <path
+            key={id}
+            className={id === highlightId ? 'map-land map-highlight' : 'map-land'}
+            d={d}
+          />
+        ))}
+        {revealD !== null && <path className="map-land map-reveal" d={revealD} />}
+      </g>
+      {reveal && 'point' in reveal && (
+        <Dot projection={projection} at={reveal.point} transform={toScreen} />
+      )}
+      {pin && <Dot projection={projection} at={pin} pin transform={toScreen} />}
+    </svg>
+  );
+}
