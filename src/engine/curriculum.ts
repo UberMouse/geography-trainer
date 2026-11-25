@@ -80,6 +80,9 @@ export function buildCurriculum(
     if (hasRegions.get(countryId)) {
       const region = p.region === null ? undefined : items.get(regionItemId(p.region));
       if (!region) throw new Error(`Place ${p.id} has no known region in regions-tier country ${p.country}`);
+      if (region.countryId !== countryId) {
+        throw new Error(`Place ${p.id} names region ${p.region} of a country other than ${p.country}`);
+      }
       parent = region;
     }
     const id = placeItemId(p.id);

@@ -94,6 +94,14 @@ describe('buildCurriculum', () => {
     expect(() => buildCurriculum(cs, rs, [place('p', 'france', null, 1)])).toThrow(/region/);
     expect(() => buildCurriculum(cs, rs, [place('p', 'france', 'france.zzz', 1)])).toThrow(/region/);
   });
+
+  it('throws on a place whose region belongs to another country', () => {
+    const cs = [country('france', 1, true), country('germany', 1, true)];
+    const rs = [region('france.a', 'france', 1), region('germany.bayern', 'germany', 1)];
+    expect(() => buildCurriculum(cs, rs, [place('p', 'france', 'germany.bayern', 1)])).toThrow(
+      /p.*germany\.bayern.*france/,
+    );
+  });
 });
 
 describe('buildCurriculum duplicates', () => {
