@@ -337,6 +337,13 @@ describe('fitGlobe', () => {
     expect([x0, x1]).toEqual([MAP_PADDING, MAP_SIZE - MAP_PADDING]);
   });
 
+  it('treats a span that is zero, negative, not finite or past the half circumference as absent', () => {
+    const whole = fitGlobe([10, 20]).scale();
+    for (const span of [0, -5, NaN, Infinity, 25000]) {
+      expect(fitGlobe([10, 20], MAP_SIZE, MAP_PADDING, span).scale()).toBe(whole);
+    }
+  });
+
   it('with a span, ground that far apart straddling the centre fills the padded extent', () => {
     const centre: LngLat = [-63.23, 17.63];
     const p = fitGlobe(centre, MAP_SIZE, MAP_PADDING, NEIGHBOURHOOD_VIEW_KM);

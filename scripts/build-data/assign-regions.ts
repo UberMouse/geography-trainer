@@ -78,10 +78,12 @@ export function admin1Rows(
   return { rows, dropped };
 }
 
-export type RegionNameOverrides = Record<
-  string,
-  { name: string; reason: string; mislabel?: true; aliases?: string[] }
->;
+/** `aliases` only means something on a `mislabel` override, so only that kind may carry them. */
+export type RegionNameOverride =
+  | { name: string; reason: string; mislabel?: undefined; aliases?: undefined }
+  | { name: string; reason: string; mislabel: true; aliases?: string[] };
+
+export type RegionNameOverrides = Record<string, RegionNameOverride>;
 
 /**
  * Applies region-name overrides (by NE code) to admin-1 rows: the row's `name` becomes the
@@ -107,6 +109,26 @@ export function applyRegionNameOverrides(
     const nameAlt = override.aliases?.join('|') ?? null;
     return { ...row, name: override.name, nameEn: null, nameAlt };
   });
+}
+
+/**
+ * Throws when an override's code is in no built region's rows (its row was dropped by
+ * `admin1Rows`, or its country has no regions), naming the unreached codes, so a stale override
+ * cannot go unnoticed.
+ */
+export function assertOverridesReachRegions(
+  overrides: RegionNameOverrides,
+  regionsByCountry: Map<string, Region[]>,
+): void {
+  const reached = new Set(
+    [...regionsByCountry.values()].flatMap((regions) =>
+      regions.flatMap((region) => region.units.map((unit) => unit.row.code)),
+    ),
+  );
+  const unreached = Object.keys(overrides).filter((code) => !reached.has(code));
+  if (unreached.length > 0) {
+    throw new Error(`region name overrides for rows in no built region: ${unreached.join(', ')}`);
+  }
 }
 
 /**

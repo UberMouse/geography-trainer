@@ -194,11 +194,13 @@ export const NEIGHBOURHOOD_VIEW_KM = 600;
 /**
  * An orthographic globe rotated to `centre`, fitted into the square viewBox with padding. With
  * `spanKm`, it is instead zoomed so that much ground, centred on `centre`, spans the padded
- * extent (the sphere then reaches past the viewBox: the SVG clips it).
+ * extent (the sphere then reaches past the viewBox: the SVG clips it). A `spanKm` that is not a
+ * finite number between 0 and half the Earth's circumference (a half-span past 90 degrees) is
+ * treated as absent.
  */
 export function fitGlobe(centre: LngLat, size = MAP_SIZE, padding = MAP_PADDING, spanKm?: number) {
   const globe = geoOrthographic().rotate([-centre[0], -centre[1]]);
-  if (spanKm === undefined) {
+  if (!(Number.isFinite(spanKm) && spanKm! > 0 && spanKm! < Math.PI * EARTH_RADIUS_KM)) {
     return globe.fitExtent(
       [
         [padding, padding],
@@ -209,7 +211,7 @@ export function fitGlobe(centre: LngLat, size = MAP_SIZE, padding = MAP_PADDING,
   }
   // A point `theta` from the centre projects at `radius * sin(theta)`; the span's edge is at
   // `theta = spanKm / 2 / R` and must land half the padded extent from the centre.
-  const radius = (size / 2 - padding) / Math.sin(spanKm / 2 / EARTH_RADIUS_KM);
+  const radius = (size / 2 - padding) / Math.sin(spanKm! / 2 / EARTH_RADIUS_KM);
   return globe.scale(radius).translate([size / 2, size / 2]);
 }
 

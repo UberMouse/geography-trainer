@@ -4,11 +4,13 @@ import {
   adminDisagrees,
   applyRegionNameOverrides,
   assertNoDissolvedOverrides,
+  assertOverridesReachRegions,
   assertDistinctRegionNames,
   admin1Rows,
   assignRegion,
   buildRegions,
   hasRegionsTier,
+  type RegionNameOverrides,
 } from './assign-regions';
 import { admin1, polygonCountry } from './fixtures/geometry';
 
@@ -208,6 +210,24 @@ describe('region name overrides', () => {
   it('fails for an override on a row of a dissolved country, naming the code and country', () => {
     expect(() => assertNoDissolvedOverrides('france', rows, overrides)).toThrow(/france.*AAA-1/);
     expect(() => assertNoDissolvedOverrides('france', [rows[2]!], overrides)).not.toThrow();
+  });
+
+  it('fails for an override whose row is in no built region, naming the code', () => {
+    const regionsByCountry = new Map([['aaa', buildRegions('aaa', rows, false)]]);
+    expect(() => assertOverridesReachRegions(overrides, regionsByCountry)).not.toThrow();
+    expect(() =>
+      assertOverridesReachRegions(
+        { ...overrides, 'ZZZ-9': { name: 'X', reason: 'r' } },
+        regionsByCountry,
+      ),
+    ).toThrow(/ZZZ-9/);
+    expect(() => assertOverridesReachRegions(overrides, new Map())).toThrow(/AAA-1/);
+  });
+
+  it('rejects aliases on an override that is not a mislabel', () => {
+    // @ts-expect-error aliases need mislabel: true
+    const bad: RegionNameOverrides = { 'AAA-1': { name: 'X', reason: 'r', aliases: ['Y'] } };
+    expect(bad).toBeDefined();
   });
 
   it('fails for an override whose code is not in NE', () => {

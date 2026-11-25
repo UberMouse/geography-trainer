@@ -1,5 +1,6 @@
 // maptap country names the normalized name match cannot resolve on its own, keyed by maptap's
 // exact name. Unit codes are Natural Earth SU_A3 codes (map units, or map subunits when marked).
+import type { RegionNameOverrides } from './assign-regions';
 import type { Override } from './country-match';
 import type { TerritoryMove } from './territory';
 
@@ -112,10 +113,7 @@ export const CONTAINMENT_ALLOW_LIST: Record<string, string> = {
 // Display names for admin-1 rows (NE `adm1_code`) whose NE name is wrong or shared with another
 // row of the same country, so no two regions of a country share a name. `mislabel` marks the rows
 // where NE's name belongs to another region: it is then no match alias for this one.
-export const REGION_NAME_OVERRIDES: Record<
-  string,
-  { name: string; reason: string; mislabel?: true; aliases?: string[] }
-> = {
+export const REGION_NAME_OVERRIDES: RegionNameOverrides = {
   'IRL-713': { name: 'Galway (county)', reason: 'NE type County; shares a name with the city' },
   'IRL-5568': { name: 'Galway (city)', reason: 'NE type City; shares a name with the county' },
   'IRL-78': { name: 'Cork (county)', reason: 'NE type County; shares a name with the city' },

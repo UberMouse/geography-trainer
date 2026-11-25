@@ -11,6 +11,7 @@ import {
   assignRegion,
   applyRegionNameOverrides,
   assertNoDissolvedOverrides,
+  assertOverridesReachRegions,
   assertDistinctRegionNames,
   buildRegions,
   hasRegionsTier,
@@ -107,6 +108,8 @@ async function main(): Promise<number> {
       regionsByCountry.set(country.id, regions);
     }
   }
+
+  assertOverridesReachRegions(REGION_NAME_OVERRIDES, regionsByCountry);
 
   const assignments = new Map<string, Assignment>();
   const mismatches: string[] = [];
