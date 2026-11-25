@@ -1,0 +1,340 @@
+{
+  "source": "https://maptap.gg/data/master_locations_v2.js",
+  "naturalEarth": {
+    "version": "v5.1.2",
+    "files": [
+      "ne_10m_admin_0_map_units.geojson",
+      "ne_10m_admin_0_map_subunits.geojson",
+      "ne_10m_admin_1_states_provinces.geojson",
+      "ne_10m_admin_0_disputed_areas.geojson"
+    ]
+  },
+  "counts": {
+    "total": 9462,
+    "active": 6612,
+    "kept": 6607,
+    "excluded": 5
+  },
+  "excluded": [
+    {
+      "id": "challenger_deep_pacific_ocean",
+      "name": "Challenger Deep, Pacific Ocean",
+      "country": "Pacific Ocean",
+      "reason": "open ocean: no country polygon"
+    },
+    {
+      "id": "north_pole_arctic_ocean",
+      "name": "Geographic North Pole, Arctic Ocean",
+      "country": "Arctic Ocean",
+      "reason": "open ocean: no country polygon"
+    },
+    {
+      "id": "point_nemo_pacific_ocean",
+      "name": "Point Nemo, Pacific Ocean",
+      "country": "Pacific Ocean",
+      "reason": "open ocean: no country polygon"
+    },
+    {
+      "id": "sealand_north_sea",
+      "name": "Sealand, North Sea",
+      "country": "North Sea",
+      "reason": "open ocean: no country polygon"
+    },
+    {
+      "id": "the_location_where_the_titanic_sank",
+      "name": "Titanic Wreck Site, North Atlantic",
+      "country": "North Atlantic",
+      "reason": "open ocean: no country polygon"
+    }
+  ],
+  "countries": {
+    "byName": 217,
+    "byOverride": 23,
+    "pointOnly": 3,
+    "excludedNames": [
+      "Arctic Ocean",
+      "North Atlantic",
+      "North Sea",
+      "Pacific Ocean"
+    ]
+  },
+  "regionsTierCountries": [
+    "afghanistan",
+    "algeria",
+    "angola",
+    "argentina",
+    "australia",
+    "austria",
+    "bangladesh",
+    "belgium",
+    "benin",
+    "bolivia",
+    "brazil",
+    "bulgaria",
+    "cameroon",
+    "canada",
+    "chile",
+    "china",
+    "colombia",
+    "cote-d-ivoire",
+    "croatia",
+    "cuba",
+    "democratic-republic-of-the-congo",
+    "denmark",
+    "ecuador",
+    "egypt",
+    "england",
+    "ethiopia",
+    "finland",
+    "france",
+    "germany",
+    "ghana",
+    "greece",
+    "guatemala",
+    "hungary",
+    "india",
+    "indonesia",
+    "iran",
+    "iraq",
+    "ireland",
+    "israel",
+    "italy",
+    "japan",
+    "jordan",
+    "kazakhstan",
+    "kenya",
+    "libya",
+    "malaysia",
+    "mali",
+    "mauritania",
+    "mexico",
+    "mongolia",
+    "morocco",
+    "mozambique",
+    "myanmar",
+    "namibia",
+    "nepal",
+    "netherlands",
+    "new-zealand",
+    "nigeria",
+    "north-korea",
+    "norway",
+    "pakistan",
+    "papua-new-guinea",
+    "peru",
+    "philippines",
+    "poland",
+    "portugal",
+    "romania",
+    "russia",
+    "saudi-arabia",
+    "scotland",
+    "senegal",
+    "somalia",
+    "south-africa",
+    "south-korea",
+    "spain",
+    "sri-lanka",
+    "sudan",
+    "sweden",
+    "switzerland",
+    "syria",
+    "taiwan",
+    "tanzania",
+    "thailand",
+    "tunisia",
+    "turkiye",
+    "uganda",
+    "ukraine",
+    "united-states",
+    "uzbekistan",
+    "venezuela",
+    "vietnam",
+    "yemen",
+    "zambia"
+  ],
+  "outsideTolerance": [
+    {
+      "id": "ailsa_craig_scotland",
+      "country": "scotland",
+      "region": "scotland.south-western",
+      "km": 13.7,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "balls_pyramid_australia",
+      "country": "australia",
+      "region": "australia.lord-howe-island",
+      "km": 23.9,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "bikini_atoll_marshall_islands",
+      "country": "marshall-islands",
+      "region": null,
+      "km": 15.6,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "capri",
+      "country": "italy",
+      "region": "italy.campania",
+      "km": 10.2,
+      "reason": "on NE 10m land; the simplified outline shrinks this small island"
+    },
+    {
+      "id": "danger_islands_antarctica",
+      "country": "antarctica",
+      "region": null,
+      "km": 23.4,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "devil",
+      "country": "france",
+      "region": "france.guyane-francaise",
+      "km": 13.9,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "fort_jefferson_dry_tortugas_national_park_united_states",
+      "country": "united-states",
+      "region": "united-states.florida",
+      "km": 74.9,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "great_blue_hole",
+      "country": "belize",
+      "region": null,
+      "km": 27.8,
+      "reason": "a feature on open water: no land at this point"
+    },
+    {
+      "id": "hel_poland",
+      "country": "poland",
+      "region": "poland.pomeranian",
+      "km": 16.1,
+      "reason": "on NE 10m land; the simplified outline cuts this headland or peninsula"
+    },
+    {
+      "id": "ilha_da_queimada_grande_sao_paulo_brazil",
+      "country": "brazil",
+      "region": "brazil.sao-paulo",
+      "km": 33.9,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "inaccessible_island_tristan_da_cunha",
+      "country": "tristan-da-cunha",
+      "region": null,
+      "km": 37.4,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "isla_martin_garcia_buenos_aires_argentina",
+      "country": "argentina",
+      "region": "argentina.buenos-aires",
+      "km": 12,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "kavachi_volcano_solomon_islands",
+      "country": "solomon-islands",
+      "region": null,
+      "km": 26,
+      "reason": "a feature on open water: no land at this point"
+    },
+    {
+      "id": "krakatoa",
+      "country": "indonesia",
+      "region": "indonesia.lampung",
+      "km": 38.1,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "lake_pontchartrain_causeway_louisiana_usa",
+      "country": "united-states",
+      "region": "united-states.louisiana",
+      "km": 16.5,
+      "reason": "a feature on open water: no land at this point"
+    },
+    {
+      "id": "machias_seal_island_usa_canada",
+      "country": "canada",
+      "region": "canada.new-brunswick",
+      "km": 19.5,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "maya_bay",
+      "country": "thailand",
+      "region": "thailand.krabi",
+      "km": 28.5,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "mer_torres_strait_islands_queensland_australia",
+      "country": "australia",
+      "region": "australia.queensland",
+      "km": 150.8,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "montebello_islands_western_australia_australia",
+      "country": "australia",
+      "region": "australia.western-australia",
+      "km": 25,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "nangan_matsu_islands_taiwan",
+      "country": "taiwan",
+      "region": "taiwan.taoyuan",
+      "km": 165.7,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "navassa_island_usa_haiti",
+      "country": "haiti",
+      "region": null,
+      "km": 55.3,
+      "reason": "border place resolved to the nearest country; NE 10m has no land of its own here"
+    },
+    {
+      "id": "nukunonu_new_zealand",
+      "country": "tokelau",
+      "region": null,
+      "km": 69.4,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "perhentian_islands_malaysia",
+      "country": "malaysia",
+      "region": "malaysia.terengganu",
+      "km": 18,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "saint_martin_s_island_bangladesh",
+      "country": "bangladesh",
+      "region": "bangladesh.chittagong",
+      "km": 16,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "santa_cruz_del_islote_colombia",
+      "country": "colombia",
+      "region": "colombia.sucre",
+      "km": 23.6,
+      "reason": "no NE 10m land of this country at this point"
+    },
+    {
+      "id": "skellig_michael_ireland",
+      "country": "ireland",
+      "region": "ireland.kerry",
+      "km": 13.5,
+      "reason": "no NE 10m land of this country at this point"
+    }
+  ]
+}
