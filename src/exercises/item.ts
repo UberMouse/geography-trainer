@@ -54,7 +54,11 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
   };
   const regionsOf = (country: CountryFeature) => {
     const { regions } = data;
-    if (!regions || !regions.regions.every((r) => r.country === country.id)) {
+    if (
+      !regions ||
+      regions.regions.length === 0 ||
+      !regions.regions.every((r) => r.country === country.id)
+    ) {
       throw new Error(`Item "${itemId}" needs ${country.id}'s regions`);
     }
     return regions;

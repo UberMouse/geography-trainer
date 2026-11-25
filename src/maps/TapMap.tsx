@@ -73,11 +73,13 @@ export default function TapMap({
   const rings = useMemo(
     () =>
       reveal && 'feature' in reveal
-        ? smallTargetRings(
-            geoPath(projection),
-            reveal.feature,
-            (SMALL_TARGET_PX * SVG_UNITS_PER_PX) / transform.k,
-            (RING_RADIUS_PX * SVG_UNITS_PER_PX) / transform.k,
+        ? [reveal.feature, ...(reveal.alsoInside ?? [])].flatMap((f) =>
+            smallTargetRings(
+              geoPath(projection),
+              f,
+              (SMALL_TARGET_PX * SVG_UNITS_PER_PX) / transform.k,
+              (RING_RADIUS_PX * SVG_UNITS_PER_PX) / transform.k,
+            ),
           )
         : [],
     [projection, reveal, transform.k],

@@ -100,11 +100,14 @@ export default function BareGlobe(props: Props) {
     if (withBorders) stroke(land, colour('--map-border'), 0.6);
     if (target) {
       if ('feature' in target) {
-        for (const f of [target.feature, ...(target.alsoInside ?? [])]) {
+        const shown = [target.feature, ...(target.alsoInside ?? [])];
+        for (const f of shown) {
           fill(f, colour('--map-reveal'));
           stroke(f, colour('--map-border'), 1);
         }
-        const rings = smallTargetRings(path, target.feature, SMALL_TARGET_PX, RING_RADIUS_PX);
+        const rings = shown.flatMap((f) =>
+          smallTargetRings(path, f, SMALL_TARGET_PX, RING_RADIUS_PX),
+        );
         ctx.beginPath();
         for (const [x, y] of rings) {
           ctx.moveTo(x + RING_RADIUS_PX, y);

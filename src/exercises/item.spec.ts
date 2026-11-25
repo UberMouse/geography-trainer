@@ -117,6 +117,18 @@ describe('buildExerciseItem: a place', () => {
   });
 });
 
+describe('buildExerciseItem: empty regions data', () => {
+  const regions = { features: [], regions: [] };
+
+  it('throws for a region and for a regions-tier place', () => {
+    for (const id of ['region:alpha.north', 'place:n1']) {
+      expect(() => buildExerciseItem(id, { ...DATA_WITH_ALPHA, regions })).toThrow(
+        /needs alpha's regions/,
+      );
+    }
+  });
+});
+
 describe('buildExerciseItem: unknown ids', () => {
   it.each(['country:nowhere', 'region:alpha.nowhere', 'place:nowhere', 'city:n1', 'alpha'])(
     'throws for %s',
