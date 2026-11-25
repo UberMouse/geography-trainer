@@ -116,12 +116,19 @@ function near(a: Vec[], b: Vec[], maxAngle: number): boolean {
   return false;
 }
 
-function computeMainPart<F extends AreaFeature>(feature: F): F {
+interface Cluster {
+  /** The cluster's polygons as a feature with the original's id and properties. */
+  feature: AreaFeature;
+  area: number;
+}
+
+/** The feature's polygons grouped into clusters: parts less than `MAIN_PART_GAP_KM` apart share one. */
+function computeClusters(feature: AreaFeature): Cluster[] {
   const g = feature.geometry;
-  if (g.type === 'Polygon') return feature;
+  if (g.type === 'Polygon') return [{ feature, area: geoArea(feature) }];
   // Quantization can collapse a tiny island to a polygon with no rings: it has no place to be.
   const polygons = g.coordinates.filter((p) => (p[0]?.length ?? 0) > 0);
-  if (polygons.length < 2) return feature;
+  if (polygons.length < 2) return [{ feature, area: geoArea(feature) }];
   const areas = polygons.map((coordinates) => geoArea({ type: 'Polygon', coordinates }));
   const vertices = polygons.map((p) => (p[0] ?? []).map(toVec));
   const caps = vertices.map(cap);
@@ -140,15 +147,37 @@ function computeMainPart<F extends AreaFeature>(feature: F): F {
     }
   }
 
-  const clusterArea = new Map<number, number>();
-  areas.forEach((a, i) => clusterArea.set(find(i), (clusterArea.get(find(i)) ?? 0) + a));
-  const [best, bestArea] = [...clusterArea].reduce((m, e) => (e[1] > m[1] ? e : m));
-  const total = areas.reduce((s, a) => s + a, 0);
-  if (clusterArea.size === 1 || !(total > 0) || bestArea < MAIN_PART_MIN_SHARE * total) {
+  const byRoot = new Map<number, { coordinates: Polygon['coordinates'][]; area: number }>();
+  polygons.forEach((coordinates, i) => {
+    const c = byRoot.get(find(i)) ?? { coordinates: [], area: 0 };
+    c.coordinates.push(coordinates);
+    c.area += areas[i]!;
+    byRoot.set(find(i), c);
+  });
+  return [...byRoot.values()].map(({ coordinates, area }) => ({
+    feature: { ...feature, geometry: { type: 'MultiPolygon', coordinates } },
+    area,
+  }));
+}
+
+const clusterCache = new WeakMap<AreaFeature, Cluster[]>();
+
+function clustersOf(feature: AreaFeature): Cluster[] {
+  const cached = clusterCache.get(feature);
+  if (cached) return cached;
+  const clusters = computeClusters(feature);
+  clusterCache.set(feature, clusters);
+  return clusters;
+}
+
+function computeMainPart<F extends AreaFeature>(feature: F): F {
+  const clusters = clustersOf(feature);
+  const best = clusters.reduce((m, c) => (c.area > m.area ? c : m));
+  const total = clusters.reduce((s, c) => s + c.area, 0);
+  if (clusters.length === 1 || !(total > 0) || best.area < MAIN_PART_MIN_SHARE * total) {
     return feature;
   }
-  const kept = polygons.filter((_, i) => find(i) === best);
-  return { ...feature, geometry: { type: 'MultiPolygon', coordinates: kept } };
+  return best.feature as F;
 }
 
 const mainParts = new WeakMap<AreaFeature, AreaFeature>();
@@ -166,6 +195,19 @@ export function mainPart<F extends AreaFeature>(feature: F): F {
   const part = computeMainPart(feature);
   mainParts.set(feature, part);
   return part;
+}
+
+/**
+ * The cluster of the feature (see `mainPart`) that holds `point`, else the one nearest to it, as a
+ * feature with the same id and properties. The feature itself when it has one cluster.
+ */
+export function clusterAt<F extends AreaFeature>(feature: F, point: LngLat): F {
+  const clusters = clustersOf(feature);
+  if (clusters.length === 1) return feature;
+  const holding = clusters.find((c) => geoContains(c.feature, point));
+  if (holding) return holding.feature as F;
+  const km = (c: Cluster) => kmToBoundary(c.feature, point);
+  return clusters.reduce((m, c) => (km(c) < km(m) ? c : m)).feature as F;
 }
 
 /** A country's or region's answer point: the centroid of its main part (see `mainPart`). */
@@ -217,8 +259,10 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
  * drawing it would show it through the globe. Flat projections never hide a point.
  */
 export function isOnFarSide(projection: GeoProjection, at: LngLat): boolean {
-  // Only a projection clipped to a hemisphere (clip angle about 90 degrees or less) hides the far side.
-  if ((projection.clipAngle?.() ?? 180) > 90.001) return false;
+  // Only a projection clipped to a hemisphere (clip angle about 90 degrees or less) hides the far
+  // side; d3 reports no clipping (Mercator, equirectangular) as a clip angle of 0.
+  const clip = projection.clipAngle?.();
+  if (!clip || clip > 90.001) return false;
   const [lambda, phi] = projection.rotate();
   return geoDistance(at, [-lambda, -phi]) > Math.PI / 2;
 }

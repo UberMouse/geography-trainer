@@ -1,6 +1,6 @@
 import { geoPath } from 'd3-geo';
-import { useMemo, useRef, useState } from 'react';
-import type { AreaFeature, LngLat, TapTarget } from './geo';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { targetPoint, type AreaFeature, type LngLat, type TapTarget } from './geo';
 import type { GestureEvent } from './gestures';
 import type { IdentifiedFeature } from './HighlightMap';
 import { Dot, Rings } from './marks';
@@ -13,6 +13,7 @@ import {
   SVG_UNITS_PER_PX,
   fitFlat,
   panFlat,
+  revealFlat,
   smallTargetRings,
   unapply,
   wheelFactor,
@@ -56,20 +57,37 @@ export default function TapMap({
   );
 
   // In map units, so they follow the zoom; drawn through `toScreen` at a fixed size.
-  const rings =
-    reveal && 'feature' in reveal
-      ? smallTargetRings(
-          geoPath(projection),
-          reveal.feature,
-          (SMALL_TARGET_PX * SVG_UNITS_PER_PX) / transform.k,
-          (RING_RADIUS_PX * SVG_UNITS_PER_PX) / transform.k,
-        )
-      : [];
+  const rings = useMemo(
+    () =>
+      reveal && 'feature' in reveal
+        ? smallTargetRings(
+            geoPath(projection),
+            reveal.feature,
+            (SMALL_TARGET_PX * SVG_UNITS_PER_PX) / transform.k,
+            (RING_RADIUS_PX * SVG_UNITS_PER_PX) / transform.k,
+          )
+        : [],
+    [projection, reveal, transform.k],
+  );
 
   const update = (next: FlatTransform) => {
     transformRef.current = next;
     setTransform(next);
   };
+
+  // Once, when the reveal arrives: bring the pin and the answer on screen. The user's later pans
+  // and zooms stand.
+  const revealed = useRef(false);
+  useEffect(() => {
+    if (!reveal) revealed.current = false;
+    if (!reveal || !pin || revealed.current) return;
+    revealed.current = true;
+    const a = projection(pin);
+    const b = projection(targetPoint(reveal));
+    if (a && b && [...a, ...b].every(Number.isFinite)) {
+      update(revealFlat(transformRef.current, a, b));
+    }
+  });
   /** CSS px relative to the svg to viewBox units. */
   const toViewBox = (x: number, y: number): [number, number] => {
     const scale = MAP_SIZE / (svgRef.current?.getBoundingClientRect().width || MAP_SIZE);

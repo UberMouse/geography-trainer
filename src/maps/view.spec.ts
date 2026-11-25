@@ -1,7 +1,7 @@
 import { geoDistance, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import { describe, expect, it } from 'vitest';
-import type { AreaFeature, LngLat } from './geo';
+import { mainPart, type AreaFeature, type LngLat } from './geo';
 import {
   GLOBE_FILL,
   IDENTITY,
@@ -11,8 +11,10 @@ import {
   fitFlat,
   fitGlobe,
   inFlatFrame,
+  outlineFrame,
   panFlat,
   parseView,
+  revealFlat,
   revealView,
   rotateGlobe,
   smallTargetRings,
@@ -192,6 +194,82 @@ describe('inFlatFrame', () => {
   it('is false for a point far outside the frame, or round the back of the globe', () => {
     expect(inFlatFrame(frame, [55, -21])).toBe(false);
     expect(inFlatFrame(frame, [-175, -45])).toBe(false);
+  });
+});
+
+describe('outlineFrame', () => {
+  const ring = (w: number, s: number, e: number, n: number): LngLat[][] => [
+    [
+      [w, s],
+      [w, n],
+      [e, n],
+      [e, s],
+      [w, s],
+    ],
+  ];
+  const island: AreaFeature = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'MultiPolygon', coordinates: [ring(0, 40, 10, 50), ring(60, -21, 61, -20)] },
+  };
+
+  it('is the main part with no point, or a point inside its frame', () => {
+    const main = mainPart(island);
+    expect(main).not.toBe(island);
+    expect(outlineFrame(island)).toEqual([main]);
+    expect(outlineFrame(island, [5, 45])).toEqual([main]);
+  });
+
+  it('is the far part holding a point outside the main frame', () => {
+    const [far, ...rest] = outlineFrame(island, [60.5, -20.5]);
+    expect(rest).toEqual([]);
+    expect(far!.geometry).toEqual({ type: 'MultiPolygon', coordinates: [ring(60, -21, 61, -20)] });
+  });
+
+  it('adds a disc at a point that is off every part of the feature', () => {
+    const at: LngLat = [30, 0];
+    const frame = outlineFrame(island, at);
+    expect(frame).toHaveLength(2);
+    const p = fitFlat(frame)(at)!;
+    expect(p.every((v) => v >= 0 && v <= MAP_SIZE)).toBe(true);
+  });
+});
+
+describe('revealFlat', () => {
+  const screen = (t: { k: number; x: number; y: number }, [x, y]: [number, number]) => [
+    x * t.k + t.x,
+    y * t.k + t.y,
+  ];
+  const onScreen = (p: number[]) => p.every((v) => v >= 0 && v <= MAP_SIZE);
+
+  it('keeps the transform when both points are on screen with a margin', () => {
+    const t = { k: 2, x: -100, y: -100 };
+    expect(revealFlat(t, [150, 150], [200, 220])).toBe(t);
+  });
+
+  it('keeps the zoom and centres on the midpoint when both fit but one is off screen', () => {
+    const t = { k: 4, x: 0, y: 0 };
+    const r = revealFlat(t, [300, 300], [330, 310]);
+    expect(r.k).toBe(4);
+    expect(screen(r, [315, 305])).toEqual([MAP_SIZE / 2, MAP_SIZE / 2]);
+  });
+
+  it('zooms out until both points show', () => {
+    const a: [number, number] = [200, 200];
+    const b: [number, number] = [400, 300];
+    const r = revealFlat({ k: 16, x: -3000, y: -3000 }, a, b);
+    expect(r.k).toBeLessThan(16);
+    expect(r.k).toBeGreaterThanOrEqual(1);
+    expect(onScreen(screen(r, a))).toBe(true);
+    expect(onScreen(screen(r, b))).toBe(true);
+  });
+
+  it('never zooms in, and clamps the pan to the map', () => {
+    expect(revealFlat({ k: 1, x: 0, y: 0 }, [5, 5], [5, 5])).toEqual({ k: 1, x: 0, y: 0 });
+    const z = revealFlat({ k: 8, x: -3000, y: -3000 }, [10, 10], [12, 12]);
+    expect(z.x).toBeLessThanOrEqual(0);
+    expect(z.x).toBeGreaterThanOrEqual(MAP_SIZE - MAP_SIZE * z.k);
+    expect(onScreen(screen(z, [10, 10]))).toBe(true);
   });
 });
 

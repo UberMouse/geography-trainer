@@ -6,7 +6,7 @@ import {
   geoOrthographic,
   type GeoPath,
 } from 'd3-geo';
-import type { AreaFeature, LngLat } from './geo';
+import { clusterAt, ensureArea, mainPart, type AreaFeature, type LngLat } from './geo';
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -171,6 +171,33 @@ export function panFlat(t: FlatTransform, dx: number, dy: number, size = MAP_SIZ
   return clampPan({ k: t.k, x: t.x + dx, y: t.y + dy }, size);
 }
 
+/** Keep revealed points this far (viewBox units) from the edge of the viewBox. */
+const REVEAL_FLAT_MARGIN = 32;
+
+/**
+ * The transform that reveals an answer: `t` itself when the pin `a` and the answer `b` (viewBox
+ * points, before the transform) are both on screen with a margin; else the largest zoom up to
+ * `t.k` (and down to `FLAT_MIN_ZOOM`) that shows both with it, centred on their midpoint and
+ * clamped like a pan (so at minimum zoom a point near the edge may sit inside the margin).
+ */
+export function revealFlat(
+  t: FlatTransform,
+  a: [number, number],
+  b: [number, number],
+  size = MAP_SIZE,
+): FlatTransform {
+  const shown = ([x, y]: [number, number]) =>
+    [x * t.k + t.x, y * t.k + t.y].every(
+      (v) => v >= REVEAL_FLAT_MARGIN && v <= size - REVEAL_FLAT_MARGIN,
+    );
+  if (shown(a) && shown(b)) return t;
+  const span = Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
+  const fits = span > 0 ? (size - 2 * REVEAL_FLAT_MARGIN) / span : Infinity;
+  const k = clamp(Math.min(t.k, fits), FLAT_MIN_ZOOM, FLAT_MAX_ZOOM);
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const;
+  return clampPan({ k, x: size / 2 - k * mid[0], y: size / 2 - k * mid[1] }, size);
+}
+
 /** The map (pre-transform) point under a viewBox point. */
 export const unapply = (t: FlatTransform, [x, y]: [number, number]): [number, number] => [
   (x - t.x) / t.k,
@@ -187,6 +214,27 @@ export const wheelFactor = (deltaY: number) => Math.exp(-deltaY * 0.0018);
 export function inFlatFrame(frame: AreaFeature, point: LngLat, size = MAP_SIZE): boolean {
   const p = fitFlat([frame], size)(point);
   return !!p && p.every(Number.isFinite) && p.every((v) => v >= 0 && v <= size);
+}
+
+/**
+ * What an outline view fits (`fitFlat`): the main part of `feature`; or, when `point` is not
+ * inside that frame, the part of the feature nearest to it (see `clusterAt`); and, when the point
+ * still is not (a place the data puts off its feature's land), a small disc at the point too, so
+ * the point shows.
+ */
+export function outlineFrame(feature: AreaFeature, point?: LngLat): AreaFeature[] {
+  const main = mainPart(feature);
+  if (!point || inFlatFrame(main, point)) return [main];
+  const part = clusterAt(feature, point);
+  if (inFlatFrame(part, point)) return [part];
+  return [
+    part,
+    ensureArea({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Point', coordinates: point },
+    }),
+  ];
 }
 
 // ---------------------------------------------------------------------------------------------
