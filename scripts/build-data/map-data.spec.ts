@@ -165,32 +165,20 @@ describe('outline of every place', () => {
   });
 });
 
-describe('same-named sibling regions', () => {
-  it('never offer the target’s name as an answer option', async () => {
-    const countries = await loadCountries();
-    const regions = await loadRegions('ireland');
-    const galways = regions.features.filter((f) => f.properties.name === 'Galway');
-    expect(galways.length).toBeGreaterThan(1);
-    const data = { countries, places: await loadPlaces(), regions };
-    for (const galway of galways) {
-      const item = buildExerciseItem(`region:${galway.id}`, data);
-      const names = item.candidates.map((c) => c.name);
-      expect(names).not.toContain('Galway');
-      expect(new Set(names).size).toBe(names.length);
-    }
-  });
-
-  it('list each other as also inside', async () => {
+describe('city/county pairs are distinct items', () => {
+  it('have their own names, no twins, and unique candidate names without their own', async () => {
     const regions = await loadRegions('ireland');
     const data = { countries: await loadCountries(), places: await loadPlaces(), regions };
-    const target = (id: string) => {
-      const t = buildExerciseItem(`region:${id}`, data).target;
-      if (!('feature' in t)) throw new Error('expected a feature target');
-      return t;
-    };
-    const a = target('ireland.galway-irl-5568');
-    const b = target('ireland.galway-irl-713');
-    expect(a.alsoInside).toEqual([b.feature]);
-    expect(b.alsoInside).toEqual([a.feature]);
+    for (const [id, name] of [
+      ['ireland.galway-city', 'Galway (city)'],
+      ['ireland.galway-county', 'Galway (county)'],
+    ]) {
+      const item = buildExerciseItem(`region:${id}`, data);
+      expect(item.name).toBe(name);
+      expect('alsoInside' in item.target).toBe(false);
+      const names = item.candidates.map((c) => c.name);
+      expect(names).not.toContain(name);
+      expect(new Set(names).size).toBe(names.length);
+    }
   });
 });
