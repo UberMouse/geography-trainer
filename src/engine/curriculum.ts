@@ -44,12 +44,31 @@ export const placeItemId = (id: string) => `place:${id}`;
 /** An item while the tree is being built: `children` and `difficulty` still change. */
 type DraftItem = { -readonly [K in keyof CurriculumItem]: CurriculumItem[K] } & { children: string[] };
 
+/**
+ * One `{ id, country }` per distinct region id named by a place of a country with `hasRegions`, in
+ * first-seen order. Places of other countries, and places with `region: null`, contribute nothing.
+ */
+export function regionsFromPlaces(
+  countries: readonly Pick<Country, 'id' | 'hasRegions'>[],
+  places: readonly Pick<Place, 'country' | 'region'>[],
+): Pick<Region, 'id' | 'country'>[] {
+  const withRegions = new Set(countries.filter((c) => c.hasRegions).map((c) => c.id));
+  const seen = new Set<string>();
+  const out: Pick<Region, 'id' | 'country'>[] = [];
+  for (const p of places) {
+    if (p.region === null || !withRegions.has(p.country) || seen.has(p.region)) continue;
+    seen.add(p.region);
+    out.push({ id: p.region, country: p.country });
+  }
+  return out;
+}
+
 /** Throws on a duplicate country, region or place id, an unknown country, or a place without its region.
  * A region with no places (every region of a country without a regions tier, and many others) is
  * left out: it is not an item and not its country's child. */
 export function buildCurriculum(
   countries: readonly Country[],
-  regions: readonly Region[],
+  regions: readonly Pick<Region, 'id' | 'country'>[],
   places: readonly Place[],
 ): Curriculum {
   const items = new Map<string, DraftItem>();
@@ -186,4 +205,96 @@ export function newItems(
       return !p || !isIntroduced(p);
     })
     .sort(compareNew(curriculum));
+}
+
+export type ItemState = 'locked' | 'new' | 'learning' | 'mastered';
+
+export interface SubtreeProgress {
+  /** Descendants of the item (children, grandchildren), not the item itself. */
+  total: number;
+  mastered: number;
+  /** Introduced and not mastered. */
+  learning: number;
+  /** Descendants that are not locked. */
+  unlocked: number;
+}
+
+export interface TierCount {
+  total: number;
+  /** Introduced and not mastered. */
+  learning: number;
+  /** Mastered. */
+  learned: number;
+}
+
+type ProgressMap = Readonly<Record<string, ItemProgress>>;
+
+function itemOrThrow(curriculum: Curriculum, itemId: string): CurriculumItem {
+  const item = curriculum.items.get(itemId);
+  if (!item) throw new Error(`Unknown curriculum item ${itemId}`);
+  return item;
+}
+
+function stateOf(item: CurriculumItem, progress: ProgressMap): ItemState {
+  if (item.parent !== null) {
+    const parent = progress[item.parent];
+    if (!parent || !isMastered(parent)) return 'locked';
+  }
+  const own = progress[item.id];
+  if (own && isMastered(own)) return 'mastered';
+  if (own && isIntroduced(own)) return 'learning';
+  return 'new';
+}
+
+/** Locked while the parent is not mastered; else mastered, learning (introduced) or new. Throws for an unknown id. */
+export function itemState(curriculum: Curriculum, progress: ProgressMap, itemId: string): ItemState {
+  return stateOf(itemOrThrow(curriculum, itemId), progress);
+}
+
+/** Counts over every descendant of the item, in one walk of its subtree. Throws for an unknown id. */
+export function subtreeProgress(curriculum: Curriculum, progress: ProgressMap, itemId: string): SubtreeProgress {
+  const out: SubtreeProgress = { total: 0, mastered: 0, learning: 0, unlocked: 0 };
+  const stack = [...itemOrThrow(curriculum, itemId).children];
+  while (stack.length > 0) {
+    const item = curriculum.items.get(stack.pop()!)!;
+    const state = stateOf(item, progress);
+    out.total++;
+    if (state === 'mastered') out.mastered++;
+    else if (state === 'learning') out.learning++;
+    if (state !== 'locked') out.unlocked++;
+    stack.push(...item.children);
+  }
+  return out;
+}
+
+/** `mastered / total`, 0 for an empty subtree. */
+export const masteredShare = (s: SubtreeProgress): number => (s.total === 0 ? 0 : s.mastered / s.total);
+
+/** Per-tier totals over the curriculum's items; progress rows for other ids are ignored. */
+export function tierCounts(curriculum: Curriculum, progress: ProgressMap): Record<Tier, TierCount> {
+  const out: Record<Tier, TierCount> = {
+    country: { total: 0, learning: 0, learned: 0 },
+    region: { total: 0, learning: 0, learned: 0 },
+    place: { total: 0, learning: 0, learned: 0 },
+  };
+  for (const item of curriculum.items.values()) {
+    const count = out[item.tier];
+    count.total++;
+    const own = progress[item.id];
+    if (!own) continue;
+    if (isMastered(own)) count.learned++;
+    else if (isIntroduced(own)) count.learning++;
+  }
+  return out;
+}
+
+/** What mastering the item unlocks: its children and their tier; null when it has none. Throws for an unknown id. */
+export function unlockedBy(
+  curriculum: Curriculum,
+  itemId: string,
+): { tier: 'region' | 'place'; childIds: string[] } | null {
+  const { children } = itemOrThrow(curriculum, itemId);
+  if (children.length === 0) return null;
+  const tier = curriculum.items.get(children[0]!)!.tier as 'region' | 'place';
+  return { tier, childIds: [...children] };
 }

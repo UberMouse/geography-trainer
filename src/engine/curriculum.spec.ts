@@ -3,10 +3,18 @@ import { Rating } from 'ts-fsrs';
 import {
   buildCountryCurriculum,
   buildCurriculum,
+  itemState,
+  masteredShare,
   newItems,
+  regionsFromPlaces,
+  subtreeProgress,
+  tierCounts,
+  unlockedBy,
   unlockedItems,
   type Curriculum,
 } from './curriculum';
+import realPlaces from '../../public/data/places.json';
+import realCountries from '../../public/data/countries.topo.json';
 import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
@@ -323,5 +331,134 @@ describe('buildCountryCurriculum', () => {
     );
     expect(() => buildCountryCurriculum(countries, [place('p', 'nowhere', null, 1)])).toThrow();
     expect(() => buildCountryCurriculum([countries[0]!, countries[0]!], [])).toThrow();
+  });
+});
+
+describe('regionsFromPlaces', () => {
+  const cs = [country('france', 0, true), country('tuvalu', 0, false)];
+  it('lists each region once in first-seen order, skipping null regions and regionless countries', () => {
+    const ps = [
+      place('a', 'france', 'france.corse', 1),
+      place('b', 'france', null, 1),
+      place('c', 'tuvalu', 'tuvalu.x', 1),
+      place('d', 'france', 'france.bretagne', 1),
+      place('e', 'france', 'france.corse', 1),
+    ];
+    expect(regionsFromPlaces(cs, ps)).toEqual([
+      { id: 'france.corse', country: 'france' },
+      { id: 'france.bretagne', country: 'france' },
+    ]);
+  });
+
+  it('builds a curriculum over the committed data', () => {
+    const geoms = (
+      realCountries as unknown as {
+        objects: { countries: { geometries: { id: string; properties: { hasRegions: boolean } }[] } };
+      }
+    ).objects.countries.geometries;
+    const all = geoms.map((g) => country(g.id, 0, g.properties.hasRegions));
+    const ps = realPlaces as unknown as Place[];
+    const regions = regionsFromPlaces(all, ps);
+    expect(regions.length).toBeGreaterThan(0);
+    const c = buildCurriculum(all, regions, ps);
+    expect(c.items.size).toBeGreaterThan(ps.length);
+  }, 30_000);
+});
+
+describe('itemState', () => {
+  it('is locked until the parent is mastered, then new, learning or mastered', () => {
+    const c = fixture();
+    const franceDone = { 'country:france': mastered('country:france') };
+    expect(itemState(c, {}, 'country:france')).toBe('new');
+    expect(itemState(c, {}, 'region:france.corse')).toBe('locked');
+    expect(itemState(c, franceDone, 'country:france')).toBe('mastered');
+    expect(itemState(c, franceDone, 'region:france.corse')).toBe('new');
+    expect(itemState(c, franceDone, 'region:germany.bayern')).toBe('locked');
+    expect(itemState(c, franceDone, 'place:rennes')).toBe('locked');
+    const fresh = createProgress('country:germany', T0);
+    const answered = applyAnswer(fresh, fresh.rung, Rating.Good, T0, localDayKey(T0, 0));
+    expect(itemState(c, { 'country:germany': answered }, 'country:germany')).toBe('learning');
+    expect(itemState(c, { 'country:germany': fresh }, 'country:germany')).toBe('new');
+  });
+
+  it("unlocks a regionless country's places directly, and a region's places once it is mastered", () => {
+    const c = fixture();
+    expect(itemState(c, {}, 'place:funafuti')).toBe('locked');
+    expect(itemState(c, { 'country:tuvalu': mastered('country:tuvalu') }, 'place:funafuti')).toBe('new');
+    const p = { 'region:france.bretagne': mastered('region:france.bretagne') };
+    expect(itemState(c, p, 'place:rennes')).toBe('new');
+    expect(itemState(c, p, 'place:ajaccio')).toBe('locked');
+  });
+
+  it('throws for an unknown id', () => {
+    expect(() => itemState(fixture(), {}, 'country:nowhere')).toThrow(Error);
+  });
+});
+
+describe('subtreeProgress and masteredShare', () => {
+  it('counts every descendant, with unlocked meaning not locked', () => {
+    const c = fixture();
+    const p = {
+      'country:france': mastered('country:france'),
+      'region:france.bretagne': mastered('region:france.bretagne'),
+      'place:rennes': mastered('place:rennes'),
+    };
+    const s = subtreeProgress(c, p, 'country:france');
+    // regions: bretagne (mastered), corse (new); places: rennes (mastered), brest (new), ajaccio (locked)
+    expect(s).toEqual({ total: 5, mastered: 2, learning: 0, unlocked: 4 });
+    expect(masteredShare(s)).toBeCloseTo(0.4);
+    expect(subtreeProgress(c, {}, 'country:germany')).toEqual({
+      total: 3,
+      mastered: 0,
+      learning: 0,
+      unlocked: 0,
+    });
+  });
+
+  it('is empty for a place, with a share of 0, and throws for an unknown id', () => {
+    const s = subtreeProgress(fixture(), {}, 'place:rennes');
+    expect(s).toEqual({ total: 0, mastered: 0, learning: 0, unlocked: 0 });
+    expect(masteredShare(s)).toBe(0);
+    expect(() => subtreeProgress(fixture(), {}, 'region:x.y')).toThrow(Error);
+  });
+});
+
+describe('tierCounts', () => {
+  it('counts per tier, learning apart from learned, and ignores ids outside the curriculum', () => {
+    const c = fixture();
+    const started = createProgress('region:france.corse', T0);
+    const learning = applyAnswer(started, started.rung, Rating.Good, T0, localDayKey(T0, 0));
+    const t = tierCounts(c, {
+      'country:france': mastered('country:france'),
+      'region:france.corse': learning,
+      'place:rennes': mastered('place:rennes'),
+      'place:ghost': mastered('place:ghost'),
+      'country:ghost': mastered('country:ghost'),
+    });
+    expect(t.country).toEqual({ total: 3, learning: 0, learned: 1 });
+    expect(t.region).toEqual({ total: 3, learning: 1, learned: 0 });
+    expect(t.place).toEqual({ total: 6, learning: 0, learned: 1 });
+  });
+});
+
+describe('unlockedBy', () => {
+  it('gives the children and their tier, null without children', () => {
+    const c = fixture();
+    expect(unlockedBy(c, 'country:france')).toEqual({
+      tier: 'region',
+      childIds: ['region:france.bretagne', 'region:france.corse'],
+    });
+    expect(unlockedBy(c, 'country:tuvalu')).toEqual({ tier: 'place', childIds: ['place:funafuti'] });
+    expect(unlockedBy(c, 'region:france.corse')).toEqual({ tier: 'place', childIds: ['place:ajaccio'] });
+    expect(unlockedBy(c, 'place:rennes')).toBeNull();
+    expect(unlockedBy(buildCurriculum([country('x', 0, false)], [], []), 'country:x')).toBeNull();
+    expect(() => unlockedBy(c, 'country:nowhere')).toThrow(Error);
+  });
+
+  it("master France: its regions are new, Germany's stay locked", () => {
+    const c = fixture();
+    const p = { 'country:france': mastered('country:france') };
+    for (const id of unlockedBy(c, 'country:france')!.childIds) expect(itemState(c, p, id)).toBe('new');
+    for (const id of unlockedBy(c, 'country:germany')!.childIds) expect(itemState(c, p, id)).toBe('locked');
   });
 });
