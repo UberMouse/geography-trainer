@@ -31,8 +31,13 @@ export interface ItemProgress {
   l4PassDays: string[];
   /** True from an Again at L4 until the item passes L3 and returns to L4. */
   inL4Lapse: boolean;
-  /** Epoch ms. */
-  introducedAt: number;
+  /**
+   * Epoch ms of the item's first answer as a new item (an answer while `!isIntroduced`), else null.
+   * A placement seed is null until then, and a `passed` seed (already introduced) stays null forever.
+   * A caller computes `introducedToday` as the number of progress records whose `introducedAt` falls
+   * on today's local day.
+   */
+  introducedAt: number | null;
 }
 
 /**
@@ -77,7 +82,7 @@ export function createProgress(itemId: string, now: Date): ItemProgress {
     cards: { 1: newCard(now) },
     l4PassDays: [],
     inL4Lapse: false,
-    introducedAt: now.getTime(),
+    introducedAt: null,
   };
 }
 
@@ -98,7 +103,7 @@ export function applyAnswer(
   const passed = rating === Rating.Good || rating === Rating.Easy;
 
   let l4PassDays = progress.l4PassDays;
-  if (rung === 4 && passed && !l4PassDays.includes(dayKey)) {
+  if (rung === 4 && progress.rung === 4 && passed && !l4PassDays.includes(dayKey)) {
     l4PassDays = [...l4PassDays, dayKey].sort();
   }
 
@@ -117,7 +122,9 @@ export function applyAnswer(
     cards[current] = target ? (current < rung ? { ...target, due: now.getTime() } : target) : newCard(now);
   }
 
-  return { ...progress, rung: current, highestRung, cards, l4PassDays, inL4Lapse };
+  const introducedAt = isIntroduced(progress) ? progress.introducedAt : now.getTime();
+
+  return { ...progress, rung: current, highestRung, cards, l4PassDays, inL4Lapse, introducedAt };
 }
 
 /**

@@ -13,7 +13,10 @@ export interface SessionInput {
   curriculum: Curriculum;
   progress: Readonly<Record<string, ItemProgress>>;
   now: Date;
-  /** New items already introduced today; the new-item slots are `dailyCap - introducedToday`. */
+  /**
+   * New items already introduced today: the number of progress records whose `introducedAt` falls on
+   * today's local day. The new-item slots are `dailyCap - introducedToday`.
+   */
   introducedToday: number;
   /** Defaults to DAILY_NEW_CAP. Caps new items only, never due reviews. */
   dailyCap?: number;
@@ -29,7 +32,9 @@ export interface SessionInput {
  * progress, or progress never answered, such as a placement seed) in curriculum order, at most
  * `dailyCap - introducedToday`; each is asked at `dueRung` when it has progress (a seed at L3) and
  * at L1 otherwise. No item appears twice. The result is then interleaved so no `SESSION_MAX_RUN + 1`
- * questions in a row share a rung whenever some ordering avoids that.
+ * questions in a row share a rung whenever some ordering avoids that. Known trade-off: when the due
+ * reviews alone cannot avoid a long same-rung run, new items are pulled forward to break it, so they
+ * can precede overdue reviews.
  */
 export function buildSession(input: SessionInput): SessionQuestion[] {
   const { curriculum, progress, now, introducedToday, placeTypes } = input;

@@ -47,7 +47,7 @@ describe('createProgress', () => {
       highestRung: 1,
       l4PassDays: [],
       inL4Lapse: false,
-      introducedAt: T0.getTime(),
+      introducedAt: null,
     });
     expect(p.cards[1]).toMatchObject({ state: State.New, due: T0.getTime() });
     expect(isMastered(p)).toBe(false);
@@ -220,10 +220,48 @@ describe('serialisation', () => {
   });
 });
 
+describe('introducedAt', () => {
+  it('is null for a fresh item and every seed outcome', () => {
+    expect(createProgress('a', T0).introducedAt).toBeNull();
+    for (const o of ['passed', 'failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
+      expect(seedFromPlacement('a', o, T0).introducedAt).toBeNull();
+    }
+  });
+
+  it('is set by the first answer and unchanged by the second', () => {
+    const first = answer(createProgress('a', T0), 1, Rating.Good, 1);
+    expect(first.introducedAt).toBe(at(1).getTime());
+    expect(answer(first, 2, Rating.Good, 2).introducedAt).toBe(at(1).getTime());
+  });
+
+  it('is set by the first answer to an untested seed', () => {
+    const p = answer(seedFromPlacement('a', 'untestedAtOrBelow', T0), 3, Rating.Good, 1);
+    expect(p.introducedAt).toBe(at(1).getTime());
+  });
+
+  it('stays null when a passed seed is answered', () => {
+    expect(answer(seedFromPlacement('a', 'passed', T0), 4, Rating.Good, 1).introducedAt).toBeNull();
+  });
+
+  it('survives JSON as null', () => {
+    const p = createProgress('a', T0);
+    expect(JSON.parse(JSON.stringify(p))).toEqual(p);
+  });
+});
+
+describe('L4 pass during a lapse', () => {
+  it('adds no pass day and leaves the ladder alone', () => {
+    const lapsed = answer(seedFromPlacement('a', 'passed', T0), 4, Rating.Again, 1);
+    expect(lapsed).toMatchObject({ rung: 3, inL4Lapse: true });
+    const p = answer(lapsed, 4, Rating.Good, 2);
+    expect(p).toMatchObject({ rung: 3, inL4Lapse: true, l4PassDays: [] });
+  });
+});
+
 describe('seedFromPlacement', () => {
   it('passed: rung 4, review card with seed stability, not mastered', () => {
     const p = seedFromPlacement('a', 'passed', T0);
-    expect(p).toMatchObject({ rung: 4, highestRung: 4, l4PassDays: [], inL4Lapse: false, introducedAt: T0.getTime() });
+    expect(p).toMatchObject({ rung: 4, highestRung: 4, l4PassDays: [], inL4Lapse: false, introducedAt: null });
     expect(p.cards[4]).toMatchObject({
       state: State.Review,
       stability: PLACEMENT_SEED_STABILITY_DAYS,
