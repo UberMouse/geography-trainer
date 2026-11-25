@@ -1,7 +1,6 @@
-import { multipleChoice, pickDistractors } from '../engine/distractors';
+import { DISTRACTORS, multipleChoice, pickDistractors } from '../engine/distractors';
 import type { Rng } from '../engine/rng';
 import { targetPoint } from '../maps/geo';
-import { DISTRACTORS } from './item';
 import type { ExerciseItem } from './types';
 
 export interface Choice {

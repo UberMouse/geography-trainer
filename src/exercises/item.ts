@@ -1,9 +1,14 @@
-import { countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
+import { countryItemId } from '../engine/curriculum';
+import {
+  countryCandidates,
+  placeCandidates,
+  type PointRecord,
+  regionCandidates,
+} from '../engine/distractors';
 import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
 import {
   answerPoint,
-  distanceKm,
   mainPart,
   nearPoint,
   type AreaFeature,
@@ -11,7 +16,9 @@ import {
   type LngLat,
 } from '../maps/geo';
 import { inFlatFrame } from '../maps/view';
-import type { Candidate, ExerciseItem } from './types';
+import type { ExerciseItem } from './types';
+
+export { distinctCandidates } from '../engine/distractors';
 
 /** The loaded data an item is built from: `regions` is the item's country's, when it has them. */
 export interface ExerciseData {
@@ -20,34 +27,10 @@ export interface ExerciseData {
   regions?: RegionsData;
 }
 
-/** A multiple-choice question offers up to this many wrong options. */
-export const DISTRACTORS = 3;
-
-const pointCandidate = (id: string, name: string, [lng, lat]: LngLat): Candidate => ({
-  id,
-  name,
-  lng,
-  lat,
-});
-
-/**
- * `candidates` without any named `name` (the target's own), and with one candidate per name, the
- * nearest to `from`, so no two options of a question read the same.
- */
-export function distinctCandidates(
-  candidates: Candidate[],
-  name: string,
-  from: LngLat,
-): Candidate[] {
-  const nearest = new Map<string, { candidate: Candidate; km: number }>();
-  for (const candidate of candidates) {
-    if (candidate.name === name) continue;
-    const km = distanceKm(from, [candidate.lng, candidate.lat]);
-    const best = nearest.get(candidate.name);
-    if (!best || km < best.km) nearest.set(candidate.name, { candidate, km });
-  }
-  return [...nearest.values()].map((n) => n.candidate);
-}
+const pointRecord = (
+  f: { id: string; properties: { name: string } },
+  [lng, lat]: LngLat,
+): PointRecord => ({ id: f.id, name: f.properties.name, lng, lat });
 
 function splitId(itemId: string): [string, string] {
   const at = itemId.indexOf(':');
@@ -56,30 +39,9 @@ function splitId(itemId: string): [string, string] {
 }
 
 /**
- * A place's wrong options come from its region's other places; with fewer than `DISTRACTORS`
- * distinctly named ones (see `distinctCandidates`), from its country's, then from every place. A
- * place with no region starts at its country.
- */
-function placeCandidates(place: Place, places: Place[]): Candidate[] {
-  const others = places.filter((p) => p.id !== place.id);
-  const from: LngLat = [place.lng, place.lat];
-  const distinct = (pool: Place[]) =>
-    distinctCandidates(
-      pool.map((p) => pointCandidate(placeItemId(p.id), p.name, [p.lng, p.lat])),
-      place.name,
-      from,
-    );
-  const pools = [
-    place.region === null ? [] : others.filter((p) => p.region === place.region),
-    others.filter((p) => p.country === place.country),
-  ].map(distinct);
-  return pools.find((p) => p.length >= DISTRACTORS) ?? distinct(others);
-}
-
-/**
  * Build the exercise item for a namespaced item id from loaded data (it fetches nothing). Wrong
  * options are drawn from: every other country; the country's other regions that have places; or
- * a place's neighbours (see `placeCandidates`). Throws for an unknown id, for a region or a
+ * a place's neighbours (see `src/engine/distractors.ts`). Throws for an unknown id, for a region or a
  * regions-tier place when `regions` is missing or another country's, and for a place whose region is not in it.
  */
 export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseItem {
@@ -111,12 +73,9 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       countryId: itemId,
       target: { feature: country, answer: answerPoint(country) },
       context: features,
-      candidates: distinctCandidates(
-        features
-          .filter((f) => f !== country)
-          .map((f) => pointCandidate(countryItemId(f.id), f.properties.name, nearPoint(f))),
-        country.properties.name,
-        nearPoint(country),
+      candidates: countryCandidates(
+        pointRecord(country, nearPoint(country)),
+        features.map((f) => pointRecord(f, nearPoint(f))),
       ),
       outline: country,
       frame: mainPart(country),
@@ -149,12 +108,12 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         ...(twins.length > 0 && { alsoInside: twins }),
       },
       context: regions.features,
-      candidates: distinctCandidates(
-        regions.features
-          .filter((f) => f !== region && f.properties.places > 0)
-          .map((f) => pointCandidate(regionItemId(f.id), f.properties.name, nearPoint(f))),
-        region.properties.name,
-        answer,
+      candidates: regionCandidates(
+        pointRecord(region, answer),
+        regions.features.map((f) => ({
+          ...pointRecord(f, nearPoint(f)),
+          places: f.properties.places,
+        })),
       ),
       outline: region,
       frame,

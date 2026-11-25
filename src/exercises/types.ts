@@ -1,17 +1,9 @@
 import type { Grade } from 'ts-fsrs';
 import type { Tier } from '../engine/curriculum';
+import type { Candidate } from '../engine/distractors';
 import type { Rung } from '../engine/srs';
 import type { AreaFeature, IdentifiedFeature, TapTarget } from '../maps/geo';
 import type { GlobeView } from '../maps/view';
-
-/** A same-tier item a multiple-choice question can offer as a wrong option. */
-export interface Candidate {
-  /** Namespaced item id. */
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-}
 
 /** Everything an exercise needs about one item, built by `buildExerciseItem`. */
 export interface ExerciseItem {
