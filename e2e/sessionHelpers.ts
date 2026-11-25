@@ -4,7 +4,7 @@ import { expect, type Page } from '@playwright/test';
 
 export const WAIT = { timeout: 30_000 };
 
-export const question = (page: Page) => page.getByTestId('session-question');
+export const question = (page: Page, testId = 'session-question') => page.getByTestId(testId);
 export const summary = (page: Page) => page.getByRole('heading', { name: /^Round done:/ });
 
 export async function tap(page: Page, isMobile: boolean, x: number, y: number) {
@@ -13,12 +13,12 @@ export async function tap(page: Page, isMobile: boolean, x: number, y: number) {
 }
 
 /** What the current question is, once it has rendered. */
-export async function current(page: Page) {
-  await expect(question(page)).toBeVisible(WAIT);
+export async function current(page: Page, testId = 'session-question') {
+  await expect(question(page, testId)).toBeVisible(WAIT);
   return {
-    itemId: (await question(page).getAttribute('data-item-id'))!,
-    name: (await question(page).getAttribute('data-item-name'))!,
-    rung: Number(await question(page).getAttribute('data-rung')),
+    itemId: (await question(page, testId).getAttribute('data-item-id'))!,
+    name: (await question(page, testId).getAttribute('data-item-name'))!,
+    rung: Number(await question(page, testId).getAttribute('data-rung')),
   };
 }
 

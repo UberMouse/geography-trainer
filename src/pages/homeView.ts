@@ -1,6 +1,6 @@
 // Plain helpers for Home's export and import, kept out of the component so they can be unit-tested.
 
-import { localDayKey, type ItemProgress } from '../engine/srs';
+import { isIntroduced, localDayKey, type ItemProgress } from '../engine/srs';
 import { startedByTier, validateProgressFile, type ProgressFile, type TierCounts } from '../storage/progressFile';
 
 /** The download name for an export made at `now`: the local day, `tzOffsetMinutes` east of UTC. */
@@ -67,3 +67,7 @@ export const importConfirmText = (s: ImportSummary): string =>
 /** The warning after an export that left out `n` answers that could not be saved. */
 export const leftOutText = (n: number): string =>
   `${n === 1 ? '1 answer' : `${n} answers`} could not be saved and ${n === 1 ? 'is' : 'are'} not in the file.`;
+
+/** Whether Home offers the placement test: while no item has been started. */
+export const offersPlacement = (progress: Readonly<Record<string, ItemProgress>>): boolean =>
+  !Object.values(progress).some(isIntroduced);

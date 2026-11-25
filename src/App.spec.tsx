@@ -24,4 +24,8 @@ describe('App', () => {
   it('renders the Progress page heading', () => {
     expect(render('/progress')).toContain('<h1>Progress</h1>');
   });
+
+  it('renders the Placement page (loading first)', () => {
+    expect(render('/placement')).toContain('Loading…');
+  });
 });

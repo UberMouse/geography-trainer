@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router';
+import { PLACEMENT_MAX_QUESTIONS } from '../engine/config';
 import type { ItemProgress } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
 import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
 import { progressStore } from '../storage/progressStore';
-import { checkImportText, exportFilename, importConfirmText, leftOutText, type ImportSummary } from './homeView';
+import {
+  checkImportText,
+  exportFilename,
+  importConfirmText,
+  leftOutText,
+  offersPlacement,
+  type ImportSummary,
+} from './homeView';
 import Status from './LoadStatus';
 import { countryLooks, lookOrLocked } from './progressView';
 import { useLoaded } from './useLoaded';
@@ -99,6 +107,12 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
           <dd data-testid="today-learned">{numbers.learned}</dd>
         </div>
       </dl>
+      {offersPlacement(data.progress) && (
+        <p>
+          Already know some countries? <Link to="/placement">Take the placement test</Link> (about{' '}
+          {PLACEMENT_MAX_QUESTIONS} questions)
+        </p>
+      )}
       {numbers.sessionLength > 0 ? (
         <p>
           <Link to="/session" className="home-start">

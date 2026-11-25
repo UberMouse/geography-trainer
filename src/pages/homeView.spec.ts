@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import { createRepo, type ProgressRepo } from '../storage/repo';
 import type { TierCounts } from '../storage/progressFile';
-import { checkImportText, exportFilename, importConfirmText, leftOutText } from './homeView';
+import { checkImportText, exportFilename, importConfirmText, leftOutText, offersPlacement } from './homeView';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -98,5 +98,17 @@ describe('checkImportText', () => {
   it('words the answers an export left out', () => {
     expect(leftOutText(1)).toBe('1 answer could not be saved and is not in the file.');
     expect(leftOutText(3)).toBe('3 answers could not be saved and are not in the file.');
+  });
+});
+
+describe('offersPlacement', () => {
+  it('offers while no item has been started', () => {
+    expect(offersPlacement({})).toBe(true);
+    // A row with no answered card (a fresh or L3-seeded record) is not a started item.
+    expect(offersPlacement({ 'country:france': createProgress('country:france', NOW) })).toBe(true);
+  });
+
+  it('stops offering once an item is started', () => {
+    expect(offersPlacement({ 'country:france': started('country:france') })).toBe(false);
   });
 });

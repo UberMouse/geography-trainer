@@ -283,7 +283,8 @@ a {
 }
 
 .session-summary:focus,
-[data-testid='session-question']:focus {
+[data-testid='session-question']:focus,
+[data-testid='placement-question']:focus {
   outline: none;
 }
 
