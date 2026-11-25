@@ -48,7 +48,7 @@ async function importMastered(page: Page, path: string) {
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
 }
 
-test('mastering a country unlocks its regions in the next session', async ({ page, isMobile }, testInfo) => {
+test("a mastered country's regions are asked in the next session", async ({ page, isMobile }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
   await importMastered(page, file);

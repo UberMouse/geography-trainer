@@ -88,6 +88,8 @@ describe('the full tree', () => {
     { id: 'fr', name: 'France', places: 2, hasRegions: true },
     { id: 'jp', name: 'Japan', places: 1, hasRegions: false },
     { id: 'xx', name: 'Nowhere', places: 0, hasRegions: false },
+    { id: 'be', name: 'Belgium', places: 1, hasRegions: true },
+    { id: 'lu', name: 'Luxembourg', places: 1, hasRegions: false },
   ];
   const place = (id: string, country: string, region: string | null): Place => ({
     id,
@@ -99,12 +101,18 @@ describe('the full tree', () => {
     type: 'city',
     level: 1,
   });
-  const places = [place('paris', 'fr', 'fr.idf'), place('brest', 'fr', 'fr.bre'), place('tokyo', 'jp', null)];
-  const curriculum = buildCurriculum(countries, [{ id: 'fr.idf', country: 'fr' }, { id: 'fr.bre', country: 'fr' }], places);
+  const places = [place('paris', 'fr', 'fr.idf'), place('brest', 'fr', 'fr.bre'), place('tokyo', 'jp', null),
+    place('arlon', 'be', 'be.lux'),
+    place('lux-city', 'lu', null),
+  ];
+  const curriculum = buildCurriculum(countries, [{ id: 'fr.idf', country: 'fr' }, { id: 'fr.bre', country: 'fr' }, { id: 'be.lux', country: 'be' }], places);
   const names: Record<string, string> = {
     'country:fr': 'France',
     'country:jp': 'Japan',
     'region:fr.bre': 'Brittany',
+    'country:be': 'Belgium',
+    'country:lu': 'Luxembourg',
+    'region:be.lux': 'Luxembourg',
   };
   const nameOf = (id: string) => names[id] ?? id;
 
@@ -135,15 +143,23 @@ describe('the full tree', () => {
   describe('unlockLines', () => {
     it('says regions for a regions-tier country, places for the rest and a region', () => {
       expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
-        "Unlocked: France's regions",
-        "Unlocked: Japan's places",
-        "Unlocked: Brittany's places",
+        { id: 'country:fr', text: "Unlocked: France's regions" },
+        { id: 'country:jp', text: "Unlocked: Japan's places" },
+        { id: 'region:fr.bre', text: "Unlocked: Brittany's places (France)" },
+      ]);
+    });
+
+    it('tells a region and a country of the same name apart, by id and by text', () => {
+      const lines = unlockLines(curriculum, ['country:lu', 'region:be.lux'], nameOf);
+      expect(lines).toEqual([
+        { id: 'country:lu', text: "Unlocked: Luxembourg's places" },
+        { id: 'region:be.lux', text: "Unlocked: Luxembourg's places (Belgium)" },
       ]);
     });
 
     it('lists an item mastered twice once and skips items that unlock nothing', () => {
       expect(unlockLines(curriculum, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf)).toEqual([
-        "Unlocked: Japan's places",
+        { id: 'country:jp', text: "Unlocked: Japan's places" },
       ]);
     });
 

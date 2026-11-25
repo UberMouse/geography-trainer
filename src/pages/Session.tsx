@@ -137,7 +137,7 @@ function Runner({ data }: { data: SessionData }) {
           Round done: {run.correctInRound} of {run.answeredInRound} right
         </h2>
         {unlockLines(curriculum, mastered, nameOf).map((line) => (
-          <p key={line}>{line}</p>
+          <p key={line.id}>{line.text}</p>
         ))}
         {questionsRemain(run) ? (
           <p>
