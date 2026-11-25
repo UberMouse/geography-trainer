@@ -169,6 +169,27 @@ describe('region name overrides', () => {
     expect(assignRegion(regions, 1, 0, 'Galway').adminMatches).toHaveLength(2);
   });
 
+  it('keeps a mislabelled row from matching the name NE wrongly gave it', () => {
+    // NE labels AAA-1 "Parwan" (name_en and name_alt repeat it); it is really Panjshir.
+    const mislabelled = [
+      admin1('AAA-1', 'Parwan', [0, 0], { nameEn: 'Parwan', nameAlt: 'Charikar|Parwan' }),
+      admin1('AAA-2', 'Parwan', [1, 0]),
+    ];
+    const named = applyRegionNameOverrides(mislabelled, {
+      'AAA-1': { name: 'Panjshir', reason: 'test', mislabel: true },
+    });
+    expect(named[0]).toMatchObject({ name: 'Panjshir', nameEn: null, nameAlt: null });
+    expect(named[0]!.neName).toBeUndefined();
+    const regions = buildRegions('afghanistan', named, false);
+    // A "Parwan" place inside the Panjshir polygon is a disagreement, not a match.
+    const inPanjshir = assignRegion(regions, 0.5, 0.5, 'Parwan');
+    expect(inPanjshir.adminMatches.map((r) => r.name)).toEqual(['Parwan']);
+    expect(adminDisagrees(inPanjshir, 'Parwan')).toBe(true);
+    const inParwan = assignRegion(regions, 1.5, 0.5, 'Parwan');
+    expect(adminDisagrees(inParwan, 'Parwan')).toBe(false);
+    expect(assignRegion(regions, 0.5, 0.5, 'Charikar').adminMatches).toEqual([]);
+  });
+
   it('fails for an override whose code is not in NE', () => {
     expect(() => applyRegionNameOverrides(rows, { 'ZZZ-9': { name: 'X', reason: 'r' } })).toThrow(
       /ZZZ-9/,

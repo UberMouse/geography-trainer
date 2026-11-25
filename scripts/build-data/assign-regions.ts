@@ -80,12 +80,14 @@ export function admin1Rows(
 
 /**
  * Applies region-name overrides (by NE code) to admin-1 rows: the row's `name` becomes the
- * override and NE's own name moves to `neName`. An override naming no row throws, so a stale one
- * cannot go unnoticed.
+ * override and NE's own name moves to `neName`, which still matches maptap's admin. A `mislabel`
+ * override means NE's name and aliases describe another region: `neName`, `nameEn` and `nameAlt`
+ * are all dropped, so the override name is the row's only name. An override naming no row throws,
+ * so a stale one cannot go unnoticed.
  */
 export function applyRegionNameOverrides(
   admin1: NeAdmin1[],
-  overrides: Record<string, { name: string; reason: string }>,
+  overrides: Record<string, { name: string; reason: string; mislabel?: true }>,
 ): NeAdmin1[] {
   const codes = new Set(admin1.map((row) => row.code));
   const stale = Object.keys(overrides).filter((code) => !codes.has(code));
@@ -94,7 +96,9 @@ export function applyRegionNameOverrides(
   }
   return admin1.map((row) => {
     const override = overrides[row.code];
-    return override ? { ...row, name: override.name, neName: row.name } : row;
+    if (!override) return row;
+    if (!override.mislabel) return { ...row, name: override.name, neName: row.name };
+    return { ...row, name: override.name, nameEn: null, nameAlt: null };
   });
 }
 

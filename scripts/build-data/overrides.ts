@@ -110,8 +110,12 @@ export const CONTAINMENT_ALLOW_LIST: Record<string, string> = {
 };
 
 // Display names for admin-1 rows (NE `adm1_code`) whose NE name is wrong or shared with another
-// row of the same country, so no two regions of a country share a name.
-export const REGION_NAME_OVERRIDES: Record<string, { name: string; reason: string }> = {
+// row of the same country, so no two regions of a country share a name. `mislabel` marks the rows
+// where NE's name belongs to another region: it is then no match alias for this one.
+export const REGION_NAME_OVERRIDES: Record<
+  string,
+  { name: string; reason: string; mislabel?: true }
+> = {
   'IRL-713': { name: 'Galway (county)', reason: 'NE type County; shares a name with the city' },
   'IRL-5568': { name: 'Galway (city)', reason: 'NE type City; shares a name with the county' },
   'IRL-78': { name: 'Cork (county)', reason: 'NE type County; shares a name with the city' },
@@ -139,20 +143,24 @@ export const REGION_NAME_OVERRIDES: Record<string, { name: string; reason: strin
   'AFG-1769': {
     name: 'Panjshir',
     reason: 'NE labels it "Parwan", but gn_name/woe_name say Panjshir (split from Parwan in 2004)',
+    mislabel: true,
   },
   'AFG-1753': {
     name: 'Daykundi',
     reason:
       'NE labels it "Uruzgan", but gn_name/woe_name say Daykundi (split from Uruzgan in 2004)',
+    mislabel: true,
   },
   'HRV-1604': {
     name: 'Požeško-Slavonska',
     reason:
       'NE labels it "Brodsko-Posavska" (twin of HRV-1602), but its FIPS HR11, wikidata Q58111 and centre are Požega-Slavonia\'s',
+    mislabel: true,
   },
   'UGA-3371': {
     name: 'Kiruhura',
     reason: 'NE labels it "Mbarara", but its gn_name is Kiruhura District (UGA-3374 is Mbarara)',
+    mislabel: true,
   },
   'HUN-3158': { name: 'Veszprém (county)', reason: 'NE type County; shares a name with the city' },
   'HUN-4909': {
