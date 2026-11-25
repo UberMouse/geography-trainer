@@ -25,6 +25,13 @@ describe('App', () => {
     expect(render('/progress')).toContain('<h1>Progress</h1>');
   });
 
+  it('renders the Credits page', () => {
+    const html = render('/credits');
+    expect(html).toContain('<h1>Credits</h1>');
+    expect(html).toContain('MapTap.gg');
+    expect(html).toContain('Natural Earth');
+  });
+
   it('renders the Settings page heading', () => {
     expect(render('/settings')).toContain('<h1>Settings</h1>');
   });

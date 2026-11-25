@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import Footer from './components/Footer';
 import SaveStatus from './components/SaveStatus';
+import Credits from './pages/Credits';
 import Home from './pages/Home';
 import Placement from './pages/Placement';
 import Progress from './pages/Progress';
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/placement/:country" element={<TestOut />} />
           <Route path="/placement/:country/:region" element={<TestOut />} />
           <Route path="/session" element={<Session />} />
+          <Route path="/credits" element={<Credits />} />
           <Route path="/settings" element={<Settings />} />
           {import.meta.env.DEV && <Route path="/playground" element={<Playground />} />}
           <Route path="*" element={<Navigate to="/" replace />} />

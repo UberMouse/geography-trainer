@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+
 export default function Footer() {
   return (
     <footer className="app-footer">
@@ -6,6 +8,9 @@ export default function Footer() {
       </p>
       <p>
         Boundaries: <a href="https://www.naturalearthdata.com">Natural Earth</a>
+      </p>
+      <p>
+        <Link to="/credits">Credits</Link>
       </p>
     </footer>
   );
