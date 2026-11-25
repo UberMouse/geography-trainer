@@ -36,7 +36,9 @@ Filtered runs: `npx vitest run <paths>`, `npx playwright test <spec> --grep '<na
   time (`now`) and randomness as arguments, so every spec is deterministic. All learning logic
   lives here and is unit-tested.
 - `src/storage/` is the only code that touches IndexedDB. A schema change bumps the Dexie
-  version with a migration, and export/import round-trips every field.
+  version with a migration, and export/import round-trips every progress field (progress,
+  answers, finished placement tests). Device settings such as the daily new-item limit stay
+  out of the export file on purpose: an import leaves them as they are.
 - `src/maps/` holds the d3-geo components; `src/exercises/` the four exercise types;
   `src/pages/` the screens.
 - `scripts/build-data/` generates `public/data/` from `https://maptap.gg/data/master_locations_v2.js`.
