@@ -40,25 +40,42 @@ function insideCountry(country: MatchedCountry, [lng, lat]: [number, number]): b
   return areaContains(country.area!, country.box!, lng, lat);
 }
 
+/** An admin-1 row of a country's ADM0_A3 dropped because its label point is in another country. */
+export interface DroppedRow {
+  code: string;
+  name: string;
+  country: string;
+  /** The country whose geometry contains the row's label point. */
+  labelIn: string;
+}
+
 /**
  * The admin-1 rows of `country`: rows of its ADM0_A3, minus rows whose GU_A3 is another kept
  * country's geounit and not its own (England's rows are not Scotland's, Tokelau's not New
  * Zealand's), minus rows whose label point lies in another kept country (Caribbean Netherlands
- * rows are NLD/NLD but belong to Bonaire, Saba and Sint Eustatius).
+ * rows are NLD/NLD but belong to Bonaire, Saba and Sint Eustatius), which are returned as
+ * `dropped` so the build can report them.
  */
 export function admin1Rows(
   country: MatchedCountry,
   admin1: NeAdmin1[],
   countries: MatchedCountry[],
-): NeAdmin1[] {
+): { rows: NeAdmin1[]; dropped: DroppedRow[] } {
   const others = countries.filter((other) => other.id !== country.id);
   const othersGeounits = new Set(others.flatMap((other) => other.guA3));
-  return admin1.filter(
-    (row) =>
-      country.adm0.includes(row.adm0) &&
-      !(row.guA3 && othersGeounits.has(row.guA3) && !country.guA3.includes(row.guA3)) &&
-      !others.some((other) => insideCountry(other, row.label)),
-  );
+  const rows: NeAdmin1[] = [];
+  const dropped: DroppedRow[] = [];
+  for (const row of admin1) {
+    if (!country.adm0.includes(row.adm0)) continue;
+    if (row.guA3 && othersGeounits.has(row.guA3) && !country.guA3.includes(row.guA3)) continue;
+    const labelIn = others.find((other) => insideCountry(other, row.label));
+    if (labelIn) {
+      dropped.push({ code: row.code, name: row.name, country: country.id, labelIn: labelIn.id });
+    } else {
+      rows.push(row);
+    }
+  }
+  return { rows, dropped };
 }
 
 /**

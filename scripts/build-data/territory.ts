@@ -22,14 +22,17 @@ export interface TerritoryMove {
 const SLIVER_SHARE = 0.01;
 
 /**
- * A sliver the move ignored: `in-territory` stayed with the losing country's row although the
- * country geometry lost it; `outside` stayed in the losing country's geometry with no row, as
- * the rest of the row moved.
+ * A clipping result the build reports. `in-territory`: a sliver that stayed with the losing
+ * country's row although the country geometry lost it. `outside`: a sliver that stayed in the
+ * losing country's geometry with no row, as the rest of the row moved. `gaining-overlap`: a
+ * gaining country's row still overlaps the moved pieces by this much. `gaining-covered`: a
+ * gaining country's row lay (all but a sliver) in the territory, so it was dropped and the moved
+ * pieces replace it; share and km² are of the overlap.
  */
 interface Sliver {
   move: string;
   row: string;
-  part: 'in-territory' | 'outside';
+  part: 'in-territory' | 'outside' | 'gaining-overlap' | 'gaining-covered';
   share: number;
   km2: number;
 }
@@ -45,7 +48,7 @@ const labelOf = (area: Area): [number, number] => {
   return [lng!, lat!];
 };
 
-/** Applies the moves in order: the updated countries and admin-1 rows, and the slivers ignored. */
+/** Applies the moves in order: the updated countries and admin-1 rows, and what to report. */
 export function applyTerritoryMoves(
   countries: MatchedCountry[],
   admin1: NeAdmin1[],
@@ -126,6 +129,24 @@ function applyMove(
   }
 
   if (pieces.length === 0) throw new Error(`${label}: no admin-1 row of ${move.from} lies in it`);
+
+  // The gaining country's own rows give up what the moved pieces cover, so its rows tile.
+  const tiled = kept.flatMap((row): NeAdmin1[] => {
+    if (!to.adm0.includes(row.adm0)) return [row];
+    const overlap = intersect(row.geometry, territory);
+    const size = planarArea(row.geometry);
+    if (!overlap) return [row];
+    if (planarArea(overlap) < SLIVER_SHARE * size) {
+      sliver(row, 'gaining-overlap', overlap, size);
+      return [row];
+    }
+    const rest = difference(row.geometry, territory);
+    if (!rest || planarArea(rest) < SLIVER_SHARE * size) {
+      sliver(row, 'gaining-covered', overlap, size);
+      return [];
+    }
+    return [{ ...row, geometry: rest, label: labelOf(rest) }];
+  });
   const adopt = (row: NeAdmin1, geometry: Area): NeAdmin1 => ({
     ...row,
     adm0: to.adm0[0]!,
@@ -148,5 +169,5 @@ function applyMove(
         ),
       ]
     : pieces.map(({ row, piece }) => adopt({ ...row, code: `${row.code}>${to.id}` }, piece));
-  return { countries: updated, admin1: [...kept, ...moved], slivers };
+  return { countries: updated, admin1: [...tiled, ...moved], slivers };
 }

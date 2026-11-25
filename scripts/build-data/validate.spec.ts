@@ -51,6 +51,7 @@ function valid(): DataFiles {
     countries: { byName: 2, byOverride: 0, pointOnly: 0, excludedNames: ['Pacific Ocean'] },
     regionsTierCountries: ['aland'],
     outsideTolerance: [],
+    droppedAdmin1: [],
   };
   return {
     places: [place('p1', 'aland', 'aland.north'), place('p2', 'bland', null)],

@@ -185,23 +185,33 @@ function overlaps(countries: MatchedCountry[], footprints: Map<string, Footprint
 }
 
 /**
- * The polygon country for a border place: the one containing the point, else the one whose edge
- * is nearest. Point-only countries are never candidates.
+ * The polygon country for a border place, among the countries its name lists ("Nepal/China"):
+ * the one containing the point, else the one whose edge is nearest. Each part is a maptap country
+ * name, or a key of `aliases` for maptap's other spellings; a part naming no matched polygon
+ * country fails.
  */
 export function resolveBorderCountry(
   countries: MatchedCountry[],
+  borderName: string,
   lng: number,
   lat: number,
+  aliases: Record<string, string> = {},
 ): MatchedCountry {
-  const polygonal = countries.filter((c) => c.area && c.box);
-  const inside = polygonal.find((c) => areaContains(c.area!, c.box!, lng, lat));
+  const candidates = borderName.split('/').map((part) => {
+    const name = aliases[part] ?? part;
+    const country = countries.find((c) => c.name === name);
+    if (!country?.area || !country.box) {
+      throw new Error(`border place "${borderName}": "${part}" names no polygon country`);
+    }
+    return country;
+  });
+  const inside = candidates.find((c) => areaContains(c.area!, c.box!, lng, lat));
   if (inside) return inside;
-  let best: MatchedCountry | undefined;
+  let best = candidates[0]!;
   let bestKm = Infinity;
-  for (const c of polygonal) {
+  for (const c of candidates) {
     const km = distanceToEdgeKm(c.area!, lng, lat);
     if (km < bestKm) [best, bestKm] = [c, km];
   }
-  if (!best) throw new Error('no polygon country to resolve a border place against');
   return best;
 }

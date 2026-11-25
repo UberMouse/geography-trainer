@@ -25,7 +25,10 @@ export function bboxOf(area: Area): BBox {
   return box;
 }
 
-/** Point-in-polygon with a bounding-box shortcut; `box` is `bboxOf(area)`, passed in to reuse it. */
+/**
+ * Point-in-polygon with a bounding-box shortcut; `box` is `bboxOf(area)`, passed in to reuse it.
+ * Rings must be split at ±180° (as Natural Earth's are): a ring crossing it is not understood.
+ */
 export function areaContains(area: Area, box: BBox, lng: number, lat: number): boolean {
   if (lng < box[0] || lng > box[2] || lat < box[1] || lat > box[3]) return false;
   return booleanPointInPolygon([lng, lat], area);

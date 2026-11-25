@@ -3,8 +3,11 @@ import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Feature, FeatureCollection } from 'geojson';
 import type { Area } from './geo';
+import { fetchWithin } from './http';
 
 export const NE_VERSION = 'v5.1.2';
+/** The admin-1 file is about 40 MB. */
+const DOWNLOAD_TIMEOUT_MS = 120_000;
 export const NE_FILES = {
   mapUnits: 'ne_10m_admin_0_map_units',
   mapSubunits: 'ne_10m_admin_0_map_subunits',
@@ -56,15 +59,16 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/** Reads `<cacheDir>/<NE_VERSION>/<file>.geojson`, downloading it first when absent. */
 async function loadCached(cacheDir: string, file: string): Promise<FeatureCollection> {
-  const path = join(cacheDir, `${file}.geojson`);
+  const versionDir = join(cacheDir, NE_VERSION);
+  const path = join(versionDir, `${file}.geojson`);
   if (!(await exists(path))) {
     const url = naturalEarthUrl(file);
     console.log(`downloading ${url}`);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`fetching ${url}: HTTP ${response.status}`);
-    await mkdir(cacheDir, { recursive: true });
-    await writeFile(`${path}.part`, Buffer.from(await response.arrayBuffer()));
+    const body = await fetchWithin(url, DOWNLOAD_TIMEOUT_MS, (r) => r.arrayBuffer());
+    await mkdir(versionDir, { recursive: true });
+    await writeFile(`${path}.part`, Buffer.from(body));
     await rename(`${path}.part`, path);
   }
   return JSON.parse(await readFile(path, 'utf8')) as FeatureCollection;

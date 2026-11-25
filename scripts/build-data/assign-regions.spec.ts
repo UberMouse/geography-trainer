@@ -61,7 +61,11 @@ describe('admin1Rows', () => {
       admin1('AAA-3', 'Dot', [7, 7]),
       admin1('BBB-1', 'Foreign', [1, 1], { adm0: 'BBB' }),
     ];
-    expect(admin1Rows(home, rows, [home, islet, dot]).map((r) => r.code)).toEqual(['AAA-1']);
+    const result = admin1Rows(home, rows, [home, islet, dot]);
+    expect(result.rows.map((r) => r.code)).toEqual(['AAA-1']);
+    expect(result.dropped).toEqual([
+      { code: 'AAA-3', name: 'Dot', country: 'home', labelIn: 'dot' },
+    ]);
   });
 });
 

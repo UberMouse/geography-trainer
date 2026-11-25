@@ -1,7 +1,10 @@
 // Downloads maptap's V2 place list and reads its array literal as JSON. maptap's file is never
 // executed (no eval, Function, vm, import or require): we slice out the literal and JSON.parse it.
 
+import { fetchWithin } from './http';
+
 export const MAPTAP_URL = 'https://maptap.gg/data/master_locations_v2.js';
+const FETCH_TIMEOUT_MS = 60_000;
 const MARKER = 'const masterLocationsV2 = ';
 
 export interface MaptapEntry {
@@ -76,23 +79,31 @@ export function parseMaptap(source: string): MaptapList {
   }
   if (!Array.isArray(parsed)) throw new Error('maptap file: masterLocationsV2 is not an array');
 
-  const entries = parsed as Array<Record<string, unknown>>;
+  const isObject = (e: unknown): e is Record<string, unknown> =>
+    typeof e === 'object' && e !== null && !Array.isArray(e);
+  const notObjects = parsed.flatMap((e, i) => (isObject(e) ? [] : [`#${i} ${JSON.stringify(e)}`]));
+  const entries = parsed.filter(isObject);
   const active = entries.filter((entry) => entry.disabled !== true);
   const malformed = active.filter((entry) =>
     REQUIRED.some(([field, type]) => typeof entry[field] !== type),
   );
-  if (malformed.length > 0) {
-    const ids = malformed.slice(0, 5).map((entry) => JSON.stringify(entry.id ?? entry.name));
-    throw new Error(
-      `maptap file: ${malformed.length} active entries lack a required field (${REQUIRED.map(([f]) => f).join(', ')}), e.g. ${ids.join(', ')}`,
+  const problems: string[] = [];
+  if (notObjects.length > 0) {
+    problems.push(
+      `${notObjects.length} elements are not objects, e.g. ${notObjects.slice(0, 5).join(', ')}`,
     );
   }
-  return { total: entries.length, active: active as unknown as MaptapEntry[] };
+  if (malformed.length > 0) {
+    const ids = malformed.slice(0, 5).map((entry) => JSON.stringify(entry.id ?? entry.name));
+    problems.push(
+      `${malformed.length} active entries lack a required field (${REQUIRED.map(([f]) => f).join(', ')}), e.g. ${ids.join(', ')}`,
+    );
+  }
+  if (problems.length > 0) throw new Error(`maptap file: ${problems.join('; ')}`);
+  return { total: parsed.length, active: active as unknown as MaptapEntry[] };
 }
 
 /** Fetches maptap's file fresh (never cached) and parses it. */
 export async function fetchMaptap(url = MAPTAP_URL): Promise<MaptapList> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`fetching ${url}: HTTP ${response.status}`);
-  return parseMaptap(await response.text());
+  return parseMaptap(await fetchWithin(url, FETCH_TIMEOUT_MS, (r) => r.text()));
 }

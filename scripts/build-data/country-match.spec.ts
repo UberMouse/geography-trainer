@@ -122,12 +122,32 @@ describe('resolveBorderCountry', () => {
     point: { lng: 1.5, lat: 1.5, radiusKm: 500 },
   };
 
-  it('picks the polygon containing the point', () => {
-    expect(resolveBorderCountry([a, b, point], 1.6, 0.5).id).toBe('b');
+  const c = polygonCountry('c', [2, 0]);
+  const all = [a, b, c, point];
+
+  it('picks the named polygon containing the point', () => {
+    expect(resolveBorderCountry(all, 'a/b', 1.6, 0.5).id).toBe('b');
   });
 
-  it('otherwise picks the nearest polygon, never a point-only country', () => {
-    expect(resolveBorderCountry([a, b, point], 1.5, 1.2).id).toBe('b');
-    expect(resolveBorderCountry([a, b, point], -0.3, 0.5).id).toBe('a');
+  it('otherwise picks the nearest named polygon', () => {
+    expect(resolveBorderCountry(all, 'a/b', 1.5, 1.2).id).toBe('b');
+    expect(resolveBorderCountry(all, 'a/b', -0.3, 0.5).id).toBe('a');
+  });
+
+  it('ignores an unnamed country even when its polygon holds the point', () => {
+    expect(resolveBorderCountry(all, 'a/b', 2.5, 0.5).id).toBe('b');
+  });
+
+  it('maps name parts through the aliases', () => {
+    expect(resolveBorderCountry(all, 'A/c', 0.5, 0.5, { A: 'a' }).id).toBe('a');
+  });
+
+  it('fails on a part that names no polygon country', () => {
+    expect(() => resolveBorderCountry(all, 'a/USA', 0.5, 0.5)).toThrow(
+      'border place "a/USA": "USA" names no polygon country',
+    );
+    expect(() => resolveBorderCountry(all, 'a/p', 0.5, 0.5)).toThrow(
+      '"p" names no polygon country',
+    );
   });
 });

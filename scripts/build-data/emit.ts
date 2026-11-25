@@ -1,8 +1,9 @@
 // Simplifies geometry with mapshaper and writes public/data/*.
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import type { Feature, FeatureCollection } from 'geojson';
 import mapshaper from 'mapshaper';
+import type { DroppedRow } from './assign-regions';
 import type { OutsidePlace } from './containment';
 import type { Area } from './geo';
 import { compareStrings } from './normalize';
@@ -45,6 +46,8 @@ export interface Manifest {
   regionsTierCountries: string[];
   /** Places beyond the containment tolerance, each allow-listed with a reason. */
   outsideTolerance: OutsidePlace[];
+  /** Admin-1 rows left out of their country because their label point is in another country. */
+  droppedAdmin1: DroppedRow[];
 }
 
 /** A feature to write: polygons (several get dissolved into one) or a point, plus properties. */
@@ -126,4 +129,39 @@ export async function writeData(dir: string, data: DataOut): Promise<void> {
   }
   await writeFile(join(dir, 'manifest.json'), `${JSON.stringify(data.manifest, null, 2)}\n`);
   await writeFile(join(dir, 'SOURCE.md'), data.sourceMd);
+}
+
+/**
+ * Writes the files into a temporary sibling of `dir` (`.<name>-tmp-<pid>`, gitignored), runs
+ * `validate` on it, and only when it reports no problems swaps it in for `dir`. On problems or
+ * an error `dir` is left as it was, and no temporary directory is left behind.
+ */
+export async function publishData(
+  dir: string,
+  data: DataOut,
+  validate: (dir: string) => Promise<string[]>,
+): Promise<string[]> {
+  const sibling = (kind: string) => join(dirname(dir), `.${basename(dir)}-${kind}-${process.pid}`);
+  const staged = sibling('tmp');
+  const previous = sibling('old');
+  try {
+    await writeData(staged, data);
+    const problems = await validate(staged);
+    if (problems.length > 0) return problems;
+    const hadPrevious = await stat(dir).then(
+      () => true,
+      () => false,
+    );
+    if (hadPrevious) await rename(dir, previous);
+    try {
+      await rename(staged, dir);
+    } catch (error) {
+      if (hadPrevious) await rename(previous, dir);
+      throw error;
+    }
+    return [];
+  } finally {
+    await rm(staged, { recursive: true, force: true });
+    await rm(previous, { recursive: true, force: true });
+  }
 }

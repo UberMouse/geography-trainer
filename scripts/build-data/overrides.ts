@@ -51,6 +51,9 @@ export const OVERRIDES: Record<string, Override> = {
   'Arctic Ocean': { kind: 'exclude', reason: OCEAN },
 };
 
+// Border-place name parts ("USA/Haiti") that maptap spells unlike its own country names.
+export const BORDER_NAME_ALIASES: Record<string, string> = { USA: 'United States' };
+
 // Boundary decisions (user-confirmed): follow maptap's place labels where NE draws a de facto line.
 export const BOUNDARY_NOTE =
   "Crimea shown as part of Ukraine and Western Sahara as a whole territory, following maptap's place labels";

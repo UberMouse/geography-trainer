@@ -61,6 +61,13 @@ describe('parseMaptap', () => {
     expect(() => parseMaptap(source)).toThrow(/lack a required field/);
   });
 
+  it('reports non-object elements alongside malformed entries', () => {
+    const source = `const masterLocationsV2 = ${JSON.stringify([null, 7, { id: 'x', name: 'x' }])};`;
+    expect(() => parseMaptap(source)).toThrow(
+      'maptap file: 2 elements are not objects, e.g. #0 null, #1 7; 1 active entries lack a required field',
+    );
+  });
+
   it('never executes maptap code', () => {
     const code = readFileSync(new URL('./fetch-maptap.ts', import.meta.url), 'utf8')
       .split('\n')

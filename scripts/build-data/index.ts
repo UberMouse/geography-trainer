@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   type Assignment,
+  type DroppedRow,
   DISSOLVE_BY_REGION,
   type Region,
   adminDisagrees,
@@ -24,12 +25,18 @@ import {
   type ShapeOut,
   type Topology,
   toTopology,
-  writeData,
+  publishData,
 } from './emit';
 import { MAPTAP_URL, type MaptapEntry, fetchMaptap } from './fetch-maptap';
 import { NE_FILES, NE_VERSION, loadNaturalEarth } from './natural-earth';
 import { compareStrings } from './normalize';
-import { BOUNDARY_NOTE, CONTAINMENT_ALLOW_LIST, OVERRIDES, TERRITORY_MOVES } from './overrides';
+import {
+  BORDER_NAME_ALIASES,
+  BOUNDARY_NOTE,
+  CONTAINMENT_ALLOW_LIST,
+  OVERRIDES,
+  TERRITORY_MOVES,
+} from './overrides';
 import { applyTerritoryMoves } from './territory';
 import { validateDataDir } from './validate';
 
@@ -65,7 +72,13 @@ async function main(): Promise<number> {
     if (reason) {
       excluded.push({ id: entry.id, name: entry.name, country: entry.country, reason });
     } else if (isBorderName(entry.country)) {
-      const country = resolveBorderCountry(matched, entry.lng, entry.lat);
+      const country = resolveBorderCountry(
+        matched,
+        entry.country,
+        entry.lng,
+        entry.lat,
+        BORDER_NAME_ALIASES,
+      );
       border.push(`${entry.id} (${entry.country}) → ${country.id}`);
       kept.push({ entry, country });
     } else {
@@ -74,9 +87,11 @@ async function main(): Promise<number> {
   }
 
   const regionsByCountry = new Map<string, Region[]>();
+  const droppedAdmin1: DroppedRow[] = [];
   for (const country of matched) {
     if (!country.area) continue;
-    const rows = admin1Rows(country, moved.admin1, matched);
+    const { rows, dropped } = admin1Rows(country, moved.admin1, matched);
+    droppedAdmin1.push(...dropped);
     if (rows.length > 0) {
       regionsByCountry.set(
         country.id,
@@ -191,15 +206,18 @@ async function main(): Promise<number> {
     },
     regionsTierCountries: [...tier].sort(),
     outsideTolerance: containment.outside,
+    droppedAdmin1: droppedAdmin1.sort(
+      (a, b) => compareStrings(a.code, b.code) || compareStrings(a.country, b.country),
+    ),
   };
 
-  await writeData(OUT_DIR, {
+  const data = {
     places,
     countries,
     regions,
     manifest,
     sourceMd: sourceMarkdown(manifest, new Date()),
-  });
+  };
 
   const { counts } = manifest;
   console.log(
@@ -214,17 +232,22 @@ async function main(): Promise<number> {
   console.log(`regions tier (${tier.size}): ${manifest.regionsTierCountries.join(', ')}`);
   console.log(`admin mismatches (${mismatches.length}):\n  ${mismatches.join('\n  ')}`);
   console.log(`snapped points (${snapped.length}):\n  ${snapped.join('\n  ')}`);
+  console.log(
+    `admin-1 rows dropped, label point in another country (${droppedAdmin1.length}):\n  ${droppedAdmin1.map((d) => `${d.code} ${d.name} (${d.country}): label in ${d.labelIn}`).join('\n  ')}`,
+  );
   console.log(`boundaries: ${BOUNDARY_NOTE}`);
   console.log(
-    `territory slivers ignored (${moved.slivers.length}):\n  ${moved.slivers.map((s) => `${s.move}: ${s.row}, ${s.part}, ${(s.share * 100).toFixed(3)}% of the row, ${s.km2.toFixed(1)} km²`).join('\n  ')}`,
+    `territory-move slivers and covered rows (${moved.slivers.length}):\n  ${moved.slivers.map((s) => `${s.move}: ${s.row}, ${s.part}, ${(s.share * 100).toFixed(3)}% of the row, ${s.km2.toFixed(1)} km²`).join('\n  ')}`,
   );
   console.log(
     `beyond ${CONTAINMENT_TOLERANCE_KM} km of country or region, allow-listed (${containment.outside.length}):\n  ${containment.outside.map((o) => `${o.id} (${o.region ?? o.country}) ${o.km} km: ${o.reason}`).join('\n  ')}`,
   );
 
-  const problems = await validateDataDir(OUT_DIR);
+  const problems = await publishData(OUT_DIR, data, (dir) => validateDataDir(dir));
   if (problems.length > 0) {
-    console.error(`\nvalidation failed (${problems.length}):\n  ${problems.join('\n  ')}`);
+    console.error(
+      `\nvalidation failed (${problems.length}), ${OUT_DIR} left unchanged:\n  ${problems.join('\n  ')}`,
+    );
     return 1;
   }
   console.log(`\nwrote ${OUT_DIR}, validation passed`);
