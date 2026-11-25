@@ -77,8 +77,9 @@ const ANTIPODAL_EPSILON = 1e-6;
 /**
  * The view that reveals an answer: centred on `answer`, keeping the zoom unless `pin` would be
  * off-screen, then zoomed out until both show. When the pin is too far round the globe to show
- * with the answer centred, the view centres on the great-circle midpoint between them instead;
- * an antipodal pin (no midpoint) gets the answer centred at zoom 1.
+ * with the answer centred, the view centres on the great-circle midpoint between them instead
+ * (the `REVEAL_MARGIN` holds only while the zoom is above the minimum: at `GLOBE_MIN_ZOOM` the
+ * points can sit near the limb); an antipodal pin (no midpoint) gets the answer centred at zoom 1.
  */
 export function revealView(view: GlobeView, answer: LngLat, pin: LngLat | null): GlobeView {
   if (!pin) return { ...view, lng: answer[0], lat: answer[1] };

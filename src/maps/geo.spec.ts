@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { geoArea, geoCentroid, geoContains } from 'd3-geo';
+import {
+  geoArea,
+  geoAzimuthalEqualArea,
+  geoCentroid,
+  geoContains,
+  geoOrthographic,
+} from 'd3-geo';
 import {
   POINT_FEATURE_RADIUS_KM,
   answerPoint,
   ensureArea,
+  isOnFarSide,
   mainPart,
   measureTap,
   type AreaFeature,
@@ -251,5 +258,14 @@ describe('ensureArea', () => {
 
   it('returns a feature with an area as it is', () => {
     expect(ensureArea(square)).toBe(square);
+  });
+});
+
+describe('isOnFarSide', () => {
+  it('hides points beyond 90 degrees of the globe centre, not flat-map points', () => {
+    const globe = geoOrthographic().rotate([-2, -46]);
+    expect(isOnFarSide(globe, [2, 46])).toBe(false);
+    expect(isOnFarSide(globe, [140, -30])).toBe(true);
+    expect(isOnFarSide(geoAzimuthalEqualArea(), [140, -30])).toBe(false);
   });
 });

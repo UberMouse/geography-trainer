@@ -84,16 +84,20 @@ export class GestureTracker {
       const travel = this.travel + dist(last, { x, y });
       return !this.multi && travel < TAP_SLOP_PX ? [{ type: 'tap', x, y }] : [];
     }
-    // One finger of a pinch lifted: the other drags on from where it is, with no jump.
-    const [rest] = [...this.pointers.values()];
-    this.anchor = rest ?? null;
+    this.reanchor();
     return [];
   }
 
   /** A pointer the browser took away (pointercancel, lost capture): never a tap. */
   cancel(id: number): void {
     if (!this.pointers.delete(id)) return;
-    if (this.pointers.size === 0) this.anchor = null;
-    else this.multi = true;
+    this.multi = true;
+    this.reanchor();
+  }
+
+  /** One finger of a pinch is gone: the other drags on from where it is, with no jump. */
+  private reanchor(): void {
+    const [rest] = [...this.pointers.values()];
+    this.anchor = rest ?? null;
   }
 }

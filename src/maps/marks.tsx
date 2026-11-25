@@ -1,5 +1,5 @@
 import type { GeoProjection } from 'd3-geo';
-import type { LngLat } from './geo';
+import { isOnFarSide, type LngLat } from './geo';
 import { RING_RADIUS_PX, SVG_UNITS_PER_PX } from './view';
 
 /**
@@ -17,6 +17,7 @@ export function Dot({
   pin?: boolean;
   transform?: (p: [number, number]) => [number, number];
 }) {
+  if (isOnFarSide(projection, at)) return null;
   const projected = projection(at);
   if (!projected) return null;
   const [x, y] = transform(projected);

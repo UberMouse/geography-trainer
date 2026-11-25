@@ -71,4 +71,13 @@ describe('GestureTracker', () => {
     g.down(2, 0, 0);
     expect(g.up(2, 1, 1)).toEqual([{ type: 'tap', x: 1, y: 1 }]);
   });
+
+  it('after a pinch, a cancelled finger leaves the other dragging on with no jump', () => {
+    const g = new GestureTracker();
+    g.down(1, 0, 0);
+    g.down(2, 100, 0);
+    g.move(1, 50, 50);
+    g.cancel(2);
+    expect(g.move(1, 52, 50)).toEqual([{ type: 'drag', dx: 2, dy: 0 }]);
+  });
 });

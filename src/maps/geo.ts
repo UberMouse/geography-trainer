@@ -1,4 +1,4 @@
-import { geoArea, geoCentroid, geoCircle, geoContains, geoDistance } from 'd3-geo';
+import { geoArea, geoCentroid, geoCircle, geoContains, geoDistance, type GeoProjection } from 'd3-geo';
 import type { Feature, Geometry, MultiPoint, MultiPolygon, Point, Polygon } from 'geojson';
 import type { TapInput } from '../engine/grading';
 
@@ -210,4 +210,15 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
     kmOutsideBorder: inside ? 0 : kmToBoundary(target.feature, tap),
     featureSizeKm: Math.sqrt(geoArea(target.feature)) * EARTH_RADIUS_KM,
   };
+}
+
+/**
+ * Whether `at` is on the hidden side of an orthographic projection (one clipped to a hemisphere), where
+ * drawing it would show it through the globe. Flat projections never hide a point.
+ */
+export function isOnFarSide(projection: GeoProjection, at: LngLat): boolean {
+  // Only a projection clipped to a hemisphere (clip angle about 90 degrees or less) hides the far side.
+  if ((projection.clipAngle?.() ?? 180) > 90.001) return false;
+  const [lambda, phi] = projection.rotate();
+  return geoDistance(at, [-lambda, -phi]) > Math.PI / 2;
 }
