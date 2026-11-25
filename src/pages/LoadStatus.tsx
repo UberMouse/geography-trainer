@@ -6,16 +6,21 @@ export default function Status<T>({
   state,
   retry,
   children,
+  failure = 'Could not load the map data:',
 }: {
   state: Loaded<T>;
   retry: () => void;
   children: (data: T) => ReactNode;
+  /** The error text before the message. */
+  failure?: string;
 }) {
   if (state.status === 'loading') return <p>Loading…</p>;
   if (state.status === 'error') {
     return (
       <div role="alert">
-        <p>Could not load the map data: {state.error.message}</p>
+        <p>
+          {failure} {state.error.message}
+        </p>
         <button type="button" onClick={retry}>
           Retry
         </button>

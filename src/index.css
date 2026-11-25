@@ -252,3 +252,21 @@ a {
 .playground-result dd {
   margin: 0;
 }
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.session-banner {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 2px solid var(--wrong);
+  border-radius: 6px;
+}
+
+.session-banner p {
+  margin: 0 0 8px;
+}
