@@ -1,6 +1,6 @@
 import { geoPath } from 'd3-geo';
 import { useMemo, useRef, useState } from 'react';
-import type { LngLat, TapTarget } from './geo';
+import type { AreaFeature, LngLat, TapTarget } from './geo';
 import type { GestureEvent } from './gestures';
 import type { IdentifiedFeature } from './HighlightMap';
 import { Dot } from './marks';
@@ -17,7 +17,8 @@ import {
 } from './view';
 
 /**
- * A flat bordered map fitted to `features`, to tap on. Wheel or pinch zooms (1–16×), drag pans,
+ * A flat bordered map fitted to `frame` when given (such as a country's main part), else to
+ * `features`, to tap on. Wheel or pinch zooms (1–16×), drag pans (never beyond the fitted frame),
  * and a tap calls `onPin` with the tapped lng/lat. `reveal` shades the target feature (or draws
  * its point) under the pin.
  */
@@ -27,17 +28,19 @@ export default function TapMap({
   pin,
   onPin,
   reveal,
+  frame,
 }: {
   features: IdentifiedFeature[];
   highlightId?: string;
   pin: LngLat | null;
   onPin: (at: LngLat) => void;
   reveal?: TapTarget;
+  frame?: AreaFeature;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState<FlatTransform>(IDENTITY);
   const transformRef = useRef(transform);
-  const projection = useMemo(() => fitFlat(features), [features]);
+  const projection = useMemo(() => fitFlat(frame ? [frame] : features), [frame, features]);
   const paths = useMemo(() => {
     const path = geoPath(projection);
     return features.map((f) => ({ id: f.id, d: path(f) ?? '' }));

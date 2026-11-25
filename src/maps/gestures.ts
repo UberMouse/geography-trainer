@@ -90,9 +90,9 @@ export class GestureTracker {
     return [];
   }
 
-  /** A pointer the browser took away (pointercancel): never a tap. */
+  /** A pointer the browser took away (pointercancel, lost capture): never a tap. */
   cancel(id: number): void {
-    this.pointers.delete(id);
+    if (!this.pointers.delete(id)) return;
     if (this.pointers.size === 0) this.anchor = null;
     else this.multi = true;
   }

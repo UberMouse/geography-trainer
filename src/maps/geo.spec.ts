@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { geoArea } from 'd3-geo';
-import { answerPoint, measureTap, type AreaFeature, type LngLat } from './geo';
+import { geoArea, geoCentroid } from 'd3-geo';
+import { answerPoint, mainPart, measureTap, type AreaFeature, type LngLat } from './geo';
 
 /** A polygon feature from rings (exterior clockwise, holes counter-clockwise, as d3-geo wants). */
 const poly = (...rings: LngLat[][]): AreaFeature => ({
@@ -144,5 +144,68 @@ describe('measureTap on a place', () => {
     expect(m.inside).toBe(false);
     expect(m.kmOutsideBorder).toBe(0);
     expect(m.featureSizeKm).toBe(0);
+  });
+});
+
+/** A clockwise box ring from west, south, east, north. */
+const ring = (w: number, s: number, e: number, n: number): LngLat[] => [
+  [w, s],
+  [w, n],
+  [e, n],
+  [e, s],
+  [w, s],
+];
+
+/** A MultiPolygon feature with an id and properties, one polygon per box. */
+const parts = (...boxes: [number, number, number, number][]) =>
+  ({
+    type: 'Feature',
+    id: 'x',
+    properties: { name: 'X' },
+    geometry: { type: 'MultiPolygon', coordinates: boxes.map((b) => [ring(...b)]) },
+  }) as AreaFeature & { id: string };
+
+describe('mainPart', () => {
+  it('returns a single polygon feature itself', () => {
+    expect(mainPart(square)).toBe(square);
+  });
+
+  it('keeps parts closer than the gap together (about 220 km apart)', () => {
+    const f = parts([0, -5, 10, 5], [12, 0, 13, 1]);
+    expect(mainPart(f)).toBe(f);
+  });
+
+  it('drops a far small part, keeping id and properties', () => {
+    const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
+    const main = mainPart(f);
+    expect(main.id).toBe('x');
+    expect(main.properties).toBe(f.properties);
+    expect(main.geometry).toEqual({ type: 'MultiPolygon', coordinates: [[ring(0, -5, 10, 5)]] });
+  });
+
+  it('keeps an evenly spread archipelago whole', () => {
+    const f = parts([0, 0, 1, 1], [20, 0, 21, 1], [40, 0, 41, 1]);
+    expect(mainPart(f)).toBe(f);
+  });
+
+  it('ignores polygons with no rings (collapsed by quantization)', () => {
+    const f = parts([0, -5, 10, 5]);
+    (f.geometry.coordinates as LngLat[][][]).push([]);
+    expect(mainPart(f)).toBe(f);
+  });
+
+  it('is cached per feature object', () => {
+    const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
+    expect(mainPart(f)).toBe(mainPart(f));
+  });
+});
+
+describe('answerPoint', () => {
+  it('is the centroid of the main part, not of the far parts too', () => {
+    const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
+    const [lng, lat] = answerPoint(f);
+    expect(lng).toBeCloseTo(5, 6);
+    expect(lat).toBeCloseTo(0, 6);
+    expect(geoCentroid(f)[0]).toBeGreaterThan(5.1);
   });
 });

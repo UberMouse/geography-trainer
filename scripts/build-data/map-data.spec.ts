@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { geoArea } from 'd3-geo';
+import { geoArea, geoContains } from 'd3-geo';
 import { loadCountries, loadRegions } from '../../src/data/loaders';
-import { answerPoint, measureTap, type AreaFeature, type LngLat } from '../../src/maps/geo';
+import {
+  answerPoint,
+  mainPart,
+  measureTap,
+  type AreaFeature,
+  type LngLat,
+} from '../../src/maps/geo';
 
 const dir = new URL('../../public/data/', import.meta.url);
 
@@ -53,5 +59,55 @@ describe('committed map data, as the loaders return it', () => {
     expect(m.inside).toBe(false);
     expect(m.kmOutsideBorder).toBeGreaterThan(70);
     expect(m.kmOutsideBorder).toBeLessThan(130);
+  });
+});
+
+describe('main parts of the committed countries', () => {
+  const country = async (id: string) => (await loadCountries()).features.find((f) => f.id === id)!;
+
+  // A point on each island, checked against the whole country first so a miss is the main part's.
+  const kept: [string, string, LngLat][] = [
+    ['france', 'Corsica', [9.1, 42.1]],
+    ['chile', 'Tierra del Fuego', [-69.5, -54]],
+    ['japan', 'Hokkaido', [142.8, 43.4]],
+    ['italy', 'Sicily', [14.2, 37.5]],
+  ];
+  const dropped: [string, string, LngLat][] = [
+    ['france', 'French Guiana', [-53, 4]],
+    ['france', 'Réunion', [55.5, -21.1]],
+    ['chile', 'Easter Island', [-109.35, -27.12]],
+    ['portugal', 'the Azores (São Miguel)', [-25.5, 37.78]],
+    ['portugal', 'the Azores (Pico)', [-28.4, 38.45]],
+  ];
+
+  it.each(kept)('%s keeps %s', async (id, _island, at) => {
+    const f = await country(id);
+    expect(geoContains(f, at)).toBe(true);
+    expect(geoContains(mainPart(f), at)).toBe(true);
+  });
+
+  it.each(dropped)('%s leaves out %s', async (id, _island, at) => {
+    const f = await country(id);
+    expect(geoContains(f, at)).toBe(true);
+    expect(geoContains(mainPart(f), at)).toBe(false);
+  });
+
+  it('keeps all of Kiribati, which has no dominant part', async () => {
+    const kiribati = await country('kiribati');
+    expect(mainPart(kiribati)).toBe(kiribati);
+  });
+
+  it("puts France's answer point inside France", async () => {
+    const france = await country('france');
+    expect(geoContains(france, answerPoint(france))).toBe(true);
+  });
+
+  it('computes every country', { timeout: 60_000 }, async () => {
+    const { features } = await loadCountries();
+    for (const f of features) {
+      const main = mainPart(f);
+      expect(main.id).toBe(f.id);
+      expect(geoArea(main)).toBeGreaterThanOrEqual(0.8 * geoArea(f) - 1e-12);
+    }
   });
 });

@@ -8,7 +8,6 @@ import {
   MAP_SIZE,
   NEUTRAL_VIEW,
   fitFlat,
-  globeProjection,
   panFlat,
   parseView,
   revealView,
@@ -63,16 +62,6 @@ describe('globe view', () => {
     expect(zoomGlobe(NEUTRAL_VIEW, 0.5).zoom).toBe(1);
     expect(zoomGlobe({ ...NEUTRAL_VIEW, zoom: 40 }, 2).zoom).toBe(64);
     expect(zoomGlobe(NEUTRAL_VIEW, 3).zoom).toBe(3);
-  });
-
-  it('projects the view centre to the canvas centre and inverts it back', () => {
-    const p = globeProjection({ lng: 30, lat: -10, zoom: 2 }, 400, 300);
-    const [x, y] = p([30, -10])!;
-    expect(x).toBeCloseTo(200);
-    expect(y).toBeCloseTo(150);
-    const [lng, lat] = p.invert!([200, 150])!;
-    expect(lng).toBeCloseTo(30);
-    expect(lat).toBeCloseTo(-10);
   });
 
   it('wheels in on a negative delta and out on a positive one', () => {
@@ -134,6 +123,15 @@ describe('revealView', () => {
     const centre: LngLat = [v.lng, v.lat];
     expect(geoDistance(centre, answer)).toBeLessThan(Math.PI / 2);
     expect(geoDistance(centre, pin)).toBeLessThan(Math.PI / 2);
+  });
+
+  it('centres on the answer, zoomed out, when the pin is exactly antipodal', () => {
+    const pin: LngLat = [-170, -40]; // the antipode of [10, 40]
+    expect(revealView({ lng: 0, lat: 0, zoom: 8 }, answer, pin)).toEqual({
+      lng: 10,
+      lat: 40,
+      zoom: 1,
+    });
   });
 });
 

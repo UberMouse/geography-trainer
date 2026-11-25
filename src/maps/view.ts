@@ -4,7 +4,6 @@ import {
   geoDistance,
   geoInterpolate,
   geoOrthographic,
-  type GeoProjection,
 } from 'd3-geo';
 import type { AreaFeature, LngLat } from './geo';
 
@@ -33,14 +32,6 @@ export const GLOBE_FILL = 0.95;
 /** Globe radius in px for a canvas of `width` × `height` at `zoom`. */
 export const globeRadius = (width: number, height: number, zoom: number) =>
   (Math.min(width, height) / 2) * GLOBE_FILL * zoom;
-
-/** An orthographic projection showing `view` centred in a `width` × `height` canvas. */
-export function globeProjection(view: GlobeView, width: number, height: number): GeoProjection {
-  return geoOrthographic()
-    .rotate([-view.lng, -view.lat])
-    .scale(globeRadius(width, height, view.zoom))
-    .translate([width / 2, height / 2]);
-}
 
 /**
  * The view after dragging by `dx`, `dy` px on a globe of `radiusPx`: the surface follows the
@@ -79,15 +70,22 @@ export function parseView(text: string | null | undefined): GlobeView | undefine
 const REVEAL_MARGIN = 0.85;
 /** Beyond this angle from the target, the pin cannot share the view with the target centred. */
 const MAX_CENTRED_ANGLE = (80 * Math.PI) / 180;
+/** Points closer than this (radians) to opposite sides of the globe count as antipodal. */
+const ANTIPODAL_EPSILON = 1e-6;
 
 /**
  * The view that reveals an answer: centred on `answer`, keeping the zoom unless `pin` would be
  * off-screen, then zoomed out until both show. When the pin is too far round the globe to show
- * with the answer centred, the view centres on the great-circle midpoint between them instead.
+ * with the answer centred, the view centres on the great-circle midpoint between them instead;
+ * an antipodal pin (no midpoint) gets the answer centred at zoom 1.
  */
 export function revealView(view: GlobeView, answer: LngLat, pin: LngLat | null): GlobeView {
   if (!pin) return { ...view, lng: answer[0], lat: answer[1] };
   const apart = geoDistance(answer, pin);
+  // Antipodes have no midpoint and cannot share a view: show the answer, zoomed all the way out.
+  if (Math.PI - apart < ANTIPODAL_EPSILON) {
+    return { lng: wrapLng(answer[0]), lat: answer[1], zoom: GLOBE_MIN_ZOOM };
+  }
   const centre = apart <= MAX_CENTRED_ANGLE ? answer : geoInterpolate(answer, pin)(0.5);
   const farthest = Math.max(geoDistance(centre, answer), geoDistance(centre, pin));
   const fits =

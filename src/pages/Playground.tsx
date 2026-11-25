@@ -1,3 +1,4 @@
+import { geoContains } from 'd3-geo';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import {
@@ -7,7 +8,7 @@ import {
   type RegionFeature,
 } from '../data/loaders';
 import BareGlobe from '../maps/BareGlobe';
-import { answerPoint, type LngLat, type TapTarget } from '../maps/geo';
+import { answerPoint, mainPart, type LngLat, type TapTarget } from '../maps/geo';
 import HighlightMap from '../maps/HighlightMap';
 import OutlineView from '../maps/OutlineView';
 import TapMap from '../maps/TapMap';
@@ -147,6 +148,7 @@ function CountryMaps({
   });
   const [lastPin, setLastPin] = useState<LngLat | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const frame = mainPart(country);
   const pinOn = (map: PinnedMap) => (at: LngLat) => {
     setPins((p) => ({ ...p, [map]: at }));
     setLastPin(at);
@@ -184,16 +186,24 @@ function CountryMaps({
         <Status state={regions} retry={retryRegions}>
           {({ features }) => {
             const tapFeatures = features.length > 0 ? features : [country];
-            const first = tapFeatures[0]!;
+            // Highlight and reveal a region that shows in the frame.
+            const shown =
+              tapFeatures.find((f) => geoContains(frame, answerPoint(f))) ?? tapFeatures[0]!;
             return (
               <>
                 <Panel id="pg-highlight-fit" title="Highlight (fit)">
-                  <HighlightMap mode="fit" features={tapFeatures} highlightId={first.id} />
+                  <HighlightMap
+                    mode="fit"
+                    features={tapFeatures}
+                    highlightId={shown.id}
+                    frame={frame}
+                  />
                 </Panel>
                 <Panel id="pg-tap" title={features.length > 0 ? 'Tap map (regions)' : 'Tap map'}>
                   <TapRevealed
                     features={tapFeatures}
-                    target={first}
+                    frame={frame}
+                    target={shown}
                     revealed={revealed}
                     pin={pins.tap}
                     onPin={pinOn('tap')}
@@ -227,15 +237,17 @@ function CountryMaps({
   );
 }
 
-/** The tap map with its first feature as the revealed target. */
+/** The tap map with `target` as the revealed target. */
 function TapRevealed({
   features,
+  frame,
   target,
   revealed,
   pin,
   onPin,
 }: {
   features: (CountryFeature | RegionFeature)[];
+  frame: CountryFeature;
   target: CountryFeature | RegionFeature;
   revealed: boolean;
   pin: LngLat | null;
@@ -245,5 +257,5 @@ function TapRevealed({
     () => (revealed ? { feature: target, answer: answerPoint(target) } : undefined),
     [revealed, target],
   );
-  return <TapMap features={features} pin={pin} onPin={onPin} reveal={reveal} />;
+  return <TapMap features={features} frame={frame} pin={pin} onPin={onPin} reveal={reveal} />;
 }

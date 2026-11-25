@@ -118,14 +118,18 @@ export default function BareGlobe(props: Props) {
     stroke(SPHERE, colour('--map-border'), 1);
   }, [aim, land]);
 
+  // `schedule` stays the same function for the component's life, drawing with the latest `draw`,
+  // so effects that depend on it re-run only for their own inputs.
+  const drawRef = useRef(draw);
   const schedule = useCallback(() => {
-    if (!frameRef.current) frameRef.current = requestAnimationFrame(draw);
-  }, [draw]);
+    if (!frameRef.current) frameRef.current = requestAnimationFrame(() => drawRef.current());
+  }, []);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 
   useLayoutEffect(() => {
     propsRef.current = props;
+    drawRef.current = draw;
   });
 
   // Size the canvas to its container in device pixels.
@@ -139,23 +143,24 @@ export default function BareGlobe(props: Props) {
       sizeRef.current = { width, height };
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
-      draw();
+      drawRef.current();
     };
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [draw]);
+  }, []);
 
-  // Turn to the answer when it is revealed (once per reveal, with the pin as it is then).
+  // Turn to the answer when it is revealed: only when `reveal` itself changes, with the pin as it
+  // is then, so a pan after the reveal is kept.
   useEffect(() => {
     if (!reveal) return;
     viewRef.current = revealView(viewRef.current, targetAnswer(reveal), propsRef.current.pin);
     schedule();
   }, [reveal, schedule]);
 
-  // Anything else drawn from props.
-  useEffect(schedule, [schedule, props.pin, borders, reveal]);
+  // Redraw for new data or anything else drawn from props.
+  useEffect(schedule, [schedule, draw, props.pin, borders, reveal]);
 
   usePointerGestures(canvasRef, {
     onGesture: (e) => {

@@ -30,11 +30,17 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
 
     const down = (e: PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
-      el.setPointerCapture(e.pointerId);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        // InvalidStateError: the pointer is no longer active. Track the press without capture.
+      }
       tracker.down(e.pointerId, ...local(e));
     };
     const move = (e: PointerEvent) => emit(tracker.move(e.pointerId, ...local(e)));
     const up = (e: PointerEvent) => emit(tracker.up(e.pointerId, ...local(e)));
+    // Also on lost capture, so a pointerup we never see cannot leave a stale pointer that would
+    // turn the next press into a pinch. After a normal pointerup the tracker has already let go.
     const cancel = (e: PointerEvent) => tracker.cancel(e.pointerId);
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -46,12 +52,14 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', cancel);
+    el.addEventListener('lostpointercapture', cancel);
     el.addEventListener('wheel', wheel, { passive: false });
     return () => {
       el.removeEventListener('pointerdown', down);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
       el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('lostpointercapture', cancel);
       el.removeEventListener('wheel', wheel);
     };
   }, [ref]);

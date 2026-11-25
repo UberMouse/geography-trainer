@@ -7,8 +7,9 @@ import { MAP_SIZE, NEUTRAL_VIEW, fitFlat, fitGlobe } from './view';
 export type IdentifiedFeature = AreaFeature & { id: string };
 
 /**
- * A static map with one feature shaded and an optional dot. `fit` fits the projection to
- * `features` (a country with its region borders); `globe` draws an orthographic globe of
+ * A static map with one feature shaded and an optional dot. `fit` fits the projection to `frame`
+ * when given (such as a country's main part), else to `features` (a country with its region
+ * borders); features outside the frame are cut off. `globe` draws an orthographic globe of
  * `features` (every country) rotated to centre the highlighted one.
  */
 export default function HighlightMap({
@@ -16,17 +17,19 @@ export default function HighlightMap({
   highlightId,
   point,
   mode,
+  frame,
 }: {
   features: IdentifiedFeature[];
   highlightId?: string;
   point?: LngLat;
   mode: 'fit' | 'globe';
+  frame?: AreaFeature;
 }) {
   const highlight = features.find((f) => f.id === highlightId);
   const projection = useMemo(() => {
-    if (mode === 'fit') return fitFlat(features);
+    if (mode === 'fit') return fitFlat(frame ? [frame] : features);
     return fitGlobe(highlight ? answerPoint(highlight) : [NEUTRAL_VIEW.lng, NEUTRAL_VIEW.lat]);
-  }, [mode, features, highlight]);
+  }, [mode, features, frame, highlight]);
   const path = useMemo(() => geoPath(projection), [projection]);
   return (
     <svg

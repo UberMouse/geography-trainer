@@ -56,6 +56,13 @@ describe('GestureTracker', () => {
     expect(g.move(3, 60, 60)).toEqual([]);
   });
 
+  it('ignores a cancel for a pointer it does not track (lost capture after pointerup)', () => {
+    const g = new GestureTracker();
+    g.down(1, 0, 0);
+    g.cancel(9);
+    expect(g.up(1, 0, 0)).toEqual([{ type: 'tap', x: 0, y: 0 }]);
+  });
+
   it('a cancelled pointer is never a tap, and the next press starts afresh', () => {
     const g = new GestureTracker();
     g.down(1, 0, 0);
