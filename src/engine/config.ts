@@ -44,6 +44,8 @@ export const SESSION_MAX_RUN = 2;
 // Placement staircase.
 export const PLACEMENT_MIN_LEVEL = 1;
 export const PLACEMENT_MAX_LEVEL = 8;
+/** The estimate when nothing was passed: no level was shown, below PLACEMENT_MIN_LEVEL. */
+export const PLACEMENT_NO_ESTIMATE = 0;
 export const PLACEMENT_START_LEVEL = 4;
 export const PLACEMENT_MAX_QUESTIONS = 20;
 /** The test stops once the staircase has turned this many times. */

@@ -47,20 +47,42 @@ describe('placement staircase', () => {
   const items = makeItems(6);
 
   for (const k of [2, 5, 7]) {
-    it(`converges within 1 of skill level ${k}`, () => {
+    it(`converges exactly on skill level ${k} when every level has plenty of items`, () => {
       for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-        const { result, asked } = run(items, seed, (level) => level <= k);
-        expect(Math.abs(result.estimate - k), `k=${k} seed=${seed} estimate=${result.estimate}`).toBeLessThanOrEqual(1);
+        const { result, asked } = run(makeItems(25), seed, (level) => level <= k);
+        expect(result.estimate, `k=${k} seed=${seed}`).toBe(k);
         expect(asked.length).toBeLessThanOrEqual(PLACEMENT_MAX_QUESTIONS);
       }
     });
   }
 
-  it('puts a perfect user near 8 and a hopeless one near 1', () => {
+  it('puts a perfect user at 8 and a hopeless one at 0 (no level shown)', () => {
     for (const seed of [1, 2, 3]) {
-      expect(run(makeItems(40), seed, () => true).result.estimate).toBeGreaterThanOrEqual(7);
-      expect(run(makeItems(40), seed, () => false).result.estimate).toBeLessThanOrEqual(2);
+      expect(run(makeItems(40), seed, () => true).result.estimate).toBe(8);
+      expect(run(makeItems(40), seed, () => false).result.estimate).toBe(0);
     }
+  });
+
+  it('gives a user who fails everything estimate 0: unasked items are above it, asked ones failed', () => {
+    const { result, asked } = run(makeItems(10), 4, () => false);
+    expect(result.estimate).toBe(0);
+    for (const { itemId } of makeItems(10)) {
+      expect(result.outcomes[itemId]).toBe(asked.includes(itemId) ? 'failed' : 'aboveEstimate');
+    }
+  });
+
+  it('rounds a 4/5 alternation down to 4, leaving an untested level-5 item above the estimate', () => {
+    const rng = mulberry32(1);
+    let s = startPlacement(makeItems(4), rng);
+    // Pass at 4, fail at 5, and so on: reversals alternate 5 and 4 (mean 4.5).
+    const ratings = [Rating.Good, Rating.Again, Rating.Good, Rating.Again, Rating.Good, Rating.Again, Rating.Good];
+    for (const rating of ratings) {
+      s = step(s, rng, rating).state;
+    }
+    expect(s.reversals).toEqual([5, 4, 5, 4, 5, 4]);
+    const { estimate, outcomes } = finishPlacement({ ...s, items: [...s.items, { itemId: 'u5', level: 5 }] });
+    expect(estimate).toBe(4);
+    expect(outcomes['u5']).toBe('aboveEstimate');
   });
 
   it('never asks an item twice and stops at the question limit', () => {
@@ -149,15 +171,18 @@ describe('placement staircase', () => {
 
   it('keeps non-finite items above the estimate through a JSON round trip', () => {
     const rng = mulberry32(5);
-    const s = startPlacement(
+    let s = startPlacement(
       [
         { itemId: 'z', level: Infinity },
         { itemId: 'a', level: 1 },
+        { itemId: 'p', level: 1 },
       ],
       rng,
     );
+    // A pass at level 1 makes the estimate 1, so the untested level-1 item is at or below it.
+    s = answerPlacement({ ...s, pending: { itemId: 'p', level: 1 } }, 'p', Rating.Good);
     const revived = JSON.parse(JSON.stringify(s)) as PlacementState;
-    expect(finishPlacement(revived).outcomes).toEqual({ z: 'aboveEstimate', a: 'untestedAtOrBelow' });
+    expect(finishPlacement(revived).outcomes).toEqual({ z: 'aboveEstimate', a: 'untestedAtOrBelow', p: 'passed' });
   });
 
   it('bases the staircase on the level asked when the target level has run out', () => {
@@ -277,11 +302,10 @@ describe('placement staircase', () => {
     });
   });
 
-  it('can be finished early with no answers', () => {
+  it('can be finished early with no answers: estimate 0, every item above it', () => {
     const rng = mulberry32(1);
     const { estimate, outcomes } = finishPlacement(startPlacement(makeItems(1), rng));
-    expect(estimate).toBe(PLACEMENT_START_LEVEL);
-    expect(outcomes['i7']).toBe('aboveEstimate');
-    expect(outcomes['i0']).toBe('untestedAtOrBelow');
+    expect(estimate).toBe(0);
+    expect(Object.values(outcomes).every((o) => o === 'aboveEstimate')).toBe(true);
   });
 });

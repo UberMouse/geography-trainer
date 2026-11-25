@@ -6,6 +6,7 @@ import {
   PLACEMENT_MAX_LEVEL,
   PLACEMENT_MAX_QUESTIONS,
   PLACEMENT_MIN_LEVEL,
+  PLACEMENT_NO_ESTIMATE,
   PLACEMENT_REVERSALS,
   PLACEMENT_START_LEVEL,
 } from './config';
@@ -46,6 +47,7 @@ export interface PlacementQuestion {
 }
 
 export interface PlacementResult {
+  /** 0-8: the level the learner showed; 0 means none (nothing passed). */
   estimate: number;
   outcomes: Record<string, PlacementOutcome>;
 }
@@ -127,21 +129,22 @@ export function answerPlacement(state: PlacementState, itemId: string, rating: G
   };
 }
 
-/** Mean of the last PLACEMENT_ESTIMATE_REVERSALS reversal levels (all of them when fewer), else
- * the last asked level, else the start level; rounded half up and clamped to 1-8. */
+/** With at least one reversal, the mean of the last PLACEMENT_ESTIMATE_REVERSALS reversal levels
+ * (all of them when fewer), rounded half down (reversals alternate a failed peak and a passed
+ * trough, so a half is the trough) and clamped to 1-8. With none, every answer moved the same
+ * way, so it is the highest passed level. With nothing passed (no answers, or all failed) it is
+ * PLACEMENT_NO_ESTIMATE (0), so every untested item is above the estimate. */
 function estimateOf(state: PlacementState): number {
   const recent = state.reversals.slice(-PLACEMENT_ESTIMATE_REVERSALS);
-  const raw =
-    recent.length > 0
-      ? recent.reduce((a, b) => a + b, 0) / recent.length
-      : (state.answers.at(-1)?.level ?? PLACEMENT_START_LEVEL);
-  return clampLevel(Math.floor(raw + 0.5));
+  if (recent.length > 0) return clampLevel(Math.ceil(recent.reduce((a, b) => a + b, 0) / recent.length - 0.5));
+  return Math.max(PLACEMENT_NO_ESTIMATE, ...state.answers.filter((a) => a.passed).map((a) => a.level));
 }
 
-/** The estimate and an outcome for every item given to `startPlacement`; callable early. Passed
- * items are `passed` and answered-but-failed items `failed`. Items never answered (a pending
- * question included) are `aboveEstimate` when above the estimate and `untestedAtOrBelow`
- * otherwise; items with a non-finite level are always `aboveEstimate`. */
+/** The estimate (0-8; 0 means no level was shown) and an outcome for every item given to
+ * `startPlacement`; callable early. Passed items are `passed` and answered-but-failed items
+ * `failed`. Items never answered (a pending question included) are `aboveEstimate` when above
+ * the estimate and `untestedAtOrBelow` otherwise; items with a non-finite level are always
+ * `aboveEstimate`. */
 export function finishPlacement(state: PlacementState): PlacementResult {
   const estimate = estimateOf(state);
   const answered = new Map(state.answers.map((a) => [a.itemId, a.passed]));
