@@ -92,6 +92,13 @@ export function startedCountries(
     .sort((a, b) => a.country.name.localeCompare(b.country.name));
 }
 
+/** Every country as a `{ id, name }` option, alphabetical by name. */
+export function countryOptions(countries: readonly Country[]): { id: string; name: string }[] {
+  return countries
+    .map(({ id, name }) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 const TIER_LABELS: Record<Tier, [string, string]> = {
   country: ['Country', 'Countries'],
   region: ['Region', 'Regions'],

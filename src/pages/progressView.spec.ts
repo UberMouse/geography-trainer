@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { progressFill, startedCountries, tierCountText, type CountryLook } from './progressView';
+import {
+  countryOptions,
+  progressFill,
+  startedCountries,
+  tierCountText,
+  type CountryLook,
+} from './progressView';
 
 describe('progressFill', () => {
   it('uses the state colour for locked, new and learning', () => {
@@ -57,5 +63,18 @@ describe('tierCountText', () => {
     expect(tierCountText('region', { total: 1, learning: 0, learned: 0 })).toBe(
       'Region: 0 learned, 0 learning of 1',
     );
+  });
+});
+
+describe('countryOptions', () => {
+  it('lists every country, alphabetical by name, as id and name only', () => {
+    const country = (id: string, name: string) => ({ id, name, places: 1, hasRegions: false });
+    expect(
+      countryOptions([country('c', 'Chad'), country('a', 'Albania'), country('b', 'Brazil')]),
+    ).toEqual([
+      { id: 'a', name: 'Albania' },
+      { id: 'b', name: 'Brazil' },
+      { id: 'c', name: 'Chad' },
+    ]);
   });
 });

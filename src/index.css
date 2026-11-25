@@ -410,3 +410,7 @@ a {
 .home-map .map.progress-map {
   max-width: 480px;
 }
+
+.progress-goto select {
+  max-width: 100%;
+}

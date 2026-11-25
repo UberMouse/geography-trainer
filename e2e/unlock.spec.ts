@@ -111,6 +111,20 @@ test('tapping a country on the map goes to its page', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
 });
 
+test('a country can be opened from the Go to a country control using only the keyboard', async ({
+  page,
+}) => {
+  await page.goto('/progress');
+  const select = page.getByLabel('Go to a country');
+  await expect(select.locator('option[value="germany"]')).toBeAttached(WAIT);
+  await select.focus();
+  await select.selectOption({ label: 'Germany' });
+  await page.getByRole('button', { name: 'Go' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/progress\/germany$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+});
+
 test('the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);

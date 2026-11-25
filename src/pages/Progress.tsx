@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { tierCounts, type ItemState, type Tier } from '../engine/curriculum';
 import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
@@ -6,6 +6,7 @@ import Status from './LoadStatus';
 import {
   STATE_LABELS,
   countryLooks,
+  countryOptions,
   lookOrLocked,
   startedCountries,
   tierCountText,
@@ -45,6 +46,12 @@ function ProgressContent({ data }: { data: WorldData }) {
     () => startedCountries(data.countries.countries, looks),
     [data.countries, looks],
   );
+  const options = useMemo(() => countryOptions(data.countries.countries), [data.countries]);
+  const [chosen, setChosen] = useState('');
+  const go = (event: FormEvent) => {
+    event.preventDefault();
+    if (chosen) navigate(`/progress/${chosen}`);
+  };
   return (
     <>
       <ul className="progress-counts">
@@ -73,6 +80,24 @@ function ProgressContent({ data }: { data: WorldData }) {
           Everything below it mastered
         </li>
       </ul>
+      <form className="progress-goto" onSubmit={go}>
+        <label htmlFor="progress-goto-select">Go to a country</label>{' '}
+        <select
+          id="progress-goto-select"
+          value={chosen}
+          onChange={(event) => setChosen(event.target.value)}
+        >
+          <option value="">Choose a country</option>
+          {options.map(({ id, name }) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>{' '}
+        <button type="submit" disabled={!chosen}>
+          Go
+        </button>
+      </form>
       <h2>Countries you have started</h2>
       {started.length === 0 ? (
         <p>
