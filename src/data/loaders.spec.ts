@@ -100,6 +100,30 @@ describe('loaders', () => {
     expect(france!.properties).not.toHaveProperty('pointOnly');
   });
 
+  it('loadCountries marks a country stored as a zero-area polygon too', async () => {
+    const topo = topology('countries', 'france', { name: 'France', places: 5, hasRegions: true });
+    topo.arcs.push([
+      [1000, 1000],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ]);
+    topo.objects.countries!.geometries.push({
+      type: 'Polygon',
+      id: 'vatican-city',
+      properties: { name: 'Vatican City', places: 2, hasRegions: false },
+      arcs: [[1]],
+    });
+    files['/data/countries.topo.json'] = {
+      ...topo,
+      transform: { scale: [0.01, 0.01], translate: [12, 41] },
+    };
+    const { features } = await loadCountries();
+    const [france, vatican] = features;
+    expect(vatican!.properties.pointOnly).toBe(true);
+    expect(france!.properties).not.toHaveProperty('pointOnly');
+  });
+
   it('loadPlaces returns the flat list', async () => {
     const places = await loadPlaces();
     expect(places.map((p) => p.id)).toEqual(['paris']);

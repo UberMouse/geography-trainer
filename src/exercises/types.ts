@@ -37,6 +37,11 @@ export interface ExerciseItem {
    * it on the globe instead.
    */
   onGlobe: boolean;
+  /**
+   * A point-only country (no area of its own) or a place in one: its outline is a featureless
+   * disc, so L1 shows the marked globe instead (and a place has `onGlobe` set).
+   */
+  pointOnly: boolean;
 }
 
 /** What one answered question reports. */

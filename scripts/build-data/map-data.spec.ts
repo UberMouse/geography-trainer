@@ -76,6 +76,12 @@ describe('committed map data, as the loaders return it', () => {
       expect(size(id).km).toBeLessThan(1.05 * Math.sqrt(Math.PI) * r);
     }
     expect(size('tuvalu').pointOnly).toBeUndefined();
+    expect(features.filter((f) => f.properties.pointOnly).map((f) => f.id).sort()).toEqual([
+      'bonaire',
+      'saba',
+      'sint-eustatius',
+      'vatican-city',
+    ]);
     const vatican = features.find((f) => f.id === 'vatican-city')!;
     expect(geoContains(vatican, answerPoint(vatican))).toBe(true);
   });

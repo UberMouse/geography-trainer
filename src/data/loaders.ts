@@ -9,7 +9,10 @@ export type CountryProps = {
   name: string;
   places: number;
   hasRegions: boolean;
-  /** Stored as a Point (outline is just a disc): set by `loadCountries`, absent on the rest. */
+  /**
+   * No area of its own (stored as a point, or with zero area), so its outline is just a disc: set
+   * by `loadCountries`, absent on the rest.
+   */
   pointOnly?: boolean;
 };
 export type RegionProps = { name: string; places: number };
@@ -31,9 +34,9 @@ export interface RegionsData {
 function featuresOf<F>(topo: Topology, objectName: string, markPoints = false): F[] {
   const object = topo.objects[objectName] as GeometryCollection;
   return feature(topo, object).features.map((f) => {
-    // Recorded before `ensureArea` replaces the geometry.
-    const pointOnly = markPoints && f.geometry?.type === 'Point';
     const withArea = ensureArea(f);
+    // `ensureArea` returns the same feature unless it had no area and drew a disc instead.
+    const pointOnly = markPoints && withArea !== f;
     return pointOnly ? { ...withArea, properties: { ...withArea.properties, pointOnly } } : withArea;
   }) as F[];
 }

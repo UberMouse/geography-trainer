@@ -149,6 +149,19 @@ test.describe('L1 point-only country', () => {
     await expect(verdict(page)).toHaveText(/^Correct/);
   });
 
+  test('a zero-area country shows the globe too', async ({ page }) => {
+    await openExercise(page, 'item=country:vatican-city&rung=1');
+    await expect(page.getByText('Which country is marked?')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
+  });
+
+  test('a place in a point-only country shows the globe, not an outline', async ({ page }) => {
+    await openExercise(page, 'item=place:the_bottom_netherlands&rung=1');
+    await expect(page.getByText('Which place is marked?')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Outline' })).toHaveCount(0);
+  });
+
   test('a tiny real polygon keeps its outline', async ({ page }) => {
     await openExercise(page, 'item=country:tuvalu&rung=1');
     await expect(page.getByText('Which country is this?')).toBeVisible();

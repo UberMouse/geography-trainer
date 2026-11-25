@@ -112,6 +112,20 @@ describe('buildExerciseItem: a place', () => {
     expect(b1.world).toBe(COUNTRIES.features);
   });
 
+  it('puts a place in a point-only country on the globe, and marks the item', () => {
+    const pointOnlyBeta = {
+      ...COUNTRIES,
+      features: COUNTRIES.features.map((f) =>
+        f.id === 'beta' ? { ...f, properties: { ...f.properties, pointOnly: true } } : f,
+      ),
+    };
+    const data = { ...DATA, countries: pointOnlyBeta };
+    const b1 = buildExerciseItem('place:b1', data);
+    expect(b1).toMatchObject({ onGlobe: true, pointOnly: true });
+    expect(buildExerciseItem('country:beta', data).pointOnly).toBe(true);
+    expect(buildExerciseItem('place:b1', DATA)).toMatchObject({ onGlobe: false, pointOnly: false });
+  });
+
   it('puts a place outside the country’s flat map on the globe', () => {
     expect(buildExerciseItem('place:i1', DATA_WITH_ALPHA).onGlobe).toBe(true);
   });

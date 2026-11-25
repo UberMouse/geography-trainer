@@ -39,9 +39,10 @@ const MIN_AREA_SR = 1e-12;
 
 /**
  * The feature with an area to draw, tap and measure: a Point or MultiPoint, or a (Multi)Polygon
- * with no area (the data stores a few tiny countries that way), becomes a disc of
- * the feature's own `radiusKm` property (a finite number above 0, else `POINT_FEATURE_RADIUS_KM`)
- * around its centroid (else its first coordinate), with the same id and properties. Any other feature comes back as it is.
+ * with no area (the data stores a few tiny countries that way), becomes a disc of the feature's
+ * own `radiusKm` property (a finite number above 0, else `POINT_FEATURE_RADIUS_KM`) around its
+ * centroid (else its first coordinate), with the same id and properties. Any other feature comes
+ * back as it is.
  */
 export function ensureArea<P>(
   feature: Feature<Geometry | null, P>,

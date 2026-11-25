@@ -85,6 +85,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       frame: mainPart(country),
       world: features,
       onGlobe: false,
+      pointOnly: country.properties.pointOnly === true,
     };
   }
 
@@ -123,6 +124,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       frame,
       world: worldWith(country, regions.features),
       onGlobe: !inFlatFrame(frame, answer),
+      pointOnly: false,
     };
   }
 
@@ -138,6 +140,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     const point: LngLat = [place.lng, place.lat];
     const frame = mainPart(country);
     const outline: AreaFeature = region ?? country;
+    const pointOnly = country.properties.pointOnly === true;
     return {
       id: itemId,
       tier,
@@ -149,7 +152,9 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       outline,
       frame,
       world: worldWith(country, regionFeatures),
-      onGlobe: !inFlatFrame(frame, point),
+      // A point-only country's flat map is its featureless disc: show its places on the globe.
+      onGlobe: pointOnly || !inFlatFrame(frame, point),
+      pointOnly,
     };
   }
 
