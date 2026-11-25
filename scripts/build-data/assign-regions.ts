@@ -184,11 +184,16 @@ export function assignRegion(
   return { region, how: 'snapped', inside, adminMatches, snappedKm };
 }
 
-/** Whether an assignment disagrees with maptap's `admin` (only places with an `admin` can). */
+/**
+ * Whether an assignment disagrees with maptap's `admin` (only places with an `admin` can): the
+ * admin names no region, the place got a region other than the ones it names, or the region
+ * containing the point is not one it names (the admin won within tolerance).
+ */
 export function adminDisagrees(assignment: Assignment, admin: string | undefined): boolean {
   if (!admin) return false;
-  if (assignment.adminMatches.length === 0) return true;
-  return assignment.inside !== null && !assignment.adminMatches.includes(assignment.inside);
+  const named = (region: Region | null) =>
+    region !== null && assignment.adminMatches.includes(region);
+  return !named(assignment.region) || (assignment.inside !== null && !named(assignment.inside));
 }
 
 /** A country gets a regions tier with enough regions holding places and enough places. */

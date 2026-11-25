@@ -1,5 +1,6 @@
 // Small geometry helpers over GeoJSON polygons in [lng, lat] degrees.
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import pointOnFeature from '@turf/point-on-feature';
 import type { MultiPolygon, Polygon, Position } from 'geojson';
 
 export type Area = Polygon | MultiPolygon;
@@ -47,10 +48,14 @@ function wrapLng(d: number): number {
   return ((((d + 180) % 360) + 360) % 360) - 180;
 }
 
+/** Natural Earth splits rings at ±180°; an edge along that cut is not a real outline. */
+const onAntimeridian = (lng: number) => Math.abs(Math.abs(lng) - 180) < 1e-6;
+
 /**
- * Distance in km from a point to the nearest edge of an area (every ring, holes included).
- * Each edge is measured in an equirectangular projection centred on the point, which is accurate
- * near the point and only approximate for far-away edges: good enough to pick the nearest area.
+ * Distance in km from a point to the nearest edge of an area (every ring, holes included),
+ * leaving out edges along ±180° (`onAntimeridian`). Each edge is measured in an equirectangular
+ * projection centred on the point, which is accurate near the point and only approximate for
+ * far-away edges: good enough to pick the nearest area.
  */
 export function distanceToEdgeKm(area: Area, lng: number, lat: number): number {
   const kmPerLngDegree = Math.cos((lat * Math.PI) / 180) * KM_PER_DEGREE;
@@ -60,6 +65,7 @@ export function distanceToEdgeKm(area: Area, lng: number, lat: number): number {
       for (let i = 1; i < ring.length; i++) {
         const [aLng, aLat] = ring[i - 1]!;
         const [bLng, bLat] = ring[i]!;
+        if (onAntimeridian(aLng!) && onAntimeridian(bLng!)) continue;
         // Unwrap b relative to a so an edge never jumps across the point's antimeridian.
         const aDLng = wrapLng(aLng! - lng);
         const bDLng = aDLng + wrapLng(bLng! - aLng!);
@@ -74,6 +80,45 @@ export function distanceToEdgeKm(area: Area, lng: number, lat: number): number {
     }
   }
   return best;
+}
+
+/**
+ * A point strictly inside `area`, never on its outline: turf's point-on-feature when that is
+ * interior (it can fall back to an outline vertex), else the middle of the widest span a
+ * horizontal line cuts through the largest polygon, trying several latitudes.
+ */
+export function interiorPoint(area: Area): [number, number] {
+  const interior = (p: Position) => booleanPointInPolygon(p, area, { ignoreBoundary: true });
+  const [lng, lat] = pointOnFeature(area).geometry.coordinates;
+  if (interior([lng!, lat!])) return [lng!, lat!];
+
+  const largest = polygonsOf(area).reduce((a, b) =>
+    planarArea({ type: 'Polygon', coordinates: b }) >
+    planarArea({ type: 'Polygon', coordinates: a })
+      ? b
+      : a,
+  );
+  const [, south, , north] = bboxOf({ type: 'Polygon', coordinates: largest });
+  for (const share of [0.5, 0.25, 0.75, 0.375, 0.625, 0.125, 0.875]) {
+    const y = south + share * (north - south);
+    const xs: number[] = [];
+    for (const ring of largest) {
+      for (let i = 1; i < ring.length; i++) {
+        const [ax, ay] = ring[i - 1]!;
+        const [bx, by] = ring[i]!;
+        if (ay! > y !== by! > y) xs.push(ax! + ((y - ay!) * (bx! - ax!)) / (by! - ay!));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    let best: Position | null = null;
+    let width = 0;
+    for (let i = 1; i < xs.length; i += 2) {
+      if (xs[i]! - xs[i - 1]! > width)
+        [best, width] = [[(xs[i - 1]! + xs[i]!) / 2, y], xs[i]! - xs[i - 1]!];
+    }
+    if (best && interior(best)) return [best[0]!, best[1]!];
+  }
+  throw new Error('no interior point found for an area');
 }
 
 /** Planar area in square degrees (holes subtracted): only for comparing nearby shapes. */

@@ -103,6 +103,12 @@ describe('validateData', () => {
     ]);
   });
 
+  it('fails on a region file for a country without a regions tier', () => {
+    expect(
+      problemsAfter((f) => (f.regions.bland = topo('regions', [geometry('bland.x')]))),
+    ).toEqual(['regions/bland.topo.json: bland is not a regions-tier country']);
+  });
+
   it('fails on a region for a country without a regions tier', () => {
     expect(problemsAfter((f) => (f.places[1]!.region = 'bland.x'))).toEqual([
       'place p2: country bland has no regions tier but region bland.x',

@@ -134,7 +134,9 @@ export async function writeData(dir: string, data: DataOut): Promise<void> {
 /**
  * Writes the files into a temporary sibling of `dir` (`.<name>-tmp-<pid>`, gitignored), runs
  * `validate` on it, and only when it reports no problems swaps it in for `dir`. On problems or
- * an error `dir` is left as it was, and no temporary directory is left behind.
+ * an error `dir` is left as it was, and no temporary directory is left behind, except when the
+ * swap fails and putting the old `dir` back fails too: then the old data stays in
+ * `.<name>-old-<pid>` and the error names it.
  */
 export async function publishData(
   dir: string,
@@ -144,6 +146,7 @@ export async function publishData(
   const sibling = (kind: string) => join(dirname(dir), `.${basename(dir)}-${kind}-${process.pid}`);
   const staged = sibling('tmp');
   const previous = sibling('old');
+  let keepPrevious = false;
   try {
     await writeData(staged, data);
     const problems = await validate(staged);
@@ -156,12 +159,21 @@ export async function publishData(
     try {
       await rename(staged, dir);
     } catch (error) {
-      if (hadPrevious) await rename(previous, dir);
+      if (hadPrevious) {
+        try {
+          await rename(previous, dir);
+        } catch (restoreError) {
+          keepPrevious = true;
+          throw new Error(
+            `replacing ${dir} failed (${String(error)}), and so did restoring it (${String(restoreError)}): the previous data is in ${previous}`,
+          );
+        }
+      }
       throw error;
     }
     return [];
   } finally {
     await rm(staged, { recursive: true, force: true });
-    await rm(previous, { recursive: true, force: true });
+    if (!keepPrevious) await rm(previous, { recursive: true, force: true });
   }
 }

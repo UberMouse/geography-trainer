@@ -117,6 +117,13 @@ describe('assignRegion', () => {
     expect([a.region.id, a.how]).toEqual(['aland.coast', 'snapped']);
     expect(a.snappedKm).toBeCloseTo(22.2, 0);
   });
+
+  it('reports an admin naming a region other than the one a point was snapped to', () => {
+    const a = assignRegion(regions, 3.2, 0.5, 'North');
+    expect([a.region.id, a.how]).toEqual(['aland.coast', 'snapped']);
+    expect(adminDisagrees(a, 'North')).toBe(true);
+    expect(adminDisagrees(assignRegion(regions, 3.05, 0.5, 'Coast'), 'Coast')).toBe(false);
+  });
 });
 
 describe('hasRegionsTier', () => {

@@ -56,6 +56,10 @@ export function validateData(
     if (!regionIds.has(countryId))
       problems.push(`regions-tier country ${countryId} has no region file`);
   }
+  for (const countryId of regionIds.keys()) {
+    if (!tier.has(countryId))
+      problems.push(`regions/${countryId}.topo.json: ${countryId} is not a regions-tier country`);
+  }
 
   for (const place of files.places) {
     if (!countryIds.has(place.country)) {

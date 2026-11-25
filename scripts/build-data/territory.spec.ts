@@ -118,6 +118,16 @@ describe('applyTerritoryMoves', () => {
     ]);
   });
 
+  it('labels a clipped row inside its rest, never on the cut, so the country keeps it', () => {
+    // AAA-2's rest is an L whose box centre (1.5, 0.5), turf's point-on-feature, is the cut corner.
+    const moved = applyTerritoryMoves(countries(), rows, disputed(rect(1.5, 0.5, 2, 1.5)), MOVE_D1);
+    const east = moved.admin1.find((r) => r.code === 'AAA-2')!;
+    expect(east.label).not.toEqual([1.5, 0.5]);
+    expect(areaContains(east.geometry, bboxOf(east.geometry), ...east.label)).toBe(true);
+    const kept = admin1Rows(moved.countries[0]!, moved.admin1, moved.countries);
+    expect([kept.rows.map((r) => r.code), kept.dropped]).toEqual([['AAA-1', 'AAA-2'], []]);
+  });
+
   it('fails on a territory that names no row', () => {
     expect(() =>
       applyTerritoryMoves(countries(), rows, new Map(), [

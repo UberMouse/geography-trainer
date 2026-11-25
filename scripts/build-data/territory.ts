@@ -2,10 +2,9 @@
 import turfDifference from '@turf/difference';
 import { feature, featureCollection } from '@turf/helpers';
 import turfIntersect from '@turf/intersect';
-import pointOnFeature from '@turf/point-on-feature';
 import turfUnion from '@turf/union';
 import type { MatchedCountry } from './country-match';
-import { type Area, approxAreaKm2, bboxOf, planarArea } from './geo';
+import { type Area, approxAreaKm2, bboxOf, interiorPoint, planarArea } from './geo';
 import type { NeAdmin1 } from './natural-earth';
 
 export interface TerritoryMove {
@@ -43,10 +42,6 @@ const pair = (a: Area, b: Area) => featureCollection([feature(a), feature(b)]);
 const union = (a: Area, b: Area): Area => turfUnion(pair(a, b))!.geometry;
 const difference = (a: Area, b: Area): Area | null => turfDifference(pair(a, b))?.geometry ?? null;
 const intersect = (a: Area, b: Area): Area | null => turfIntersect(pair(a, b))?.geometry ?? null;
-const labelOf = (area: Area): [number, number] => {
-  const [lng, lat] = pointOnFeature(area).geometry.coordinates;
-  return [lng!, lat!];
-};
 
 /** Applies the moves in order: the updated countries and admin-1 rows, and what to report. */
 export function applyTerritoryMoves(
@@ -122,7 +117,7 @@ function applyMove(
     pieces.push({ row, piece });
     const rest = difference(row.geometry, territory);
     if (rest && planarArea(rest) >= SLIVER_SHARE * size) {
-      kept.push({ ...row, geometry: rest, label: labelOf(rest) });
+      kept.push({ ...row, geometry: rest, label: interiorPoint(rest) });
     } else if (rest) {
       sliver(row, 'outside', rest, size);
     }
@@ -145,13 +140,13 @@ function applyMove(
       sliver(row, 'gaining-covered', overlap, size);
       return [];
     }
-    return [{ ...row, geometry: rest, label: labelOf(rest) }];
+    return [{ ...row, geometry: rest, label: interiorPoint(rest) }];
   });
   const adopt = (row: NeAdmin1, geometry: Area): NeAdmin1 => ({
     ...row,
     adm0: to.adm0[0]!,
     guA3: null,
-    label: labelOf(geometry),
+    label: interiorPoint(geometry),
     geometry,
   });
   const moved = move.region
