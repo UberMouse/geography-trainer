@@ -528,9 +528,23 @@ describe('canTestOut', () => {
     expect(canTestOut(c, { 'place:rennes': mastered('place:rennes') }, 'place:rennes')).toBe(false);
   });
 
-  it('is false once a child has a row', () => {
-    const progress = { ...masteredFrance, ...rows('region:france.corse') };
-    expect(canTestOut(c, progress, 'country:france')).toBe(false);
+  it('is false once a child has been studied', () => {
+    const studied = applyAnswer(createProgress('region:france.corse', T0), 1, Rating.Good, T0, '2026-03-04');
+    expect(studied.introducedAt).not.toBeNull();
+    expect(canTestOut(c, { ...masteredFrance, 'region:france.corse': studied }, 'country:france')).toBe(false);
+  });
+
+  it('stays true when a child has only a placement seed and another has no row', () => {
+    const seed = seedFromPlacement('region:france.corse', 'passed', T0, '2026-03-04');
+    expect(canTestOut(c, { ...masteredFrance, 'region:france.corse': seed }, 'country:france')).toBe(true);
+  });
+
+  it('is false once every child has a row', () => {
+    const seeds = {
+      'region:france.corse': seedFromPlacement('region:france.corse', 'passed', T0, '2026-03-04'),
+      'region:france.bretagne': seedFromPlacement('region:france.bretagne', 'failed', T0, '2026-03-04'),
+    };
+    expect(canTestOut(c, { ...masteredFrance, ...seeds }, 'country:france')).toBe(false);
   });
 
   it('throws for an id not in the curriculum', () => {

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
+import { applyAnswer, createProgress, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import { createRepo, type ProgressRepo } from '../storage/repo';
 import type { TierCounts } from '../storage/progressFile';
 import { checkImportText, exportFilename, importConfirmText, leftOutText, offersPlacement } from './homeView';
@@ -108,7 +108,12 @@ describe('offersPlacement', () => {
     expect(offersPlacement({ 'country:france': createProgress('country:france', NOW) })).toBe(true);
   });
 
-  it('stops offering once an item is started', () => {
+  it('keeps offering when only placement seeds exist', () => {
+    const seed = seedFromPlacement('country:france', 'passed', NOW, '2026-03-04');
+    expect(offersPlacement({ 'country:france': seed })).toBe(true);
+  });
+
+  it('stops offering once an item is answered in a session', () => {
     expect(offersPlacement({ 'country:france': started('country:france') })).toBe(false);
   });
 });

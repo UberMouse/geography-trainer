@@ -212,11 +212,20 @@ export function placementSeeds(
   return seeds;
 }
 
-/** Whether the item can be tested out of: mastered, with children, none of which has a progress row.
- * Throws for an id not in the curriculum. */
+/**
+ * Whether the item can be tested out of: mastered, with children, at least one of which has no
+ * progress row, and none of which has been studied (`introducedAt` set by an answer in a study
+ * session). Rows a placement left (seeds) do not hide it, so quitting a test-out partway keeps
+ * the link. Throws for an id not in the curriculum.
+ */
 export function canTestOut(curriculum: Curriculum, progress: ProgressMap, itemId: string): boolean {
   if (!curriculum.items.has(itemId)) throw new Error(`Unknown item ${itemId}`);
   const own = progress[itemId];
   const unlocked = unlockedBy(curriculum, itemId);
-  return !!own && isMastered(own) && !!unlocked && unlocked.childIds.every((id) => !progress[id]);
+  if (!own || !isMastered(own) || !unlocked) return false;
+  const { childIds } = unlocked;
+  return (
+    childIds.some((id) => !progress[id]) &&
+    childIds.every((id) => (progress[id]?.introducedAt ?? null) === null)
+  );
 }

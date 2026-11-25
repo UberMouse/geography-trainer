@@ -28,17 +28,17 @@ describe('placementHeader', () => {
 
 describe('emptyPoolText', () => {
   it('names the tier in the singular', () => {
-    expect(emptyPoolText('countries')).toBe('There is nothing left to place: you have started every country.');
-    expect(emptyPoolText('regions')).toBe('There is nothing left to place: you have started every region.');
-    expect(emptyPoolText('places')).toBe('There is nothing left to place: you have started every place.');
+    expect(emptyPoolText('countries')).toBe('There is nothing left to place: every country is already placed or being studied.');
+    expect(emptyPoolText('regions')).toBe('There is nothing left to place: every region is already placed or being studied.');
+    expect(emptyPoolText('places')).toBe('There is nothing left to place: every place is already placed or being studied.');
   });
 
   it('says what was started in the country or region being tested out of', () => {
     expect(emptyPoolText('regions', 'France')).toBe(
-      "There is nothing left to test: you have started all of France's regions.",
+      "There is nothing left to test: all of France's regions are already placed or being studied.",
     );
     expect(emptyPoolText('places', 'Bretagne')).toBe(
-      "There is nothing left to test: you have started all of Bretagne's places.",
+      "There is nothing left to test: all of Bretagne's places are already placed or being studied.",
     );
   });
 });

@@ -44,9 +44,8 @@ export function createRepo(name: string = DB_NAME): ProgressRepo {
 
     async seedProgress(rows) {
       await db.transaction('rw', db.progress, async () => {
-        for (const row of rows) {
-          if (!(await db.progress.get(row.itemId))) await db.progress.add(row);
-        }
+        const stored = await db.progress.bulkGet(rows.map((row) => row.itemId));
+        await db.progress.bulkAdd(rows.filter((_, i) => !stored[i]));
       });
     },
 
