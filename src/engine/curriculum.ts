@@ -29,7 +29,11 @@ export interface Curriculum {
 }
 
 export interface UnlockOptions {
-  /** maptap `type` values to keep; undefined means all. Filters places only. */
+  /**
+   * maptap `type` values to keep; undefined means every type. Places of other types are left out,
+   * and so are regions with no place of a kept type (their due reviews pause too, until the filter
+   * changes). Countries are always kept.
+   */
   placeTypes?: ReadonlySet<string>;
 }
 

@@ -20,7 +20,11 @@ export interface SessionInput {
   introducedToday: number;
   /** Defaults to DAILY_NEW_CAP. Caps new items only, never due reviews. */
   dailyCap?: number;
-  /** Undefined means every place type. */
+  /**
+   * maptap `type` values to keep; undefined means every type. Places of other types are left out,
+   * and so are regions with no place of a kept type (their due reviews pause too, until the filter
+   * changes). Countries are always kept.
+   */
   placeTypes?: ReadonlySet<string>;
   /** Accepted for future use; the queue is currently fully deterministic. */
   rng?: () => number;

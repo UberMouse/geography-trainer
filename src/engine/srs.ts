@@ -160,6 +160,9 @@ export function nextDue(progress: ItemProgress): number {
  * Progress for an item as a placement test leaves it. `dayKey` is the learner's local day (see
  * `localDayKey`): a `passed` seed counts as the first L4 pass day, so one later L4 pass on a
  * different day masters the item. Other outcomes ignore it. A passed seed is not yet mastered.
+ * It builds fresh progress, so use it only for items that have no progress yet: storing a seed
+ * replaces the record. A caller re-running placement (testing out of a newly unlocked tier) must
+ * skip items that already have progress.
  */
 export function seedFromPlacement(
   itemId: string,
