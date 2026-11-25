@@ -12,7 +12,7 @@ export default function Credits() {
       <h2>Data</h2>
       <ul>
         <li>
-          Place list courtesy of <a href="https://maptap.gg">MapTap.gg</a>, used with permission.
+          Place list courtesy of <a href="https://maptap.gg">MapTap.gg</a>.
         </li>
         <li>
           Boundaries from <a href="https://www.naturalearthdata.com">Natural Earth</a> (public
