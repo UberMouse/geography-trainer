@@ -22,3 +22,7 @@ export const showsPlacementOffer = (
   finishedTests: ReadonlySet<string>,
 ): boolean =>
   !finishedTests.has(placementKey(COUNTRIES_SCOPE)) && offersPlacement(curriculum, progress);
+
+/** Home's "new today" line: the limit may have been lowered below what was already started. */
+export const newTodayText = (newToday: number, cap: number): string =>
+  newToday > cap ? `${newToday} new today (limit ${cap})` : `${newToday} of ${cap} new today`;

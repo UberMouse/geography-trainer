@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import { buildCurriculum } from '../engine/curriculum';
 import type { Country } from '../engine/types';
-import { offersPlacement, showsPlacementOffer } from './homeView';
+import { newTodayText, offersPlacement, showsPlacementOffer } from './homeView';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -75,5 +75,15 @@ describe('showsPlacementOffer', () => {
     const progress = { 'country:france': started('country:france') };
     expect(showsPlacementOffer(curriculum, progress, new Set())).toBe(false);
     expect(showsPlacementOffer(curriculum, progress, countriesMarker)).toBe(false);
+  });
+});
+
+describe('newTodayText', () => {
+  it('reads N of cap while within the limit', () => {
+    expect(newTodayText(0, 5)).toBe('0 of 5 new today');
+    expect(newTodayText(5, 5)).toBe('5 of 5 new today');
+  });
+  it('names the limit once more were started than it allows', () => {
+    expect(newTodayText(10, 5)).toBe('10 new today (limit 5)');
   });
 });

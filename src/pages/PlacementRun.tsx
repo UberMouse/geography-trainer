@@ -65,6 +65,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   const [failedSaves, setFailedSaves] = useState<FailedSave[]>([]);
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const questionRef = useRef<HTMLDivElement>(null);
+  const finishedRef = useRef(false);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const state = answered ?? asking?.state ?? null;
   const answeredCount = state?.answers.length ?? 0;
@@ -95,6 +96,9 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   };
 
   const finish = (final: PlacementState) => {
+    // A second call (a fast double click) must not start another save; Try again calls `save`.
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     const result = finishPlacement(final);
     setEnded(result);
     void save(result);

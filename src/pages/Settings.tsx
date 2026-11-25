@@ -176,6 +176,7 @@ function ProgressFiles({
     setError(null);
     setLeftOut(0);
     setNotice(null);
+    setBusy(true);
     try {
       const now = new Date();
       const file = await progressStore.exportProgress(now);
@@ -193,6 +194,8 @@ function ProgressFiles({
       setLeftOut(progressStore.answers.getState().unsaved);
     } catch (e) {
       setError(`Could not export your progress: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -331,7 +334,11 @@ function Reset({
             type="text"
             className="settings-text"
             value={typed}
-            onChange={(event) => setTyped(event.currentTarget.value)}
+            onChange={(event) => {
+              setTyped(event.currentTarget.value);
+              setError(null);
+              setNotice(null);
+            }}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}

@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { PLACEMENT_MAX_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
 import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
-import { showsPlacementOffer } from './homeView';
+import { newTodayText, showsPlacementOffer } from './homeView';
 import Status from './LoadStatus';
 import { countryLooks, lookOrLocked } from './progressView';
 import { useLoaded } from './useLoaded';
@@ -73,7 +73,7 @@ function HomeContent({ data, now }: HomeContentProps) {
         <div>
           <dt>New today</dt>
           <dd data-testid="today-new">
-            {numbers.newToday} of {numbers.dailyCap} new today
+            {newTodayText(numbers.newToday, numbers.dailyCap)}
           </dd>
         </div>
         <div>
