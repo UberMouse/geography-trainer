@@ -81,7 +81,7 @@ function unaskedItems(state: PlacementState): PlacementItem[] {
  * finished or no askable item is left. While a question is pending it returns that question and
  * the same state without calling `rng`, so repeated calls are safe. Otherwise, at the target
  * level it picks uniformly with `rng`; with none left there, it uses the nearest level that has
- * some (the easier one on a tie). */
+ * some (the easier one on a tie). Throws a RangeError when `rng` returns a value outside [0, 1). */
 export function nextQuestion(
   state: PlacementState,
   rng: () => number,
@@ -100,7 +100,9 @@ export function nextQuestion(
     }
   }
   const atLevel = pool.filter((i) => i.level === bestLevel);
-  const pick = atLevel[Math.min(atLevel.length - 1, Math.floor(rng() * atLevel.length))]!;
+  const r = rng();
+  if (!(r >= 0 && r < 1)) throw new RangeError(`rng() must return a value in [0, 1), got ${r}`);
+  const pick = atLevel[Math.floor(r * atLevel.length)]!;
   const question = { itemId: pick.itemId, level: pick.level };
   return { state: { ...state, pending: question }, question };
 }
@@ -131,13 +133,17 @@ export function answerPlacement(state: PlacementState, itemId: string, rating: G
 
 /** With at least one reversal, the mean of the last PLACEMENT_ESTIMATE_REVERSALS reversal levels
  * (all of them when fewer), rounded half down (reversals alternate a failed peak and a passed
- * trough, so a half is the trough) and clamped to 1-8. With none, every answer moved the same
+ * trough, so a half is the trough) and clamped to 1-8, but never above the highest passed level
+ * (a window that starts at a peak skews the mean up). With none, every answer moved the same
  * way, so it is the highest passed level. With nothing passed (no answers, or all failed) it is
  * PLACEMENT_NO_ESTIMATE (0), so every untested item is above the estimate. */
 function estimateOf(state: PlacementState): number {
+  const highestPassed = Math.max(PLACEMENT_NO_ESTIMATE, ...state.answers.filter((a) => a.passed).map((a) => a.level));
   const recent = state.reversals.slice(-PLACEMENT_ESTIMATE_REVERSALS);
-  if (recent.length > 0) return clampLevel(Math.ceil(recent.reduce((a, b) => a + b, 0) / recent.length - 0.5));
-  return Math.max(PLACEMENT_NO_ESTIMATE, ...state.answers.filter((a) => a.passed).map((a) => a.level));
+  if (recent.length > 0) {
+    return Math.min(clampLevel(Math.ceil(recent.reduce((a, b) => a + b, 0) / recent.length - 0.5)), highestPassed);
+  }
+  return highestPassed;
 }
 
 /** The estimate (0-8; 0 means no level was shown) and an outcome for every item given to

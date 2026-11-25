@@ -287,12 +287,12 @@ describe('placement staircase', () => {
       const level = levelled.find((i) => i.itemId === id)!.level;
       s = answerPlacement({ ...s, pending: { itemId: id, level } }, id, rating);
     };
-    // Targets 4 (pass) -> 5 (fail: reversal at 5) -> 4 (fail), so the estimate is 5.
+    // Targets 4 (pass) -> 5 (fail: reversal at 5) -> 4 (fail); the mean 5 is capped at the highest passed level, 3.
     answer('p1', Rating.Easy);
     answer('f1', Rating.Hard);
     answer('f2', Rating.Again);
     const { estimate, outcomes } = finishPlacement(s);
-    expect(estimate).toBe(5);
+    expect(estimate).toBe(3);
     expect(outcomes).toEqual({
       p1: 'passed',
       f1: 'failed',
@@ -307,5 +307,31 @@ describe('placement staircase', () => {
     const { estimate, outcomes } = finishPlacement(startPlacement(makeItems(1), rng));
     expect(estimate).toBe(0);
     expect(Object.values(outcomes).every((o) => o === 'aboveEstimate')).toBe(true);
+  });
+
+  it('never estimates above the highest passed level', () => {
+    const rng = mulberry32(11);
+    const items6 = makeItems(6);
+    // Pass at 4, fail at 5, stop: reversals [5], but 5 was failed.
+    let s = startPlacement(items6, rng);
+    s = step(s, rng, Rating.Good).state;
+    s = step(s, rng, Rating.Again).state;
+    expect(s.reversals).toEqual([5]);
+    const early = finishPlacement(s);
+    expect(early.estimate).toBe(4);
+    const level5 = items6.find((i) => i.level === 5 && early.outcomes[i.itemId] !== 'failed')!;
+    expect(early.outcomes[level5.itemId]).toBe('aboveEstimate');
+    // A window of [5, 4, 5] starts at a peak: mean 4.67 would round to 5.
+    s = step(s, rng, Rating.Good).state;
+    s = step(s, rng, Rating.Again).state;
+    expect(s.reversals).toEqual([5, 4, 5]);
+    expect(finishPlacement(s).estimate).toBe(4);
+  });
+
+  it('throws a RangeError when rng returns a value outside [0, 1)', () => {
+    const s = startPlacement(makeItems(2), mulberry32(1));
+    for (const bad of [-0.1, 1, NaN]) {
+      expect(() => nextQuestion(s, () => bad)).toThrow(RangeError);
+    }
   });
 });
