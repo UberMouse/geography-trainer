@@ -54,6 +54,21 @@ describe('measureTap on a polygon', () => {
     expect(m.kmFromAnswer).toBeCloseTo(0, 6);
   });
 
+  it('counts a tap in an alsoInside feature as inside, 0 km outside the border', () => {
+    const twin = poly([
+      [20, -5],
+      [20, 5],
+      [30, 5],
+      [30, -5],
+      [20, -5],
+    ]);
+    const m = measureTap({ ...target, alsoInside: [twin] }, [25, 0]);
+    expect(m.inside).toBe(true);
+    expect(m.kmOutsideBorder).toBe(0);
+    expect(m.kmFromAnswer).toBeGreaterThan(2700);
+    expect(measureTap({ ...target, alsoInside: [twin] }, [15, 0]).inside).toBe(false);
+  });
+
   it('measures a tap east of the east edge to the edge, not a vertex', () => {
     const m = measureTap(target, [6, 0]);
     expect(m.inside).toBe(false);

@@ -30,6 +30,8 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
       const r = el.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top] as const;
     };
+    // Window listeners for presses that could not be captured, removed on their release or on cleanup.
+    const uncaptured = new Set<() => void>();
     const emit = (events: GestureEvent[]) => events.forEach((ev) => latest.current.onGesture(ev));
 
     const down = (e: PointerEvent) => {
@@ -40,14 +42,19 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
         // InvalidStateError: the pointer is no longer active. Track the press without capture, and
         // since its release may land outside the element, let go of it when the window sees that.
         const id = e.pointerId;
-        const release = (ev: PointerEvent) => {
-          if (ev.pointerId !== id) return;
+        const stop = () => {
           window.removeEventListener('pointerup', release);
           window.removeEventListener('pointercancel', release);
+          uncaptured.delete(stop);
+        };
+        const release = (ev: PointerEvent) => {
+          if (ev.pointerId !== id) return;
+          stop();
           tracker.cancel(id);
         };
         window.addEventListener('pointerup', release);
         window.addEventListener('pointercancel', release);
+        uncaptured.add(stop);
       }
       tracker.down(e.pointerId, ...local(e));
     };
@@ -68,6 +75,7 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
     el.addEventListener('lostpointercapture', cancel);
     el.addEventListener('wheel', wheel, { passive: false });
     return () => {
+      uncaptured.forEach((stop) => stop());
       el.removeEventListener('pointerdown', down);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);

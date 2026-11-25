@@ -2,7 +2,7 @@ import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { DATA } from './fixtures';
 import { buildExerciseItem } from './item';
-import { choiceResult, tapResult } from './result';
+import { choiceResult, formatKm, tapResult } from './result';
 
 const KM_PER_DEG = (Math.PI * 6371) / 180;
 
@@ -62,5 +62,14 @@ describe('tapResult on a place', () => {
     expect(r).toMatchObject({ rating: Rating.Good, correct: true });
     // round(100 · exp(-3.5 · 55.6 / 16250)) = round(98.8)
     expect(r.maptapScore).toBe(99);
+  });
+});
+
+describe('formatKm', () => {
+  it('rounds to one decimal before choosing the format', () => {
+    expect(formatKm(9.97)).toBe('10');
+    expect(formatKm(9.94)).toBe('9.9');
+    expect(formatKm(0)).toBe('0.0');
+    expect(formatKm(1234.4)).toBe('1,234');
   });
 });

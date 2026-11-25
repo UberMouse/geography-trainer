@@ -83,10 +83,23 @@ export default function TapMap({
     setTransform(next);
   };
 
+  // A new projection (new features or frame) is a new map: back to the whole view, and any reveal
+  // frames afresh. The state resets during render; the effect, declared before the reveal effect,
+  // brings the ref and the reveal in step, so a reveal frames on the reset view.
+  const [shownProjection, setShownProjection] = useState({ projection });
+  if (shownProjection.projection !== projection) {
+    setShownProjection({ projection });
+    setTransform(IDENTITY);
+  }
+  const revealedFor = useRef<typeof reveal>(undefined);
+  useEffect(() => {
+    transformRef.current = IDENTITY;
+    revealedFor.current = undefined;
+  }, [projection]);
+
   // Once per reveal: bring the pin and the answer on screen. The user's later pans and zooms
   // stand, but a switch straight to another reveal frames again. A reveal that arrives without a
   // pin is spent without reframing, so a pin dropped later does not jump the view.
-  const revealedFor = useRef<typeof reveal>(undefined);
   useEffect(() => {
     if (!reveal) revealedFor.current = undefined;
     if (!reveal || revealedFor.current === reveal) return;

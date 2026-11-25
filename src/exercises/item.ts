@@ -56,24 +56,31 @@ function splitId(itemId: string): [string, string] {
 }
 
 /**
- * A place's wrong options come from its region's other places; with fewer than `DISTRACTORS` of
- * those, from its country's, then from every place. A place with no region starts at its country.
+ * A place's wrong options come from its region's other places; with fewer than `DISTRACTORS`
+ * distinctly named ones (see `distinctCandidates`), from its country's, then from every place. A
+ * place with no region starts at its country.
  */
 function placeCandidates(place: Place, places: Place[]): Candidate[] {
   const others = places.filter((p) => p.id !== place.id);
+  const from: LngLat = [place.lng, place.lat];
+  const distinct = (pool: Place[]) =>
+    distinctCandidates(
+      pool.map((p) => pointCandidate(placeItemId(p.id), p.name, [p.lng, p.lat])),
+      place.name,
+      from,
+    );
   const pools = [
     place.region === null ? [] : others.filter((p) => p.region === place.region),
     others.filter((p) => p.country === place.country),
-  ];
-  const pool = pools.find((p) => p.length >= DISTRACTORS) ?? others;
-  return pool.map((p) => pointCandidate(placeItemId(p.id), p.name, [p.lng, p.lat]));
+  ].map(distinct);
+  return pools.find((p) => p.length >= DISTRACTORS) ?? distinct(others);
 }
 
 /**
  * Build the exercise item for a namespaced item id from loaded data (it fetches nothing). Wrong
  * options are drawn from: every other country; the country's other regions that have places; or
  * a place's neighbours (see `placeCandidates`). Throws for an unknown id, for a region or a
- * regions-tier place when `regions` is missing, and for a place whose region is not in it.
+ * regions-tier place when `regions` is missing or another country's, and for a place whose region is not in it.
  */
 export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseItem {
   const [tier, id] = splitId(itemId);
@@ -84,8 +91,11 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     return f;
   };
   const regionsOf = (country: CountryFeature) => {
-    if (!data.regions) throw new Error(`Item "${itemId}" needs ${country.id}'s regions`);
-    return data.regions;
+    const { regions } = data;
+    if (!regions || !regions.regions.every((r) => r.country === country.id)) {
+      throw new Error(`Item "${itemId}" needs ${country.id}'s regions`);
+    }
+    return regions;
   };
   /** Every country, with `country` swapped for its regions when given. */
   const worldWith = (country: CountryFeature, regions: IdentifiedFeature[]): IdentifiedFeature[] =>
@@ -125,12 +135,19 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     if (!region) throw new Error(`Unknown item "${itemId}"`);
     const answer = answerPoint(region);
     const frame = mainPart(country);
+    const twins = regions.features.filter(
+      (f) => f !== region && f.properties.name === region.properties.name,
+    );
     return {
       id: itemId,
       tier,
       name: region.properties.name,
       countryId: countryItemId(countryId),
-      target: { feature: region, answer },
+      target: {
+        feature: region,
+        answer,
+        ...(twins.length > 0 && { alsoInside: twins }),
+      },
       context: regions.features,
       candidates: distinctCandidates(
         regions.features
@@ -165,7 +182,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       countryId: countryItemId(country.id),
       target: { point },
       context: regionFeatures.length > 0 ? regionFeatures : [country],
-      candidates: distinctCandidates(placeCandidates(place, data.places), place.name, point),
+      candidates: placeCandidates(place, data.places),
       outline,
       frame,
       world: worldWith(country, regionFeatures),

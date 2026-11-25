@@ -179,4 +179,18 @@ describe('same-named sibling regions', () => {
       expect(new Set(names).size).toBe(names.length);
     }
   });
+
+  it('list each other as also inside', async () => {
+    const regions = await loadRegions('ireland');
+    const data = { countries: await loadCountries(), places: await loadPlaces(), regions };
+    const target = (id: string) => {
+      const t = buildExerciseItem(`region:${id}`, data).target;
+      if (!('feature' in t)) throw new Error('expected a feature target');
+      return t;
+    };
+    const a = target('ireland.galway-irl-5568');
+    const b = target('ireland.galway-irl-713');
+    expect(a.alsoInside).toEqual([b.feature]);
+    expect(b.alsoInside).toEqual([a.feature]);
+  });
 });

@@ -57,6 +57,16 @@ describe('buildExerciseItem: a region', () => {
   it('needs the country’s regions', () => {
     expect(() => buildExerciseItem('region:alpha.north', DATA)).toThrow(/regions/);
   });
+
+  it('rejects another country’s regions', () => {
+    const regions = {
+      ...ALPHA_REGIONS,
+      regions: ALPHA_REGIONS.regions.map((r) => ({ ...r, country: 'beta' })),
+    };
+    expect(() => buildExerciseItem('region:alpha.north', { ...DATA_WITH_ALPHA, regions })).toThrow(
+      /needs alpha's regions/,
+    );
+  });
 });
 
 describe('buildExerciseItem: a place', () => {
@@ -86,6 +96,13 @@ describe('buildExerciseItem: a place', () => {
     // b1 has no region and one country neighbour: every other place.
     const b1 = buildExerciseItem('place:b1', DATA);
     expect(b1.candidates).toHaveLength(7);
+  });
+
+  it('dedups each pool before testing its size, so a thin one falls back', () => {
+    // n1's region has 3 other places, but two share a name: only 2 distinct, so the country's pool.
+    const places = PLACES.map((p) => (p.id === 'n3' ? { ...p, name: 'N2' } : p));
+    const n1 = buildExerciseItem('place:n1', { ...DATA_WITH_ALPHA, places });
+    expect(ids(n1.candidates)).toEqual(['place:i1', 'place:n2', 'place:n4', 'place:s1']);
   });
 
   it('outlines a place in a country without regions with the country, on the country alone', () => {
@@ -132,6 +149,23 @@ describe('buildExerciseItem: same-named siblings', () => {
     expect(names).not.toContain('N1');
     expect(new Set(names).size).toBe(names.length);
     expect(item.candidates.filter((c) => c.name === 'N2').map((c) => c.id)).toEqual(['place:n2']);
+  });
+
+  it('lists same-named sibling regions as also inside', () => {
+    const renamed = (name: string) =>
+      ALPHA_REGIONS.features.map((f) =>
+        f.id === 'alpha.south' ? { ...f, properties: { ...f.properties, name } } : f,
+      );
+    const twin = (name: string) => {
+      const regions = { ...ALPHA_REGIONS, features: renamed(name) };
+      return buildExerciseItem('region:alpha.north', { ...DATA_WITH_ALPHA, regions }).target;
+    };
+    const twinned = twin('North');
+    if (!('feature' in twinned)) throw new Error('expected a feature target');
+    expect(twinned.alsoInside?.map((f) => (f as { id?: string }).id)).toEqual(['alpha.south']);
+    const alone = twin('South');
+    if (!('feature' in alone)) throw new Error('expected a feature target');
+    expect(alone.alsoInside).toBeUndefined();
   });
 
   it('never offers the target’s name for a region', () => {

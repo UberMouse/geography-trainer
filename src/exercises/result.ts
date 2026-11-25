@@ -10,9 +10,14 @@ export const RATING_LABEL: Record<Grade, string> = {
   [Rating.Easy]: 'Easy',
 };
 
-/** km for display: one decimal under 10 km, else whole km with thousands separators. */
-export const formatKm = (km: number) =>
-  km < 10 ? km.toFixed(1) : Math.round(km).toLocaleString('en');
+/**
+ * km for display: rounded to one decimal, shown with it under 10 km, else as whole km with
+ * thousands separators (so 9.97 reads "10", not "10.0").
+ */
+export function formatKm(km: number): string {
+  const tenths = Math.round(km * 10) / 10;
+  return tenths < 10 ? tenths.toFixed(1) : Math.round(km).toLocaleString('en');
+}
 
 /** A multiple-choice answer's result: `correct` when the item itself was chosen. */
 export function choiceResult(item: ExerciseItem, chosenId: string, timeMs: number): ExerciseResult {

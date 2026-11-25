@@ -19,7 +19,14 @@ export type IdentifiedFeature = AreaFeature & { id: string };
 
 export const EARTH_RADIUS_KM = 6371;
 
-export type TapTarget = { feature: AreaFeature; answer: LngLat } | { point: LngLat };
+export type TapTarget =
+  | {
+      feature: AreaFeature;
+      answer: LngLat;
+      /** Other features that share the target's name: a tap in one of them also counts as inside. */
+      alsoInside?: AreaFeature[];
+    }
+  | { point: LngLat };
 
 /**
  * The radius in km of the disc `ensureArea` gives a feature with no area: small enough that the
@@ -439,8 +446,9 @@ function kmToBoundary(feature: AreaFeature, tap: LngLat): number {
 }
 
 /**
- * Measure a tap against its target, in the quantities `gradeTap` takes. A place target has no
- * polygon: `inside` is false and the border and size distances are 0.
+ * Measure a tap against its target, in the quantities `gradeTap` takes. A tap in the target or in
+ * any of its `alsoInside` features is inside. A place target has no polygon: `inside` is false and
+ * the border and size distances are 0.
  */
 export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
   if ('point' in target) {
@@ -451,7 +459,8 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
       featureSizeKm: 0,
     };
   }
-  const inside = geoContains(target.feature, tap);
+  const inside =
+    geoContains(target.feature, tap) || (target.alsoInside ?? []).some((f) => geoContains(f, tap));
   return {
     inside,
     kmFromAnswer: distanceKm(tap, target.answer),
