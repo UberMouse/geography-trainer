@@ -5,7 +5,7 @@ import type { ItemProgress } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
 import type { Place } from '../engine/types';
 import { loadCountries, loadPlaces, type CountriesData } from '../data/loaders';
-import { repo } from '../storage/repo';
+import { progressStore } from '../storage/progressStore';
 import { checkImportText, exportFilename, importConfirmText, type ImportSummary } from './homeView';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
@@ -20,7 +20,7 @@ const loadHomeData = async (): Promise<HomeData> => {
   const [countries, places, progress] = await Promise.all([
     loadCountries(),
     loadPlaces(),
-    repo.loadProgress(),
+    progressStore.loadProgress(),
   ]);
   return { countries, places, progress };
 };
@@ -100,7 +100,7 @@ function ProgressFiles({
     setError(null);
     try {
       const now = new Date();
-      const file = await repo.exportProgress(now);
+      const file = await progressStore.exportProgress(now);
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }),
       );
@@ -134,7 +134,7 @@ function ProgressFiles({
   const replace = async () => {
     if (!pending) return;
     try {
-      await repo.importProgress(pending.parsed);
+      await progressStore.importProgress(pending.parsed);
       setPending(null);
       reload();
     } catch (e) {

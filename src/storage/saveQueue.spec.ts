@@ -151,4 +151,69 @@ describe('createSaveQueue', () => {
     expect(written).toEqual(['a', 'b']);
     expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
   });
+
+  it('whenSettled waits for an in-flight write and the writes queued behind it', async () => {
+    const { write, started, settlers } = controlledWriter();
+    const queue = createSaveQueue(write);
+    queue.push('a');
+    queue.push('b');
+    let settled = false;
+    void queue.whenSettled().then(() => (settled = true));
+    await tick();
+    expect(settled).toBe(false);
+    settlers[0]?.resolve();
+    await tick();
+    expect(started).toEqual(['a', 'b']);
+    expect(settled).toBe(false);
+    settlers[1]?.resolve();
+    await tick();
+    expect(settled).toBe(true);
+  });
+
+  it('whenSettled resolves at once when idle and resolves on a failure', async () => {
+    const queue = createSaveQueue(async () => {
+      throw new Error('x');
+    });
+    await queue.whenSettled();
+    queue.push('a');
+    await queue.whenSettled();
+    expect(queue.getState()).toEqual({ unsaved: 1, failed: true });
+  });
+
+  it('unsavedEntries lists the unsaved entries in push order', async () => {
+    const queue = createSaveQueue(async (entry: string) => {
+      if (entry === 'b') throw new Error('x');
+    });
+    queue.push('a');
+    queue.push('b');
+    queue.push('c');
+    await queue.whenSettled();
+    expect(queue.unsavedEntries()).toEqual(['b', 'c']);
+  });
+
+  it('discard drops the unsaved entries, resets the state and notifies', async () => {
+    const queue = createSaveQueue(async () => {
+      throw new Error('x');
+    });
+    queue.push('a');
+    queue.push('b');
+    await queue.whenSettled();
+    const seen: string[] = [];
+    queue.subscribe(() => {
+      const { unsaved, failed } = queue.getState();
+      seen.push(`${unsaved}${failed ? 'F' : ''}`);
+    });
+    queue.discard();
+    expect(queue.unsavedEntries()).toEqual([]);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
+    expect(seen).toEqual(['0']);
+  });
+
+  it('discard while a write is running throws', () => {
+    const { write } = controlledWriter();
+    const queue = createSaveQueue(write);
+    queue.push('a');
+    expect(() => queue.discard()).toThrow(/write is running/);
+    expect(queue.unsavedEntries()).toEqual(['a']);
+  });
 });

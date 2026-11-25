@@ -17,8 +17,7 @@ import { loadCountries, loadPlaces, type CountriesData } from '../data/loaders';
 import Exercise from '../exercises/Exercise';
 import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseResult } from '../exercises/types';
-import { repo, type AnswerEntry } from '../storage/repo';
-import { createSaveQueue } from '../storage/saveQueue';
+import { progressStore } from '../storage/progressStore';
 import Status from './LoadStatus';
 import { answerEntry, questionHeader, questionSeed } from './sessionView';
 import { useLoaded } from './useLoaded';
@@ -33,7 +32,7 @@ const loadSessionData = async (): Promise<SessionData> => {
   const [countries, places, progress] = await Promise.all([
     loadCountries(),
     loadPlaces(),
-    repo.loadProgress(),
+    progressStore.loadProgress(),
   ]);
   return { countries, places, progress };
 };
@@ -69,7 +68,7 @@ function Runner({ data }: { data: SessionData }) {
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   const progress = useRef(data.progress);
-  const [queue] = useState(() => createSaveQueue<AnswerEntry>((entry) => repo.recordAnswer(entry)));
+  const queue = progressStore.answers;
   const { failed, unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
   // Chosen once per visit, so the same item at the same position varies its options between visits.
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
@@ -80,6 +79,17 @@ function Runner({ data }: { data: SessionData }) {
     () => (question ? buildExerciseItem(question.itemId, { countries, places }) : null),
     [question, countries, places],
   );
+  const hasUnsaved = unsaved > 0;
+  // Closing or reloading while answers are unsaved would lose them: make the browser ask first.
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsaved]);
   const questionRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
@@ -103,11 +113,12 @@ function Runner({ data }: { data: SessionData }) {
     );
   }
 
+  const them = unsaved === 1 ? 'it' : 'them';
   const banner = failed && (
     <div role="alert" className="session-banner">
       <p>
         Your last {unsaved === 1 ? 'answer' : `${unsaved} answers`} could not be saved. You can keep
-        going; leaving this page before it is saved loses {unsaved === 1 ? 'it' : 'them'}.
+        going; closing or reloading the app before it is saved loses {them}.
       </p>
       <button type="button" onClick={() => void queue.retry()}>
         Retry
