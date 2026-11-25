@@ -75,14 +75,14 @@ export default function TapMap({
     setTransform(next);
   };
 
-  // Once, when the reveal arrives: bring the pin and the answer on screen. The user's later pans
-  // and zooms stand. A reveal that arrives without a pin is spent without reframing, so a pin
-  // dropped later does not jump the view.
-  const revealed = useRef(false);
+  // Once per reveal: bring the pin and the answer on screen. The user's later pans and zooms
+  // stand, but a switch straight to another reveal frames again. A reveal that arrives without a
+  // pin is spent without reframing, so a pin dropped later does not jump the view.
+  const revealedFor = useRef<typeof reveal>(undefined);
   useEffect(() => {
-    if (!reveal) revealed.current = false;
-    if (!reveal || revealed.current) return;
-    revealed.current = true;
+    if (!reveal) revealedFor.current = undefined;
+    if (!reveal || revealedFor.current === reveal) return;
+    revealedFor.current = reveal;
     if (!pin) return;
     const a = projection(pin);
     const b = projection(targetPoint(reveal));

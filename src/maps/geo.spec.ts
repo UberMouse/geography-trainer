@@ -261,6 +261,42 @@ describe('answerPoint', () => {
     expect(lat).toBeCloseTo(0, 6);
     expect(geoCentroid(f)[0]).toBeGreaterThan(5.1);
   });
+
+  it('is inside a C whose centroid is in its mouth', () => {
+    // A C opening east: spine at the west, arms along the north and south, hollow in the middle.
+    const c = poly([
+      [0, 0],
+      [0, 10],
+      [10, 10],
+      [10, 8],
+      [2, 8],
+      [2, 2],
+      [10, 2],
+      [10, 0],
+      [0, 0],
+    ]);
+    expect(geoContains(c, geoCentroid(c))).toBe(false);
+    const at = answerPoint(c);
+    expect(geoContains(c, at)).toBe(true);
+    expect(answerPoint(c)).toBe(at);
+  });
+
+  it('is inside a feature that crosses the antimeridian', () => {
+    // The same C shape, spanning 175E to 175W.
+    const c = poly([
+      [175, 0],
+      [175, 10],
+      [-175, 10],
+      [-175, 8],
+      [177, 8],
+      [177, 2],
+      [-175, 2],
+      [-175, 0],
+      [175, 0],
+    ]);
+    expect(geoContains(c, geoCentroid(c))).toBe(false);
+    expect(geoContains(c, answerPoint(c))).toBe(true);
+  });
 });
 
 describe('ensureArea', () => {
@@ -296,6 +332,35 @@ describe('ensureArea', () => {
 
   it('returns a feature with an area as it is', () => {
     expect(ensureArea(square)).toBe(square);
+  });
+
+  it('finds a centre for a zero-area MultiPolygon whose centroid is not finite', () => {
+    // A NaN vertex makes d3's centroid NaN; the one finite vertex is the fallback centre.
+    const line: LngLat[] = [
+      [NaN, NaN],
+      [12.45, 41.9],
+      [NaN, NaN],
+    ];
+    const f: AreaFeature = {
+      type: 'Feature',
+      id: 'dot',
+      properties: {},
+      geometry: { type: 'MultiPolygon', coordinates: [[line]] },
+    };
+    expect(geoCentroid(f).every(Number.isFinite)).toBe(false);
+    const out = ensureArea(f);
+    expect(geoArea(out)).toBeGreaterThan(0.9 * disc);
+    expect(geoContains(out, [12.45, 41.9])).toBe(true);
+  });
+
+  it('names a feature with no finite coordinate', () => {
+    const f: AreaFeature = {
+      type: 'Feature',
+      id: 'nowhere',
+      properties: {},
+      geometry: { type: 'MultiPolygon', coordinates: [[[[NaN, NaN]]]] },
+    };
+    expect(() => ensureArea(f)).toThrow(/nowhere/);
   });
 });
 

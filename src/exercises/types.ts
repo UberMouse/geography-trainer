@@ -1,6 +1,5 @@
 import type { Grade } from 'ts-fsrs';
 import type { Tier } from '../engine/curriculum';
-import type { Rng } from '../engine/rng';
 import type { Rung } from '../engine/srs';
 import type { AreaFeature, TapTarget } from '../maps/geo';
 import type { IdentifiedFeature } from '../maps/HighlightMap';
@@ -69,8 +68,11 @@ export interface ExerciseResult {
 export interface ExerciseProps {
   item: ExerciseItem;
   rung: Rung;
-  /** Randomness for the option order and distractors: [0, 1). */
-  rng: Rng;
+  /**
+   * Seeds the option order and distractors (`mulberry32(seed)`). A number, not a stateful `Rng`:
+   * React may run a state initializer twice in dev, and each run must pick the same options.
+   */
+  seed: number;
   /** Called exactly once per question, when it is answered. */
   onAnswer: (result: ExerciseResult) => void;
   /** Called when the learner presses Next after the reveal. */

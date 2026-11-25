@@ -20,7 +20,7 @@ export default function TapQuestion({
   onAnswer,
   onNext,
   map,
-}: Omit<ExerciseProps, 'rung' | 'rng'> & { map: (props: TapMapProps) => ReactNode }) {
+}: Omit<ExerciseProps, 'rung' | 'seed'> & { map: (props: TapMapProps) => ReactNode }) {
   const [pin, setPin] = useState<LngLat | null>(null);
   const { result, answer } = useQuestion(onAnswer);
   const onPin = (at: LngLat) => {

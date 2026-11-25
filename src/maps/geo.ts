@@ -1,4 +1,12 @@
-import { geoArea, geoCentroid, geoCircle, geoContains, geoDistance, type GeoProjection } from 'd3-geo';
+import {
+  geoArea,
+  geoBounds,
+  geoCentroid,
+  geoCircle,
+  geoContains,
+  geoDistance,
+  type GeoProjection,
+} from 'd3-geo';
 import type { Feature, Geometry, MultiPoint, MultiPolygon, Point, Polygon } from 'geojson';
 import type { TapInput } from '../engine/grading';
 
@@ -36,16 +44,26 @@ export function ensureArea<P>(
     throw new Error(`Feature ${feature.id} has no area and no point (${g?.type ?? 'null'})`);
   }
   const centroid = geoCentroid(g);
-  const centre = centroid.every(Number.isFinite) ? centroid : firstCoordinate(g);
+  const centre = centroid.every(Number.isFinite) ? centroid : firstCoordinate(g, feature.id);
   const disc = geoCircle()
     .center(centre)
     .radius((POINT_FEATURE_RADIUS_KM / EARTH_RADIUS_KM) * (180 / Math.PI))();
   return { ...feature, geometry: disc };
 }
 
-function firstCoordinate(g: Point | MultiPoint | Polygon | MultiPolygon): LngLat {
-  const flat = [g.coordinates].flat(3) as number[];
-  return [flat[0]!, flat[1]!];
+function firstCoordinate(
+  g: Point | MultiPoint | Polygon | MultiPolygon,
+  id?: string | number,
+): LngLat {
+  // Nesting depth of the coordinates: Point 1, MultiPoint 2, Polygon 3, MultiPolygon 4.
+  const depth = { Point: 1, MultiPoint: 2, Polygon: 3, MultiPolygon: 4 }[g.type];
+  const flat = (g.coordinates as unknown[]).flat(depth - 1) as number[];
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    const lng = flat[i]!;
+    const lat = flat[i + 1]!;
+    if (Number.isFinite(lng) && Number.isFinite(lat)) return [lng, lat];
+  }
+  throw new Error(`Feature ${id} has no finite coordinate`);
 }
 
 /** A tap target's point: a feature's answer point, or the place's point. */
@@ -210,9 +228,88 @@ export function clusterAt<F extends AreaFeature>(feature: F, point: LngLat): F {
   return clusters.reduce((m, c) => (km(c) < km(m) ? c : m)).feature as F;
 }
 
-/** A country's or region's answer point: the centroid of its main part (see `mainPart`). */
+const answerPoints = new WeakMap<AreaFeature, LngLat>();
+
+/** Grid cells per side of the coarse and of each refining search for an interior point. */
+const INTERIOR_GRID = 20;
+const INTERIOR_REFINES = 3;
+/** The boundary is measured against about this many vertices: the search only needs it roughly. */
+const INTERIOR_BOUNDARY_VERTICES = 600;
+
+/**
+ * An approximate pole of inaccessibility of an areal feature: a point inside it, roughly the
+ * farthest from its boundary. A grid over its bounds is scored by distance to a thinned copy of
+ * the boundary, then a finer grid around the best point repeats that. Every candidate is checked
+ * with `geoContains`, so the result is inside whatever the scoring says. When no candidate is
+ * (islands smaller than a grid cell), the search moves to the feature's biggest polygon, and
+ * failing that the centroid comes back.
+ */
+function interiorPoint(feature: AreaFeature): LngLat {
+  const [[w, s], [e0, n]] = geoBounds(feature);
+  const e = e0 < w ? e0 + 360 : e0; // bounds that cross the antimeridian
+  const all = rings(feature);
+  const total = all.reduce((sum, r) => sum + r.length, 0);
+  const step = Math.max(1, Math.ceil(total / INTERIOR_BOUNDARY_VERTICES));
+  const edges: [Vec, Vec][] = [];
+  for (const ring of all) {
+    const vs = ring.filter((_, i) => i % step === 0 || i === ring.length - 1).map(toVec);
+    for (let i = 0; i + 1 < vs.length; i++) edges.push([vs[i]!, vs[i + 1]!]);
+  }
+  const score = (at: LngLat) => {
+    const p = toVec(at);
+    let best = Infinity;
+    for (const [a, b] of edges) best = Math.min(best, angleToArc(p, a, b));
+    return best;
+  };
+  let best: LngLat | undefined;
+  let bestScore = -1;
+  let [x0, x1, y0, y1] = [w, e, s, n];
+  for (let pass = 0; pass <= INTERIOR_REFINES; pass++) {
+    const dx = (x1 - x0) / INTERIOR_GRID;
+    const dy = (y1 - y0) / INTERIOR_GRID;
+    for (let i = 0; i <= INTERIOR_GRID; i++) {
+      for (let j = 0; j <= INTERIOR_GRID; j++) {
+        const lng = x0 + i * dx;
+        const at: LngLat = [lng > 180 ? lng - 360 : lng, y0 + j * dy];
+        if (!geoContains(feature, at)) continue;
+        const sc = score(at);
+        if (sc > bestScore) [best, bestScore] = [at, sc];
+      }
+    }
+    if (!best) break;
+    const cx = best[0] < x0 ? best[0] + 360 : best[0];
+    [x0, x1, y0, y1] = [cx - dx, cx + dx, Math.max(-90, best[1] - dy), Math.min(90, best[1] + dy)];
+  }
+  if (best) return best;
+  const g = feature.geometry;
+  if (g.type === 'MultiPolygon' && g.coordinates.length > 1) {
+    const polygons = g.coordinates.map(
+      (coordinates): AreaFeature => ({
+        ...feature,
+        geometry: { type: 'Polygon', coordinates },
+      }),
+    );
+    const biggest = polygons.reduce((m, p) => (geoArea(p) > geoArea(m) ? p : m));
+    const centroid = geoCentroid(biggest);
+    return geoContains(biggest, centroid) ? centroid : interiorPoint(biggest);
+  }
+  return geoCentroid(feature);
+}
+
+/**
+ * A country's or region's answer point: the centroid of its main part (see `mainPart`) when that
+ * is inside it, else an interior point of the main part (see `interiorPoint`), since the centroid
+ * of a crescent or an archipelago can fall in the sea or the next country. Cached per feature
+ * object.
+ */
 export function answerPoint(feature: AreaFeature): LngLat {
-  return geoCentroid(mainPart(feature));
+  const cached = answerPoints.get(feature);
+  if (cached) return cached;
+  const main = mainPart(feature);
+  const centroid = geoCentroid(main);
+  const point = geoContains(main, centroid) ? centroid : interiorPoint(main);
+  answerPoints.set(feature, point);
+  return point;
 }
 
 /** Great-circle distance between two points in km. */

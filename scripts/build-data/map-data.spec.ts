@@ -133,6 +133,18 @@ describe('main parts of the committed countries', () => {
   });
 });
 
+describe('answer points of the committed countries and regions', () => {
+  it('lie inside the main part of every feature', { timeout: 600_000 }, async () => {
+    const { features, countries } = await loadCountries();
+    const all: AreaFeature[] = [...features];
+    for (const c of countries.filter((x) => x.hasRegions)) {
+      all.push(...(await loadRegions(c.id)).features);
+    }
+    const outside = all.filter((f) => !geoContains(mainPart(f), answerPoint(f))).map((f) => f.id);
+    expect(outside).toEqual([]);
+  });
+});
+
 describe('outline of every place', () => {
   it('frames every place inside its outline view', { timeout: 300_000 }, async () => {
     const { features } = await loadCountries();

@@ -252,10 +252,7 @@ function Run({
   }, [itemId, data]);
   const items = useMemo(() => itemsOf(tier, countryId, data), [tier, countryId, data]);
   // Seed, item and round together, so each item shuffles its options differently yet reproducibly.
-  const exerciseRng = useMemo(
-    () => mulberry32(seed ^ hashOf(itemId) ^ round),
-    [seed, itemId, round],
-  );
+  const exerciseSeed = seed ^ hashOf(itemId) ^ round;
 
   const random = () => {
     const pick = items[Math.floor(mulberry32(seed)() * items.length)];
@@ -308,7 +305,7 @@ function Run({
         key={round}
         item={item}
         rung={rung}
-        rng={exerciseRng}
+        seed={exerciseSeed}
         onAnswer={onAnswer}
         onNext={next}
         initialView={initialView}
