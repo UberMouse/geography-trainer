@@ -7,25 +7,25 @@ export type Tier = 'country' | 'region' | 'place';
 
 export interface CurriculumItem {
   /** Namespaced: `country:<id>`, `region:<id>` or `place:<id>`. */
-  id: string;
-  tier: Tier;
+  readonly id: string;
+  readonly tier: Tier;
   /** Namespaced id of the item whose mastery unlocks this one; null for countries. */
-  parent: string | null;
+  readonly parent: string | null;
   /** Namespaced ids of the items this one unlocks, in input order. */
-  children: string[];
+  readonly children: readonly string[];
   /** Namespaced id of the owning country (itself for a country). */
-  countryId: string;
+  readonly countryId: string;
   /** A place's `level`; a country's or region's is the minimum `level` among all its places
    * (Infinity when it has none). */
-  difficulty: number;
+  readonly difficulty: number;
   /** The underlying place, for place items. */
-  place?: Place;
+  readonly place?: Readonly<Place>;
 }
 
 export interface Curriculum {
-  items: Map<string, CurriculumItem>;
+  readonly items: ReadonlyMap<string, CurriculumItem>;
   /** Total number of places per country item id, unfiltered. */
-  countryPlaceCount: Map<string, number>;
+  readonly countryPlaceCount: ReadonlyMap<string, number>;
 }
 
 export interface UnlockOptions {
@@ -37,17 +37,22 @@ export const countryItemId = (id: string) => `country:${id}`;
 export const regionItemId = (id: string) => `region:${id}`;
 export const placeItemId = (id: string) => `place:${id}`;
 
+/** An item while the tree is being built: `children` and `difficulty` still change. */
+type DraftItem = { -readonly [K in keyof CurriculumItem]: CurriculumItem[K] } & { children: string[] };
+
+/** Throws on a duplicate country, region or place id, an unknown country, or a place without its region. */
 export function buildCurriculum(
   countries: readonly Country[],
   regions: readonly Region[],
   places: readonly Place[],
 ): Curriculum {
-  const items = new Map<string, CurriculumItem>();
+  const items = new Map<string, DraftItem>();
   const countryPlaceCount = new Map<string, number>();
   const hasRegions = new Map<string, boolean>();
 
   for (const c of countries) {
     const id = countryItemId(c.id);
+    if (items.has(id)) throw new Error(`Duplicate country id ${c.id}`);
     items.set(id, { id, tier: 'country', parent: null, children: [], countryId: id, difficulty: Infinity });
     countryPlaceCount.set(id, 0);
     hasRegions.set(id, c.hasRegions);
@@ -56,6 +61,7 @@ export function buildCurriculum(
     const country = items.get(countryItemId(r.country));
     if (!country) throw new Error(`Region ${r.id} belongs to unknown country ${r.country}`);
     const id = regionItemId(r.id);
+    if (items.has(id)) throw new Error(`Duplicate region id ${r.id}`);
     items.set(id, {
       id,
       tier: 'region',
@@ -77,6 +83,7 @@ export function buildCurriculum(
       parent = region;
     }
     const id = placeItemId(p.id);
+    if (items.has(id)) throw new Error(`Duplicate place id ${p.id}`);
     items.set(id, { id, tier: 'place', parent: parent.id, children: [], countryId, difficulty: p.level, place: p });
     parent.children.push(id);
     countryPlaceCount.set(countryId, (countryPlaceCount.get(countryId) ?? 0) + 1);

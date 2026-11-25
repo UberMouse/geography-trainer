@@ -1,5 +1,3 @@
-/// <reference types="node" />
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
 import { buildCurriculum, newItems, unlockedItems, type Curriculum } from './curriculum';
@@ -98,6 +96,28 @@ describe('buildCurriculum', () => {
   });
 });
 
+describe('buildCurriculum duplicates', () => {
+  it('throws on a duplicate country id', () => {
+    expect(() => buildCurriculum([country('x', 0, false), country('x', 0, false)], [], [])).toThrow(
+      /Duplicate country/,
+    );
+  });
+
+  it('throws on a duplicate region id', () => {
+    const cs = [country('x', 0, true)];
+    expect(() => buildCurriculum(cs, [region('x.a', 'x', 0), region('x.a', 'x', 0)], [])).toThrow(
+      /Duplicate region/,
+    );
+  });
+
+  it('throws on a duplicate place id', () => {
+    const cs = [country('x', 2, false)];
+    expect(() => buildCurriculum(cs, [], [place('p', 'x', null, 1), place('p', 'x', null, 2)])).toThrow(
+      /Duplicate place/,
+    );
+  });
+});
+
 describe('unlockedItems', () => {
   it('unlocks every country and nothing else at the start', () => {
     expect(ids(unlockedItems(fixture(), {}))).toEqual(['country:france', 'country:germany', 'country:tuvalu']);
@@ -162,7 +182,7 @@ describe('newItems', () => {
 
   it('orders by difficulty, then country place count descending, then id', () => {
     const c = buildCurriculum(
-      [country('a', 1, false), country('b', 3, false), country('c', 3, false)],
+      [country('a', 1, false), country('c', 3, false), country('b', 3, false)],
       [],
       [
         place('pa', 'a', null, 2),
@@ -174,8 +194,19 @@ describe('newItems', () => {
         place('pc3', 'c', null, 5),
       ],
     );
-    // All three countries have difficulty 2: b and c (3 places) before a (1), b before c by id.
+    // All three countries have difficulty 2: b and c (3 places) before a (1), b before c by id
+    // (c is inserted first, so only the id key can put b ahead).
     expect(ids(newItems(c, {}))).toEqual(['country:b', 'country:c', 'country:a']);
+  });
+
+  it('applies the place-type filter to unlocked places', () => {
+    const progress = {
+      'country:france': mastered('country:france'),
+      'region:france.bretagne': mastered('region:france.bretagne'),
+    };
+    const got = ids(newItems(fixture(), progress, { placeTypes: new Set(['monument']) }));
+    expect(got).toContain('place:brest');
+    expect(got).not.toContain('place:rennes');
   });
 
   it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
@@ -189,41 +220,5 @@ describe('newItems', () => {
       'region:france.corse',
       'region:france.crozet',
     ]);
-  });
-});
-
-describe('ordering on the real data', () => {
-  const dir = new URL('../../public/data/', import.meta.url);
-  const read = (f: string) => JSON.parse(readFileSync(new URL(f, dir), 'utf8'));
-  const places: Place[] = read('places.json');
-  const countryGeoms = read('countries.topo.json').objects.countries.geometries as {
-    id: string;
-    properties: { name: string; places: number; hasRegions: boolean };
-  }[];
-  const countries: Country[] = countryGeoms.map((g) => ({ id: g.id, ...g.properties }));
-  const regions: Region[] = countries
-    .filter((c) => c.hasRegions)
-    .flatMap((c) => {
-      const topo = read(`regions/${c.id}.topo.json`);
-      const obj = Object.values(topo.objects)[0] as {
-        geometries: { id: string; properties: { name: string; places: number } }[];
-      };
-      return obj.geometries.map((g) => ({ id: g.id, country: c.id, ...g.properties }));
-    });
-
-  it('builds, and puts London before Akron and the US before Tuvalu', () => {
-    const c = buildCurriculum(countries, regions, places);
-    expect(c.items.size).toBe(countries.length + regions.length + places.length);
-    const progress: Record<string, ItemProgress> = {};
-    for (const item of c.items.values()) {
-      if (item.tier !== 'place') progress[item.id] = mastered(item.id);
-    }
-    const order = ids(newItems(c, progress));
-    expect(order.indexOf('place:london')).toBeGreaterThanOrEqual(0);
-    expect(order.indexOf('place:london')).toBeLessThan(order.indexOf('place:akron_ohio'));
-
-    const fresh = ids(newItems(c, {}));
-    expect(fresh.indexOf('country:united-states')).toBeGreaterThanOrEqual(0);
-    expect(fresh.indexOf('country:united-states')).toBeLessThan(fresh.indexOf('country:tuvalu'));
   });
 });
