@@ -230,3 +230,25 @@ describe('startedByTier', () => {
     expect(startedByTier(Object.values(await repo.loadProgress())).countries).toBe(2);
   });
 });
+
+describe('seedProgress', () => {
+  it('adds rows and leaves a stored row untouched', async () => {
+    const stored = answered('country:france');
+    await repo.recordAnswer({ progress: stored, answer: answerRow(stored.itemId) });
+    const rows = [createProgress('country:france', NOW), createProgress('country:peru', NOW), answered('country:chad')];
+    await repo.seedProgress(rows);
+    expect(await repo.loadProgress()).toEqual({
+      'country:france': stored,
+      'country:peru': rows[1],
+      'country:chad': rows[2],
+    });
+  });
+
+  it('an exported file after seeding round-trips through import', async () => {
+    await repo.seedProgress([createProgress('country:peru', NOW), answered('country:chad')]);
+    const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
+    await repo.importProgress(file);
+    expect(await repo.exportProgress(NOW)).toEqual(file);
+    expect(Object.keys(await repo.loadProgress()).sort()).toEqual(['country:chad', 'country:peru']);
+  });
+});

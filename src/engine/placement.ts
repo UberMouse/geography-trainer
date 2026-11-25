@@ -10,8 +10,9 @@ import {
   PLACEMENT_REVERSALS,
   PLACEMENT_START_LEVEL,
 } from './config';
+import { unlockedBy, type Curriculum } from './curriculum';
 import { isPass } from './grading';
-import type { PlacementOutcome } from './srs';
+import { isMastered, seedFromPlacement, type ItemProgress, type PlacementOutcome } from './srs';
 
 export interface PlacementItem {
   itemId: string;
@@ -168,4 +169,54 @@ export function finishPlacement(state: PlacementState): PlacementResult {
       passed === undefined ? (level > estimate ? 'aboveEstimate' : 'untestedAtOrBelow') : passed ? 'passed' : 'failed';
   }
   return { estimate, outcomes };
+}
+
+type ProgressMap = Readonly<Record<string, ItemProgress>>;
+
+/**
+ * The items to test, in curriculum order, `level` being the item's difficulty. `'countries'`: every
+ * country with no progress row. An item id: its children with no progress row (none for an item
+ * with no children). Throws for an id not in the curriculum.
+ */
+export function placementPool(curriculum: Curriculum, progress: ProgressMap, scope: string): PlacementItem[] {
+  let ids: string[];
+  if (scope === 'countries') {
+    ids = [...curriculum.items.values()].filter((item) => item.tier === 'country').map((item) => item.id);
+  } else {
+    if (!curriculum.items.has(scope)) throw new Error(`Unknown item ${scope}`);
+    ids = unlockedBy(curriculum, scope)?.childIds ?? [];
+  }
+  return ids
+    .filter((id) => !progress[id])
+    .map((id) => ({ itemId: id, level: curriculum.items.get(id)!.difficulty }));
+}
+
+/**
+ * The progress rows to store for a finished test, in the order of `result.outcomes`: a seed for
+ * each `passed` or `untestedAtOrBelow` item. `failed` and `aboveEstimate` items store nothing (a
+ * fresh record equals no record), and an item that already has a row is never seeded.
+ */
+export function placementSeeds(
+  result: PlacementResult,
+  progress: ProgressMap,
+  now: Date,
+  dayKey: string,
+): ItemProgress[] {
+  const seeds: ItemProgress[] = [];
+  for (const [itemId, outcome] of Object.entries(result.outcomes)) {
+    if (progress[itemId]) continue;
+    if (outcome === 'passed' || outcome === 'untestedAtOrBelow') {
+      seeds.push(seedFromPlacement(itemId, outcome, now, dayKey));
+    }
+  }
+  return seeds;
+}
+
+/** Whether the item can be tested out of: mastered, with children, none of which has a progress row.
+ * Throws for an id not in the curriculum. */
+export function canTestOut(curriculum: Curriculum, progress: ProgressMap, itemId: string): boolean {
+  if (!curriculum.items.has(itemId)) throw new Error(`Unknown item ${itemId}`);
+  const own = progress[itemId];
+  const unlocked = unlockedBy(curriculum, itemId);
+  return !!own && isMastered(own) && !!unlocked && unlocked.childIds.every((id) => !progress[id]);
 }

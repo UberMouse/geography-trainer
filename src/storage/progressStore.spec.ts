@@ -180,3 +180,23 @@ describe('createProgressStore', () => {
     }
   });
 });
+
+describe('seedProgress', () => {
+  it('waits for a queued answer and never overwrites it', async () => {
+    const store = createProgressStore(repo);
+    const pushed = entry('country:france');
+    store.answers.push(pushed);
+    await store.seedProgress([createProgress('country:france', NOW), createProgress('country:peru', NOW)]);
+    const stored = await repo.loadProgress();
+    expect(stored['country:france']).toEqual(pushed.progress);
+    expect(stored).toHaveProperty('country:peru');
+  });
+
+  it('rejects when the write fails', async () => {
+    const store = createProgressStore({
+      ...repo,
+      seedProgress: () => Promise.reject(new Error('disk full')),
+    });
+    await expect(store.seedProgress([createProgress('country:peru', NOW)])).rejects.toThrow('disk full');
+  });
+});

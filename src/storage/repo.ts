@@ -15,6 +15,8 @@ export interface ProgressRepo {
   loadProgress(): Promise<Record<string, ItemProgress>>;
   /** Writes the item's progress and appends the answer row in one transaction. */
   recordAnswer(entry: AnswerEntry): Promise<void>;
+  /** Adds the rows in one transaction, skipping any item that already has a stored row. */
+  seedProgress(rows: ItemProgress[]): Promise<void>;
   exportProgress(now: Date): Promise<ProgressFile>;
   /**
    * Replaces both tables with the file's rows in one transaction. Validates first and throws an
@@ -37,6 +39,14 @@ export function createRepo(name: string = DB_NAME): ProgressRepo {
       await db.transaction('rw', db.progress, db.answers, async () => {
         await db.progress.put(progress);
         await db.answers.add(answer);
+      });
+    },
+
+    async seedProgress(rows) {
+      await db.transaction('rw', db.progress, async () => {
+        for (const row of rows) {
+          if (!(await db.progress.get(row.itemId))) await db.progress.add(row);
+        }
       });
     },
 

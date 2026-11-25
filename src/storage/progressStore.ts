@@ -13,6 +13,11 @@ export interface ProgressStore {
   /** Stored progress once pending writes settled, with answers that failed to save laid over it. */
   loadProgress(): Promise<Record<string, ItemProgress>>;
   /**
+   * Adds progress rows (placement results) once pending writes settled, never overwriting an item
+   * that already has a stored row. Rejects when the write fails.
+   */
+  seedProgress(rows: ItemProgress[]): Promise<void>;
+  /**
    * The stored file once pending writes settled; a failed queue is retried first. Answers still
    * unsaved after that are not in it (see `answers.getState().unsaved`).
    */
@@ -36,6 +41,10 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
       for (const entry of answers.unsavedEntries())
         progress[entry.progress.itemId] = entry.progress;
       return progress;
+    },
+    async seedProgress(rows) {
+      await answers.whenSettled();
+      await repository.seedProgress(rows);
     },
     async exportProgress(now) {
       if (answers.getState().failed) await answers.retry();

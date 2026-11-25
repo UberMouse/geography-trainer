@@ -1,10 +1,16 @@
 import { Rating, type Grade } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_START_LEVEL } from './config';
+import { buildCurriculum, type Curriculum } from './curriculum';
+import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
+import type { Country, Place, Region } from './types';
 import {
   answerPlacement,
+  canTestOut,
   finishPlacement,
   nextQuestion,
+  placementPool,
+  placementSeeds,
   startPlacement,
   type PlacementItem,
   type PlacementState,
@@ -386,5 +392,148 @@ describe('placement staircase', () => {
     for (const bad of [-0.1, 1, NaN]) {
       expect(() => nextQuestion(s, () => bad)).toThrow(RangeError);
     }
+  });
+});
+
+const T0 = new Date('2026-03-01T00:00:00Z');
+const DAY = 86_400_000;
+
+/** An item that has passed L4 on two different days. */
+function mastered(itemId: string): ItemProgress {
+  let p = createProgress(itemId, T0);
+  for (let day = 0; day < 40 && p.l4PassDays.length < 2; day++) {
+    const now = new Date(T0.getTime() + day * DAY);
+    p = applyAnswer(p, p.rung, Rating.Good, now, localDayKey(now, 0));
+  }
+  expect(p.l4PassDays.length).toBeGreaterThanOrEqual(2);
+  return p;
+}
+
+const country = (id: string, hasRegions: boolean): Country => ({ id, name: id, places: 1, hasRegions });
+const region = (id: string, c: string): Region => ({ id, name: id, country: c, places: 1 });
+const place = (id: string, c: string, r: string | null, level: number): Place => ({
+  id,
+  name: id,
+  country: c,
+  region: r,
+  lat: 0,
+  lng: 0,
+  type: 'city',
+  level,
+});
+
+function fixture(): Curriculum {
+  return buildCurriculum(
+    [country('france', true), country('germany', true), country('tuvalu', false)],
+    [region('france.bretagne', 'france'), region('france.corse', 'france'), region('germany.bayern', 'germany')],
+    [
+      place('rennes', 'france', 'france.bretagne', 2),
+      place('brest', 'france', 'france.bretagne', 3),
+      place('ajaccio', 'france', 'france.corse', 4),
+      place('munich', 'germany', 'germany.bayern', 1),
+      place('funafuti', 'tuvalu', null, 3),
+      place('vaitupu', 'tuvalu', null, 5),
+    ],
+  );
+}
+
+const rows = (...ids: string[]): Record<string, ItemProgress> =>
+  Object.fromEntries(ids.map((id) => [id, createProgress(id, T0)]));
+
+describe('placementPool', () => {
+  const c = fixture();
+
+  it('lists every country without progress, in curriculum order, at its difficulty', () => {
+    expect(placementPool(c, {}, 'countries')).toEqual([
+      { itemId: 'country:france', level: 2 },
+      { itemId: 'country:germany', level: 1 },
+      { itemId: 'country:tuvalu', level: 3 },
+    ]);
+  });
+
+  it('skips countries with a progress row', () => {
+    const pool = placementPool(c, rows('country:germany'), 'countries');
+    expect(pool.map((i) => i.itemId)).toEqual(['country:france', 'country:tuvalu']);
+  });
+
+  it('a country with a regions tier lists its regions', () => {
+    expect(placementPool(c, {}, 'country:france')).toEqual([
+      { itemId: 'region:france.bretagne', level: 2 },
+      { itemId: 'region:france.corse', level: 4 },
+    ]);
+  });
+
+  it('a regionless country lists its places, and a region its places', () => {
+    expect(placementPool(c, {}, 'country:tuvalu').map((i) => i.itemId)).toEqual(['place:funafuti', 'place:vaitupu']);
+    expect(placementPool(c, {}, 'region:france.bretagne')).toEqual([
+      { itemId: 'place:rennes', level: 2 },
+      { itemId: 'place:brest', level: 3 },
+    ]);
+  });
+
+  it('leaves out children that have a progress row', () => {
+    const pool = placementPool(c, rows('place:rennes'), 'region:france.bretagne');
+    expect(pool.map((i) => i.itemId)).toEqual(['place:brest']);
+  });
+
+  it('is empty for a place and throws for an unknown id', () => {
+    expect(placementPool(c, {}, 'place:rennes')).toEqual([]);
+    expect(() => placementPool(c, {}, 'country:nowhere')).toThrow(/Unknown item/);
+  });
+});
+
+describe('placementSeeds', () => {
+  const NOW = new Date('2026-03-10T09:00:00Z');
+  const day = '2026-03-10';
+  const result = {
+    estimate: 3,
+    outcomes: {
+      'country:a': 'passed',
+      'country:b': 'failed',
+      'country:c': 'untestedAtOrBelow',
+      'country:d': 'aboveEstimate',
+    },
+  } as const;
+
+  it('seeds passed and untestedAtOrBelow items, in outcome order, and nothing for the others', () => {
+    const seeds = placementSeeds(result, {}, NOW, day);
+    expect(seeds).toEqual([
+      seedFromPlacement('country:a', 'passed', NOW, day),
+      seedFromPlacement('country:c', 'untestedAtOrBelow', NOW, day),
+    ]);
+  });
+
+  it('never seeds an item that already has progress', () => {
+    const seeds = placementSeeds(result, rows('country:a'), NOW, day);
+    expect(seeds.map((s) => s.itemId)).toEqual(['country:c']);
+  });
+});
+
+describe('canTestOut', () => {
+  const c = fixture();
+  const masteredFrance = { 'country:france': mastered('country:france') };
+
+  it('is true for a mastered country or region whose children have no rows', () => {
+    expect(canTestOut(c, masteredFrance, 'country:france')).toBe(true);
+    const bretagne = { 'region:france.bretagne': mastered('region:france.bretagne') };
+    expect(canTestOut(c, bretagne, 'region:france.bretagne')).toBe(true);
+  });
+
+  it('is false for an item that is not mastered or has no progress', () => {
+    expect(canTestOut(c, {}, 'country:france')).toBe(false);
+    expect(canTestOut(c, rows('country:france'), 'country:france')).toBe(false);
+  });
+
+  it('is false for a mastered item with no children', () => {
+    expect(canTestOut(c, { 'place:rennes': mastered('place:rennes') }, 'place:rennes')).toBe(false);
+  });
+
+  it('is false once a child has a row', () => {
+    const progress = { ...masteredFrance, ...rows('region:france.corse') };
+    expect(canTestOut(c, progress, 'country:france')).toBe(false);
+  });
+
+  it('throws for an id not in the curriculum', () => {
+    expect(() => canTestOut(c, {}, 'country:nowhere')).toThrow(/Unknown item/);
   });
 });
