@@ -49,5 +49,7 @@ export function checkImportText(
   };
 }
 
+const countries = (n: number) => `${n} ${n === 1 ? 'country' : 'countries'}`;
+
 export const importConfirmText = (s: ImportSummary): string =>
-  `This browser: ${s.here} countries started. File: ${s.inFile} countries started, exported ${s.exportedOn}.`;
+  `This browser: ${countries(s.here)} started. File: ${countries(s.inFile)} started, exported ${s.exportedOn}.`;

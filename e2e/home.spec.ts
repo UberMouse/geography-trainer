@@ -45,16 +45,8 @@ test('a session round shows up in Home after a reload', async ({ page, isMobile 
   await page.goto('/');
   await expect(newToday(page)).toHaveText('0 of 15 new today', WAIT);
   await expect(learning(page)).toHaveText('0');
-  await page.getByRole('link', { name: /^Start/ }).click();
 
-  const ids = new Set<string>();
-  for (let i = 0; i < 25 && !(await summary(page).isVisible()); i++) {
-    const q = await current(page);
-    ids.add(q.itemId);
-    await answer(page, isMobile, q);
-    await next(page);
-    await expect(question(page).or(summary(page))).toBeVisible(WAIT);
-  }
+  const ids = await answerQuestions(page, isMobile, 25);
   await expect(summary(page)).toHaveText(/ of 20 right$/);
   await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
   await page.getByRole('link', { name: 'Back to Home' }).click();
@@ -84,6 +76,8 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
     await fresh.getByLabel('Import progress').setInputFiles(path);
     await expect(fresh.getByText(/^This browser: 0 countries started\. File: \d+ countries started, exported /)).toBeVisible();
     await fresh.getByRole('button', { name: 'Replace' }).click();
+    await expect(fresh.getByRole('status')).toHaveText('Progress imported.', WAIT);
+    await expect(fresh.getByRole('status')).toBeFocused();
     await expect(newToday(fresh)).toHaveText(before.newToday, WAIT);
     expect(await numbers(fresh)).toEqual(before);
   } finally {

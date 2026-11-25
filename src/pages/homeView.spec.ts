@@ -51,7 +51,10 @@ describe('checkImportText', () => {
     if (!result.ok) return;
     expect(result.summary).toEqual({ here: 1, inFile: 2, exportedOn: '2026-03-04' });
     expect(importConfirmText(result.summary)).toBe(
-      'This browser: 1 countries started. File: 2 countries started, exported 2026-03-04.',
+      'This browser: 1 country started. File: 2 countries started, exported 2026-03-04.',
+    );
+    expect(importConfirmText({ here: 0, inFile: 1, exportedOn: '2026-03-04' })).toBe(
+      'This browser: 0 countries started. File: 1 country started, exported 2026-03-04.',
     );
   });
 });

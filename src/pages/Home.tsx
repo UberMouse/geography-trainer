@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router';
 import { buildCountryCurriculum } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
@@ -27,9 +27,29 @@ const loadHomeData = async (): Promise<HomeData> => {
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
 
+/** The current time, refreshed when the tab comes back to the foreground. */
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setNow(new Date());
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+  return now;
+}
+
 /** Today's numbers, a Start link, and export/import of the saved progress. */
 export default function Home() {
   const [data, reload] = useLoaded('home', loadHomeData);
+  const now = useNow();
+  // Kept here, above `Status`, because the loaded subtree remounts when an import reloads Home.
+  const [imported, setImported] = useState(false);
   return (
     <>
       <h1>Geography Trainer</h1>
@@ -38,18 +58,37 @@ export default function Home() {
         retry={reload}
         failure="Could not load the map data or your saved progress:"
       >
-        {(loaded) => <HomeContent data={loaded} reload={reload} />}
+        {(loaded) => (
+          <HomeContent
+            data={loaded}
+            now={now}
+            reload={reload}
+            imported={imported}
+            setImported={setImported}
+          />
+        )}
       </Status>
     </>
   );
 }
 
-function HomeContent({ data, reload }: { data: HomeData; reload: () => void }) {
-  const numbers = useMemo(() => {
-    const now = new Date();
-    const curriculum = buildCountryCurriculum(data.countries.countries, data.places);
-    return todayNumbers(curriculum, data.progress, now, tzOffset(now));
-  }, [data]);
+interface HomeContentProps {
+  data: HomeData;
+  now: Date;
+  reload: () => void;
+  imported: boolean;
+  setImported: (imported: boolean) => void;
+}
+
+function HomeContent({ data, now, reload, imported, setImported }: HomeContentProps) {
+  const curriculum = useMemo(
+    () => buildCountryCurriculum(data.countries.countries, data.places),
+    [data.countries, data.places],
+  );
+  const numbers = useMemo(
+    () => todayNumbers(curriculum, data.progress, now, tzOffset(now)),
+    [curriculum, data.progress, now],
+  );
   return (
     <>
       <dl className="home-numbers">
@@ -81,7 +120,12 @@ function HomeContent({ data, reload }: { data: HomeData; reload: () => void }) {
       ) : (
         <p>There is nothing to study right now.</p>
       )}
-      <ProgressFiles progress={data.progress} reload={reload} />
+      <ProgressFiles
+        progress={data.progress}
+        reload={reload}
+        imported={imported}
+        setImported={setImported}
+      />
     </>
   );
 }
@@ -89,15 +133,30 @@ function HomeContent({ data, reload }: { data: HomeData; reload: () => void }) {
 function ProgressFiles({
   progress,
   reload,
+  imported,
+  setImported,
 }: {
   progress: Record<string, ItemProgress>;
   reload: () => void;
+  imported: boolean;
+  setImported: (imported: boolean) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ parsed: unknown; summary: ImportSummary } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const latestPick = useRef(0);
+  const importedRef = useRef<HTMLParagraphElement>(null);
+
+  // After a Replace Home reloads and this section mounts again: move focus to the status line.
+  useEffect(() => {
+    if (imported) importedRef.current?.focus();
+    // Only on mount: the flag is already set when the reloaded Home renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const exportFile = async () => {
     setError(null);
+    setImported(false);
     try {
       const now = new Date();
       const file = await progressStore.exportProgress(now);
@@ -107,8 +166,11 @@ function ProgressFiles({
       const link = document.createElement('a');
       link.href = url;
       link.download = exportFilename(now, tzOffset(now));
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      link.remove();
+      // Some browsers fetch the blob after the click returns.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
       setError(`Could not export your progress: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -117,14 +179,19 @@ function ProgressFiles({
   const pickFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
+    const pick = ++latestPick.current;
     setError(null);
+    setImported(false);
     setPending(null);
     if (!file) return;
     try {
-      const check = checkImportText(await file.text(), progress, tzOffset(new Date()));
+      const text = await file.text();
+      if (pick !== latestPick.current) return;
+      const check = checkImportText(text, progress, tzOffset(new Date()));
       if (check.ok) setPending({ parsed: check.parsed, summary: check.summary });
       else setError(check.message);
     } catch (e) {
+      if (pick !== latestPick.current) return;
       setError(`Could not read that file: ${e instanceof Error ? e.message : String(e)}`);
     }
     // So the same file can be picked again.
@@ -132,14 +199,18 @@ function ProgressFiles({
   };
 
   const replace = async () => {
-    if (!pending) return;
+    if (!pending || busy) return;
+    setBusy(true);
     try {
       await progressStore.importProgress(pending.parsed);
       setPending(null);
+      setImported(true);
       reload();
     } catch (e) {
       setPending(null);
       setError(`Could not import: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -152,18 +223,30 @@ function ProgressFiles({
         </button>
         <label className="session-button home-import">
           Import progress
-          <input type="file" accept=".json,application/json" onChange={pickFile} />
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={pickFile}
+            disabled={busy}
+          />
         </label>
       </p>
       {error && <p role="alert">{error}</p>}
+      {imported && (
+        <p role="status" tabIndex={-1} ref={importedRef}>
+          Progress imported.
+        </p>
+      )}
       {pending && (
         <div className="home-confirm" role="group" aria-label="Confirm import">
           <p>{importConfirmText(pending.summary)}</p>
           <p className="home-actions">
-            <button type="button" className="session-button" onClick={replace}>
+            <button type="button" className="session-button" onClick={replace} disabled={busy}>
               Replace
             </button>
-            <button type="button" className="session-button" onClick={() => setPending(null)}>
+            <button type="button" className="session-button" onClick={() => setPending(null)}
+              disabled={busy}
+            >
               Cancel
             </button>
           </p>
