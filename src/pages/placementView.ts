@@ -30,10 +30,12 @@ export interface FailedSave {
 /** The alert for answers that could not be saved (with the latest error), or null when none failed. */
 export function saveFailureText(failed: readonly FailedSave[]): string | null {
   if (failed.length === 0) return null;
-  const { message } = failed[failed.length - 1]!;
+  const last = failed[failed.length - 1]!.message;
+  // No second full stop when the message already ends a sentence.
+  const message = /[.!?]$/.test(last) ? last : `${last}.`;
   return failed.length === 1
-    ? `1 answer could not be saved: ${message}. It is saved again when you finish.`
-    : `${failed.length} answers could not be saved: ${message}. They are saved again when you finish.`;
+    ? `1 answer could not be saved: ${message} Finish the test to save it.`
+    : `${failed.length} answers could not be saved: ${message} Finish the test to save them.`;
 }
 
 /**

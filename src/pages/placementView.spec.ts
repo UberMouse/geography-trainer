@@ -37,14 +37,20 @@ describe('saveFailureText', () => {
 
   it('words one failure for an answer and several for a count, with the latest error', () => {
     expect(saveFailureText([{ itemId: 'country:peru', message: 'disk full' }])).toBe(
-      '1 answer could not be saved: disk full. It is saved again when you finish.',
+      '1 answer could not be saved: disk full. Finish the test to save it.',
     );
     expect(
       saveFailureText([
         { itemId: 'country:peru', message: 'disk full' },
         { itemId: 'country:chile', message: 'quota' },
       ]),
-    ).toBe('2 answers could not be saved: quota. They are saved again when you finish.');
+    ).toBe('2 answers could not be saved: quota. Finish the test to save them.');
+  });
+
+  it('adds no second full stop when the error already ends a sentence', () => {
+    expect(saveFailureText([{ itemId: 'country:peru', message: 'Disk full.' }])).toBe(
+      '1 answer could not be saved: Disk full. Finish the test to save it.',
+    );
   });
 });
 
