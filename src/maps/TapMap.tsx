@@ -76,12 +76,14 @@ export default function TapMap({
   };
 
   // Once, when the reveal arrives: bring the pin and the answer on screen. The user's later pans
-  // and zooms stand.
+  // and zooms stand. A reveal that arrives without a pin is spent without reframing, so a pin
+  // dropped later does not jump the view.
   const revealed = useRef(false);
   useEffect(() => {
     if (!reveal) revealed.current = false;
-    if (!reveal || !pin || revealed.current) return;
+    if (!reveal || revealed.current) return;
     revealed.current = true;
+    if (!pin) return;
     const a = projection(pin);
     const b = projection(targetPoint(reveal));
     if (a && b && [...a, ...b].every(Number.isFinite)) {

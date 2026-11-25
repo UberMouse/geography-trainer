@@ -183,6 +183,17 @@ const parts = (...boxes: [number, number, number, number][]) =>
     geometry: { type: 'MultiPolygon', coordinates: boxes.map((b) => [ring(...b)]) },
   }) as AreaFeature & { id: string };
 
+describe('measureTap with a far part', () => {
+  it('sizes the target by its main part but counts the far part as inside', () => {
+    const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
+    const main = measureTap({ feature: mainPart(f), answer: [5, 0] }, [5, 0]);
+    const m = measureTap({ feature: f, answer: [5, 0] }, [40.5, 0.5]);
+    expect(m.featureSizeKm).toBeCloseTo(main.featureSizeKm, 6);
+    expect(m.featureSizeKm).toBeLessThan(11 * KM_PER_DEG);
+    expect(m.inside).toBe(true);
+  });
+});
+
 describe('mainPart', () => {
   it('returns a single polygon feature itself', () => {
     expect(mainPart(square)).toBe(square);

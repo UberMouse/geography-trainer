@@ -250,7 +250,8 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
     inside,
     kmFromAnswer: distanceKm(tap, target.answer),
     kmOutsideBorder: inside ? 0 : kmToBoundary(target.feature, tap),
-    featureSizeKm: Math.sqrt(geoArea(target.feature)) * EARTH_RADIUS_KM,
+    // The main part, like the answer point: a far part (Alaska) is not the country's size.
+    featureSizeKm: Math.sqrt(geoArea(mainPart(target.feature))) * EARTH_RADIUS_KM,
   };
 }
 

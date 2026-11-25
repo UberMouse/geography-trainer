@@ -40,7 +40,7 @@ export default function BareGlobe(props: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<GlobeView>(initialView ?? NEUTRAL_VIEW);
-  const sizeRef = useRef({ width: 0, height: 0 });
+  const sizeRef = useRef({ width: 0, height: 0, dpr: 1 });
   const propsRef = useRef(props);
   const frameRef = useRef(0);
 
@@ -69,8 +69,7 @@ export default function BareGlobe(props: Props) {
     const { lng, lat, zoom } = viewRef.current;
     canvas.dataset.rotation = `${lng.toFixed(2)},${lat.toFixed(2)}`;
     canvas.dataset.zoom = zoom.toFixed(3);
-    const { width, height } = sizeRef.current;
-    const dpr = window.devicePixelRatio || 1;
+    const { width, height, dpr } = sizeRef.current;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     if (width === 0 || height === 0) return;
@@ -152,7 +151,7 @@ export default function BareGlobe(props: Props) {
     const resize = () => {
       const { width, height } = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      sizeRef.current = { width, height };
+      sizeRef.current = { width, height, dpr };
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       drawRef.current();
@@ -160,8 +159,31 @@ export default function BareGlobe(props: Props) {
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(container);
-    return () => observer.disconnect();
+
+    // Browser zoom or a move to another screen changes the ratio without resizing the container:
+    // watch for the current ratio to stop matching, resize, and watch for the new one.
+    let ratioQuery: MediaQueryList;
+    const onRatioChange = () => {
+      resize();
+      watchRatio();
+    };
+    const watchRatio = () => {
+      ratioQuery = window.matchMedia(`(resolution: ${sizeRef.current.dpr}dppx)`);
+      ratioQuery.addEventListener('change', onRatioChange, { once: true });
+    };
+    watchRatio();
+    return () => {
+      observer.disconnect();
+      ratioQuery.removeEventListener('change', onRatioChange);
+    };
   }, []);
+
+  // Redraw with the new `--map-*` tokens when the colour scheme changes.
+  useEffect(() => {
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    scheme.addEventListener('change', schedule);
+    return () => scheme.removeEventListener('change', schedule);
+  }, [schedule]);
 
   // Turn to the answer when it is revealed: only when `reveal` itself changes, with the pin as it
   // is then, so a pan after the reveal is kept.
