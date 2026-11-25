@@ -1,6 +1,6 @@
 import { geoOrthographic, geoPath, type GeoPermissibleObjects } from 'd3-geo';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { type AreaFeature, type LngLat, type TapTarget } from './geo';
+import { targetPoint, type AreaFeature, type LngLat, type TapTarget } from './geo';
 import { usePointerGestures } from './usePointerGestures';
 import {
   NEUTRAL_VIEW,
@@ -24,7 +24,6 @@ interface Props {
 }
 
 const SPHERE: GeoPermissibleObjects = { type: 'Sphere' };
-const targetAnswer = (t: TapTarget): LngLat => ('point' in t ? t.point : t.answer);
 
 /**
  * An orthographic globe on a canvas: ocean and land only, with country borders when `borders`.
@@ -100,7 +99,7 @@ export default function BareGlobe(props: Props) {
       }
       if (pin) {
         stroke(
-          { type: 'LineString', coordinates: [targetAnswer(target), pin] },
+          { type: 'LineString', coordinates: [targetPoint(target), pin] },
           colour('--map-pin'),
           2,
         );
@@ -155,7 +154,7 @@ export default function BareGlobe(props: Props) {
   // is then, so a pan after the reveal is kept.
   useEffect(() => {
     if (!reveal) return;
-    viewRef.current = revealView(viewRef.current, targetAnswer(reveal), propsRef.current.pin);
+    viewRef.current = revealView(viewRef.current, targetPoint(reveal), propsRef.current.pin);
     schedule();
   }, [reveal, schedule]);
 

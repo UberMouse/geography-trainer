@@ -11,6 +11,9 @@ export const EARTH_RADIUS_KM = 6371;
 
 export type TapTarget = { feature: AreaFeature; answer: LngLat } | { point: LngLat };
 
+/** A tap target's point: a feature's answer point, or the place's point. */
+export const targetPoint = (t: TapTarget): LngLat => ('point' in t ? t.point : t.answer);
+
 export type TapMeasurement = Omit<TapInput, 'tier'>;
 
 type Vec = [number, number, number];
