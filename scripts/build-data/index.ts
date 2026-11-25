@@ -216,6 +216,9 @@ async function main(): Promise<number> {
   console.log(`snapped points (${snapped.length}):\n  ${snapped.join('\n  ')}`);
   console.log(`boundaries: ${BOUNDARY_NOTE}`);
   console.log(
+    `territory slivers ignored (${moved.slivers.length}):\n  ${moved.slivers.map((s) => `${s.move}: ${s.row}, ${s.part}, ${(s.share * 100).toFixed(3)}% of the row, ${s.km2.toFixed(1)} km²`).join('\n  ')}`,
+  );
+  console.log(
     `beyond ${CONTAINMENT_TOLERANCE_KM} km of country or region, allow-listed (${containment.outside.length}):\n  ${containment.outside.map((o) => `${o.id} (${o.region ?? o.country}) ${o.km} km: ${o.reason}`).join('\n  ')}`,
   );
 

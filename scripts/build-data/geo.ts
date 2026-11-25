@@ -88,3 +88,10 @@ export function planarArea(area: Area): number {
   }
   return total;
 }
+
+/** Approximate area in km² (planar, scaled at the middle latitude of its box): for reports. */
+export function approxAreaKm2(area: Area): number {
+  const [, south, , north] = bboxOf(area);
+  const midLat = ((south + north) / 2) * (Math.PI / 180);
+  return planarArea(area) * KM_PER_DEGREE * KM_PER_DEGREE * Math.cos(midLat);
+}

@@ -49,6 +49,19 @@ describe('applyTerritoryMoves', () => {
     expect(inside(east[0]!.geometry, 1.75)).toBe(false);
   });
 
+  it('reports a sliver it leaves with the losing row', () => {
+    const moved = applyTerritoryMoves(
+      countries(),
+      rows,
+      new Map([['D1', square(0.995, -0.5, 2)]]),
+      [{ from: 'aaa', to: 'bbb', territory: { disputedArea: 'D1' } }],
+    );
+    expect(moved.slivers.map((s) => [s.row, s.part, Number(s.share.toFixed(3))])).toEqual([
+      ['AAA-1 West', 'in-territory', 0.005],
+    ]);
+    expect(moved.slivers[0]!.km2).toBeCloseTo(0.005 * 111.195 ** 2, -1);
+  });
+
   it('fails on a territory that names no row', () => {
     expect(() =>
       applyTerritoryMoves(countries(), rows, new Map(), [

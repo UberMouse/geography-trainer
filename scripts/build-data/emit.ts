@@ -8,7 +8,7 @@ import type { Area } from './geo';
 import { compareStrings } from './normalize';
 
 /** mapshaper -simplify retained-point share, and TopoJSON quantization. */
-const SIMPLIFY = '10%';
+const SIMPLIFY = '27%';
 const QUANTIZATION = '1e5';
 
 export interface PlaceOut {
