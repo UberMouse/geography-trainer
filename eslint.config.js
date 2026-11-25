@@ -61,6 +61,13 @@ export default defineConfig([
           message: 'src/engine takes time as an argument: no performance.now().',
         },
       ],
+      'no-restricted-globals': [
+        'error',
+        ...['globalThis', 'window', 'self', 'crypto', 'performance'].map((name) => ({
+          name,
+          message: `src/engine takes time and randomness as arguments and has no DOM: no ${name}.`,
+        })),
+      ],
       'no-restricted-imports': [
         'error',
         {
