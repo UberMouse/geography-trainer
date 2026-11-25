@@ -61,6 +61,21 @@ describe('committed map data, as the loaders return it', () => {
     expect(m.inside).toBe(true);
     expect(m.kmOutsideBorder).toBe(0);
     expect(m.kmFromAnswer).toBeLessThan(0.5);
+    // The point-only countries keep their own sizes; Tuvalu is a real polygon, so it is not one.
+    const size = (id: string) => {
+      const f = features.find((c) => c.id === id)!;
+      return { pointOnly: f.properties.pointOnly, km: Math.sqrt(geoArea(f)) * 6371 };
+    };
+    for (const [id, r] of [
+      ['bonaire', 20],
+      ['saba', 4],
+      ['sint-eustatius', 5],
+    ] as const) {
+      expect(size(id).pointOnly).toBe(true);
+      expect(size(id).km).toBeGreaterThan(0.95 * Math.sqrt(Math.PI) * r);
+      expect(size(id).km).toBeLessThan(1.05 * Math.sqrt(Math.PI) * r);
+    }
+    expect(size('tuvalu').pointOnly).toBeUndefined();
     const vatican = features.find((f) => f.id === 'vatican-city')!;
     expect(geoContains(vatican, answerPoint(vatican))).toBe(true);
   });

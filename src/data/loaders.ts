@@ -5,7 +5,13 @@ import type { Country, Place, Region } from '../engine/types';
 import { ensureArea } from '../maps/geo';
 import { dataUrl, fetchJsonOnce, once } from './fetchJson';
 
-export type CountryProps = { name: string; places: number; hasRegions: boolean };
+export type CountryProps = {
+  name: string;
+  places: number;
+  hasRegions: boolean;
+  /** Stored as a Point (outline is just a disc): set by `loadCountries`, absent on the rest. */
+  pointOnly?: boolean;
+};
 export type RegionProps = { name: string; places: number };
 
 export type CountryFeature = Feature<Polygon | MultiPolygon, CountryProps> & { id: string };
@@ -22,16 +28,21 @@ export interface RegionsData {
 }
 
 /** The object's features, each with an area (`ensureArea`): a few tiny ones are stored as points. */
-function featuresOf<F>(topo: Topology, objectName: string): F[] {
+function featuresOf<F>(topo: Topology, objectName: string, markPoints = false): F[] {
   const object = topo.objects[objectName] as GeometryCollection;
-  return feature(topo, object).features.map((f) => ensureArea(f)) as F[];
+  return feature(topo, object).features.map((f) => {
+    // Recorded before `ensureArea` replaces the geometry.
+    const pointOnly = markPoints && f.geometry?.type === 'Point';
+    const withArea = ensureArea(f);
+    return pointOnly ? { ...withArea, properties: { ...withArea.properties, pointOnly } } : withArea;
+  }) as F[];
 }
 
 /** Every country's feature (id = maptap country id) and engine `Country`, from the countries topology. */
 export function loadCountries(): Promise<CountriesData> {
   return once('countries', async () => {
     const topo = await fetchJsonOnce<Topology>(dataUrl('data/countries.topo.json'));
-    const features = featuresOf<CountryFeature>(topo, 'countries');
+    const features = featuresOf<CountryFeature>(topo, 'countries', true);
     const countries = features.map((f) => ({
       id: f.id,
       name: f.properties.name,

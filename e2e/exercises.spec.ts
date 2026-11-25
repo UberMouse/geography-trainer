@@ -139,6 +139,22 @@ test.describe('L3 and L4 name → tap', () => {
   });
 });
 
+test.describe('L1 point-only country', () => {
+  test('shows the highlighted globe, not an outline', async ({ page }) => {
+    await openExercise(page, 'item=country:saba&rung=1');
+    await expect(page.getByText('Which country is marked?')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
+    await expect(options(page)).toHaveCount(4);
+    await option(page, 'Saba').click();
+    await expect(verdict(page)).toHaveText(/^Correct/);
+  });
+
+  test('a tiny real polygon keeps its outline', async ({ page }) => {
+    await openExercise(page, 'item=country:tuvalu&rung=1');
+    await expect(page.getByText('Which country is this?')).toBeVisible();
+  });
+});
+
 test.describe('phone width', () => {
   for (const rung of [1, 2, 3, 4]) {
     for (const item of ['country:france', 'region:france.bretagne', 'place:honolulu_hawaii']) {

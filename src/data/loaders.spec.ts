@@ -81,6 +81,25 @@ describe('loaders', () => {
     expect(fetchMock).toHaveBeenCalledWith('/data/countries.topo.json');
   });
 
+  it('loadCountries marks a country stored as a point, and only that one', async () => {
+    const topo = topology('countries', 'france', { name: 'France', places: 5, hasRegions: true });
+    topo.objects.countries!.geometries.push({
+      type: 'Point',
+      id: 'saba',
+      properties: { name: 'Saba', places: 1, hasRegions: false, radiusKm: 4 },
+      coordinates: [1000, 1000],
+    } as never);
+    files['/data/countries.topo.json'] = {
+      ...topo,
+      transform: { scale: [0.01, 0.01], translate: [-63, 17] },
+    };
+    const { features } = await loadCountries();
+    const [france, saba] = features;
+    expect(saba!.properties.pointOnly).toBe(true);
+    expect(saba!.geometry.type).toBe('Polygon');
+    expect(france!.properties).not.toHaveProperty('pointOnly');
+  });
+
   it('loadPlaces returns the flat list', async () => {
     const places = await loadPlaces();
     expect(places.map((p) => p.id)).toEqual(['paris']);
