@@ -139,7 +139,7 @@ function Runner({ data }: { data: SessionData }) {
         {unlocks.map((line) => (
           <p key={line.id}>{line.text}</p>
         ))}
-        {unlocks.length > 0 && <p>These start in your next session.</p>}
+        {unlocks.length > 0 && <p>These join your new questions from your next session.</p>}
         {questionsRemain(run) ? (
           <p>
             <button
