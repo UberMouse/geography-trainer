@@ -1,6 +1,6 @@
 import { geoPath } from 'd3-geo';
 import { useMemo } from 'react';
-import type { IdentifiedFeature, LngLat } from './geo';
+import type { AreaFeature, IdentifiedFeature, LngLat } from './geo';
 import type { ProgressLook } from './ProgressMap';
 import { MAP_SIZE, fitFlat } from './view';
 
@@ -19,31 +19,40 @@ export interface DrillDot {
 
 /**
  * A fitted flat map of `features` (a country's regions, or one region or country outline) with
- * each place in `dots` drawn as a dot, all filled by `look(id)`. A `null` look draws a feature
- * neutral and inert. With `onSelect`, a feature with a look is tappable. Every shape and dot
- * carries `data-item-id` and `data-state`. The projection fits the features and the dots.
+ * each place in `dots` drawn as a dot. Shapes are filled by `look(id)` and dots by `dotLook(id)`;
+ * a `null` shape look draws it neutral and inert. With `onSelect`, a shape with a look is
+ * tappable. Every look-carrying shape and dot has `data-item-id` and `data-state`. The projection
+ * fits `fit` when given, else the features and the dots. With nothing to fit it draws nothing.
  */
 export default function DrillMap({
   features,
   dots,
+  fit,
   look,
+  dotLook,
   onSelect,
   label,
 }: {
   features: DrillFeature[];
   dots: DrillDot[];
+  fit?: AreaFeature[];
   look: (id: string) => ProgressLook | null;
+  dotLook: (id: string) => ProgressLook | null;
   onSelect?: (id: string) => void;
   label: string;
 }) {
   const { shapes, points } = useMemo(() => {
-    const frame: Parameters<typeof fitFlat>[0] = [...features];
-    if (dots.length > 0) {
+    const frame: Parameters<typeof fitFlat>[0] = [...(fit ?? features)];
+    if (!fit && dots.length > 0) {
       frame.push({
         type: 'Feature',
         properties: {},
         geometry: { type: 'MultiPoint', coordinates: dots.map((d) => d.at) },
       });
+    }
+    // Nothing area-shaped to fit (a lone dot has no extent): fitting would give NaN.
+    if (frame.length === 0 || frame.every((f) => f.geometry.type === 'MultiPoint')) {
+      return { shapes: [], points: [] };
     }
     const projection = fitFlat(frame);
     const path = geoPath(projection);
@@ -54,7 +63,7 @@ export default function DrillMap({
         return xy ? [{ ...d, x: xy[0], y: xy[1] }] : [];
       }),
     };
-  }, [features, dots]);
+  }, [features, dots, fit]);
 
   return (
     <svg
@@ -82,7 +91,7 @@ export default function DrillMap({
         );
       })}
       {points.map((p) => {
-        const l = look(p.id);
+        const l = dotLook(p.id);
         return (
           <circle
             key={p.id}

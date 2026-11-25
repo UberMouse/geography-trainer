@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildCurriculum, countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import type { Country, Place } from '../engine/types';
-import { childRows, resolveDrillRoute } from './drillView';
+import type { AreaFeature } from '../maps/geo';
+import { childRows, resolveDrillRoute, splitByFrame } from './drillView';
 
 const countries: Country[] = [
   { id: 'fr', name: 'France', places: 2, hasRegions: true },
@@ -98,8 +99,8 @@ describe('childRows', () => {
   it('lists a locked country’s regions with what unlocks them and a link each', () => {
     const rows = childRows(curriculum, {}, countryItemId('fr'), names);
     expect(rows.map((r) => [r.name, r.state, r.stateLabel, r.unlockText, r.href])).toEqual([
-      ['Ile-de-France', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.idf'],
       ['Auvergne', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.ara'],
+      ['Ile-de-France', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.idf'],
     ]);
   });
 
@@ -134,5 +135,45 @@ describe('childRows', () => {
 
   it('is empty for a country with no places', () => {
     expect(childRows(curriculum, {}, countryItemId('nowhere'), names)).toEqual([]);
+  });
+});
+
+describe('childRows order', () => {
+  it('sorts rows by name, whatever the curriculum order', () => {
+    const names = new Map([
+      [regionItemId('fr.idf'), 'Zeta'],
+      [regionItemId('fr.ara'), 'alpha'],
+    ]);
+    const rows = childRows(curriculum, {}, countryItemId('fr'), names);
+    expect(rows.map((r) => r.name)).toEqual(['alpha', 'Zeta']);
+  });
+});
+
+describe('splitByFrame', () => {
+  const square: AreaFeature = {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [0, 10],
+          [10, 10],
+          [10, 0],
+          [0, 0],
+        ],
+      ],
+    },
+  };
+
+  it('keeps points inside the fitted frame and sets outlying ones aside', () => {
+    const items = [
+      { id: 'in', at: [5, 5] as [number, number] },
+      { id: 'far', at: [-150, 60] as [number, number] },
+    ];
+    const { onMap, off } = splitByFrame(square, items, (i) => i.at);
+    expect(onMap.map((i) => i.id)).toEqual(['in']);
+    expect(off.map((i) => i.id)).toEqual(['far']);
   });
 });

@@ -1,10 +1,17 @@
-import { useMemo, type ReactNode } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { countryItemId, placeItemId, regionItemId, type Curriculum } from '../engine/curriculum';
 import { loadRegions, type RegionsData } from '../data/loaders';
-import DrillMap, { type DrillDot, type DrillFeature } from '../maps/DrillMap';
+import { answerPoint, mainPart } from '../maps/geo';
+import DrillMap, { type DrillDot } from '../maps/DrillMap';
 import type { ProgressLook } from '../maps/ProgressMap';
-import { NO_CHILDREN_TEXT, childRows, resolveDrillRoute, type DrillRoute } from './drillView';
+import {
+  NO_CHILDREN_TEXT,
+  childRows,
+  resolveDrillRoute,
+  splitByFrame,
+  type DrillRoute,
+} from './drillView';
 import Status from './LoadStatus';
 import { STATE_LABELS, itemLook } from './progressView';
 import { useLoaded } from './useLoaded';
@@ -33,7 +40,10 @@ function Resolved({
   regionId: string | undefined;
 }) {
   const curriculum = useCurriculum(data);
-  const route = resolveDrillRoute(curriculum, data.countries.countries, countryId, regionId);
+  const route = useMemo(
+    () => resolveDrillRoute(curriculum, data.countries.countries, countryId, regionId),
+    [curriculum, data.countries.countries, countryId, regionId],
+  );
   if (route.kind === 'not-found') {
     return (
       <>
@@ -100,32 +110,41 @@ function Drill({
     return out;
   }, [data.countries, data.places, regions]);
 
-  const { features, dots } = useMemo(() => {
+  const routeKind = route.kind;
+  const regionId = route.kind === 'region' ? route.regionId : null;
+  const { features, dots, fit, offMap } = useMemo(() => {
     const countryPlaces = data.places.filter((p) => p.country === countryId);
     const placeDots = (places: typeof countryPlaces): DrillDot[] =>
       places.map((p) => ({ id: p.id, name: p.name, at: [p.lng, p.lat] }));
-    if (route.kind === 'region') {
+    if (routeKind === 'region') {
       return {
-        features: (regions?.features ?? []).filter((f) => f.id === route.regionId),
-        dots: placeDots(countryPlaces.filter((p) => p.region === route.regionId)),
+        features: (regions?.features ?? []).filter((f) => f.id === regionId),
+        dots: placeDots(countryPlaces.filter((p) => p.region === regionId)),
+        fit: undefined,
+        offMap: [],
       };
     }
-    if (regions) return { features: regions.features, dots: [] };
-    return {
-      features: data.countries.features.filter((f) => f.id === countryId) as DrillFeature[],
-      dots: placeDots(countryPlaces),
-    };
-  }, [data.places, data.countries, regions, route, countryId]);
+    // The country page frames the main part of the country, as the exercises do: outlying
+    // regions and places (overseas, far islands) stay off the map and are named under it.
+    const outline = data.countries.features.find((f) => f.id === countryId)!;
+    const frame = mainPart(outline);
+    if (regions) {
+      const split = splitByFrame(frame, regions.features, answerPoint);
+      return { features: split.onMap, dots: [], fit: [frame], offMap: split.off };
+    }
+    const split = splitByFrame(frame, placeDots(countryPlaces), (d) => d.at);
+    return { features: [outline], dots: split.onMap, fit: [frame], offMap: [] };
+  }, [data.places, data.countries, regions, routeKind, regionId, countryId]);
 
-  const look = (id: string): ProgressLook | null => {
-    const place = curriculum.items.get(placeItemId(id));
-    if (place) return placeLook(itemLook(curriculum, data.progress, place.id).state);
-    // The country outline of a regionless country stays neutral: its places carry the colour.
-    if (!regions) return null;
-    const region = regionItemId(id);
-    // A region with no places is not a curriculum item: drawn neutral, not a link.
-    return curriculum.items.has(region) ? itemLook(curriculum, data.progress, region) : null;
-  };
+  // A region with no places is not a curriculum item: drawn neutral, not a link.
+  const lookShape = (id: string): ProgressLook | null =>
+    regions && curriculum.items.has(regionItemId(id))
+      ? itemLook(curriculum, data.progress, regionItemId(id))
+      : null;
+  const lookDot = (id: string): ProgressLook | null =>
+    curriculum.items.has(placeItemId(id))
+      ? placeLook(itemLook(curriculum, data.progress, placeItemId(id)).state)
+      : null;
 
   const rows = childRows(curriculum, data.progress, itemId, names);
   const self = itemLook(curriculum, data.progress, itemId);
@@ -148,7 +167,9 @@ function Drill({
       <DrillMap
         features={features}
         dots={dots}
-        look={look}
+        fit={fit}
+        look={lookShape}
+        dotLook={lookDot}
         onSelect={
           isRegion || !regions
             ? undefined
@@ -158,6 +179,23 @@ function Drill({
         }
         label={`${name} progress map`}
       />
+      {offMap.length > 0 && (
+        <p data-testid="off-map">
+          Not on this map:{' '}
+          {[...offMap]
+            .sort((a, b) => a.properties.name.localeCompare(b.properties.name))
+            .map((f, i) => (
+              <Fragment key={f.id}>
+                {i > 0 && ', '}
+                {curriculum.items.has(regionItemId(f.id)) ? (
+                  <Link to={`${regionBase}/${f.id}`}>{f.properties.name}</Link>
+                ) : (
+                  f.properties.name
+                )}
+              </Fragment>
+            ))}
+        </p>
+      )}
       {rows.length === 0 ? (
         <p>{NO_CHILDREN_TEXT}</p>
       ) : (

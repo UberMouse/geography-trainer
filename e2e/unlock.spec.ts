@@ -168,9 +168,17 @@ test('the drill-down goes from the world to a country to a region and back', asy
 test('a country without regions draws its places as dots', async ({ page }) => {
   await page.goto('/progress/singapore');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Singapore', WAIT);
-  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]')).toHaveCount(
-    await page.getByTestId('drill-list').locator('li').count(),
-  );
+  const expected = await page.getByTestId('drill-list').locator('li').count();
+  expect(expected).toBeGreaterThan(0);
+  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]')).toHaveCount(expected);
+});
+
+test('a country outline stays neutral when a place shares the country id', async ({ page }) => {
+  await page.goto('/progress/cyprus');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Cyprus', WAIT);
+  const map = page.getByTestId('drill-map');
+  await expect(map.locator('circle[data-item-id="cyprus"]')).toHaveAttribute('data-state', /.+/);
+  await expect(map.locator('path[data-item-id]')).toHaveCount(0);
 });
 
 test('an unknown country or region shows not found with a link back', async ({ page }) => {

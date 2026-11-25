@@ -11,6 +11,8 @@ import {
 } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
+import type { AreaFeature, LngLat } from '../maps/geo';
+import { inFlatFrame } from '../maps/view';
 import { STATE_LABELS } from './progressView';
 
 export type DrillRoute =
@@ -58,7 +60,7 @@ export interface ChildRow {
 }
 
 /**
- * One row per child of `itemId`, in curriculum order: its name, state and, when locked, what
+ * One row per child of `itemId`, sorted by name: its name, state and, when locked, what
  * unlocks it. `names` maps item ids to display names (an item missing from it shows its id).
  */
 export function childRows(
@@ -70,7 +72,7 @@ export function childRows(
   const item = curriculum.items.get(itemId);
   if (!item) return [];
   const nameOf = (id: string) => names.get(id) ?? id;
-  return item.children.map((childId) => {
+  const rows = item.children.map((childId) => {
     const child = curriculum.items.get(childId)!;
     const state = itemState(curriculum, progress, childId);
     return {
@@ -86,6 +88,22 @@ export function childRows(
           : null,
     };
   });
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Splits `items` by whether `at(item)` falls in the flat map fitted to `frame` (`fitFlat`), the
+ * test the exercises use for `onGlobe`: `onMap` is drawn, `off` is named under the map.
+ */
+export function splitByFrame<T>(
+  frame: AreaFeature,
+  items: readonly T[],
+  at: (item: T) => LngLat,
+): { onMap: T[]; off: T[] } {
+  const onMap: T[] = [];
+  const off: T[] = [];
+  for (const item of items) (inFlatFrame(frame, at(item)) ? onMap : off).push(item);
+  return { onMap, off };
 }
 
 /** "No regions or places to learn here." for an item with no children. */
