@@ -1,6 +1,6 @@
 // Adaptive staircase placement test as a pure state machine. State is plain JSON.
 
-import { Rating, type Grade } from 'ts-fsrs';
+import type { Grade } from 'ts-fsrs';
 import {
   PLACEMENT_ESTIMATE_REVERSALS,
   PLACEMENT_MAX_LEVEL,
@@ -10,6 +10,7 @@ import {
   PLACEMENT_REVERSALS,
   PLACEMENT_START_LEVEL,
 } from './config';
+import { isPass } from './grading';
 import type { PlacementOutcome } from './srs';
 
 export interface PlacementItem {
@@ -122,7 +123,7 @@ export function nextQuestion(
 export function answerPlacement(state: PlacementState, itemId: string, rating: Grade): PlacementState {
   const item = state.pending;
   if (!item || item.itemId !== itemId) throw new Error(`not the pending placement question: ${itemId}`);
-  const passed = rating === Rating.Good || rating === Rating.Easy;
+  const passed = isPass(rating);
   const direction = passed ? 1 : -1;
   const reversed = state.direction !== 0 && state.direction !== direction;
   return {

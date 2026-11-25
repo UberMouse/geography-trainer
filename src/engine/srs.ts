@@ -3,6 +3,7 @@
 
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
 import { MASTERY_DISTINCT_DAYS, PLACEMENT_SEED_STABILITY_DAYS } from './config';
+import { isPass } from './grading';
 
 export type Rung = 1 | 2 | 3 | 4;
 
@@ -100,7 +101,7 @@ export function applyAnswer(
   if (!card) throw new Error(`No card for rung ${rung}`);
 
   const cards = { ...progress.cards, [rung]: toStored(scheduler.next(fromStored(card), now, rating).card) };
-  const passed = rating === Rating.Good || rating === Rating.Easy;
+  const passed = isPass(rating);
   // On the multiple-choice rungs (L1, L2) a slow but correct answer is Hard, so it climbs too. On
   // L3 and L4 Hard is a near-miss tap and keeps the item on its rung.
   const climbs = passed || (rating === Rating.Hard && progress.rung <= 2);

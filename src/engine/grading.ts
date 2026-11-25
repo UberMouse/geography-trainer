@@ -37,6 +37,11 @@ export function maptapScore(km: number, inside = false): number {
   return Math.round(maptapScoreRaw(km, inside));
 }
 
+/** Whether a rating passes: Good or Easy. Hard (slow, or a near miss) and Again do not. */
+export function isPass(rating: Grade): boolean {
+  return rating === Rating.Good || rating === Rating.Easy;
+}
+
 /** Grade a multiple-choice answer: wrong is Again; correct is Easy/Good/Hard by speed. */
 export function gradeMultipleChoice(correct: boolean, timeMs: number): Grade {
   if (Number.isNaN(timeMs) || timeMs < 0) {
