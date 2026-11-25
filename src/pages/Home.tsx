@@ -1,29 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router';
-import { buildCurriculum, regionsFromPlaces } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
-import type { Place } from '../engine/types';
-import { loadCountries, loadPlaces, type CountriesData } from '../data/loaders';
+import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
 import { progressStore } from '../storage/progressStore';
 import { checkImportText, exportFilename, importConfirmText, leftOutText, type ImportSummary } from './homeView';
 import Status from './LoadStatus';
+import { countryLooks } from './progressView';
 import { useLoaded } from './useLoaded';
-
-interface HomeData {
-  countries: CountriesData;
-  places: Place[];
-  progress: Record<string, ItemProgress>;
-}
-
-const loadHomeData = async (): Promise<HomeData> => {
-  const [countries, places, progress] = await Promise.all([
-    loadCountries(),
-    loadPlaces(),
-    progressStore.loadProgress(),
-  ]);
-  return { countries, places, progress };
-};
+import { loadWorldData, useCurriculum, type WorldData } from './worldData';
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
 
@@ -48,7 +33,7 @@ function useNow(): Date {
 
 /** Today's numbers, a Start link, and export/import of the saved progress. */
 export default function Home() {
-  const [data, reload] = useLoaded('home', loadHomeData);
+  const [data, reload] = useLoaded('home', loadWorldData);
   const now = useNow();
   // Kept here, above `Status`, because the loaded subtree remounts when an import reloads Home.
   const [imported, setImported] = useState(false);
@@ -75,7 +60,7 @@ export default function Home() {
 }
 
 interface HomeContentProps {
-  data: HomeData;
+  data: WorldData;
   now: Date;
   reload: () => void;
   imported: boolean;
@@ -83,14 +68,10 @@ interface HomeContentProps {
 }
 
 function HomeContent({ data, now, reload, imported, setImported }: HomeContentProps) {
-  const curriculum = useMemo(
-    () =>
-      buildCurriculum(
-        data.countries.countries,
-        regionsFromPlaces(data.countries.countries, data.places),
-        data.places,
-      ),
-    [data.countries, data.places],
+  const curriculum = useCurriculum(data);
+  const looks = useMemo(
+    () => countryLooks(curriculum, data.progress, data.countries.countries),
+    [curriculum, data.progress, data.countries],
   );
   const numbers = useMemo(
     () => todayNumbers(curriculum, data.progress, now, tzOffset(now)),
@@ -127,6 +108,15 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
       ) : (
         <p>There is nothing to study right now.</p>
       )}
+      <div className="home-map">
+        <ProgressMap
+          features={data.countries.features as ProgressFeature[]}
+          look={(id) => looks.get(id) ?? { state: 'locked', fill: 'var(--progress-locked)' }}
+        />
+        <p>
+          <Link to="/progress">See your progress</Link>
+        </p>
+      </div>
       <ProgressFiles
         progress={data.progress}
         reload={reload}

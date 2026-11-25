@@ -20,4 +20,8 @@ describe('App', () => {
     expect(html).toContain('Boundaries:');
     expect(html).toContain('href="https://www.naturalearthdata.com"');
   });
+
+  it('renders the Progress page heading', () => {
+    expect(render('/progress')).toContain('<h1>Progress</h1>');
+  });
 });

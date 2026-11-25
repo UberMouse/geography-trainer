@@ -342,3 +342,62 @@ a {
 .home-confirm {
   margin: 12px 0;
 }
+
+/* Progress map */
+
+:root {
+  --progress-locked: #d4d4d4;
+  --progress-new: #fde68a;
+  --progress-learning: #fb923c;
+  --progress-mastered: #86efac;
+  --progress-complete: #15803d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --progress-locked: #404040;
+    --progress-new: #a16207;
+    --progress-learning: #ea580c;
+    --progress-mastered: #4d8f63;
+    --progress-complete: #4ade80;
+  }
+}
+
+.map.progress-map {
+  max-width: 960px;
+  aspect-ratio: 960 / 500;
+}
+
+.progress-tappable {
+  cursor: pointer;
+}
+
+.progress-counts,
+.progress-legend,
+.progress-started {
+  padding-left: 0;
+  list-style: none;
+}
+
+.progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.progress-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 1px solid var(--map-border);
+}
+
+.home-map {
+  margin: 16px 0;
+}
+
+.home-map .map.progress-map {
+  max-width: 480px;
+}
