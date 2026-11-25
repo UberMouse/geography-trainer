@@ -1,6 +1,6 @@
 import { geoPath } from 'd3-geo';
 import { useMemo } from 'react';
-import { answerPoint, type AreaFeature, type LngLat } from './geo';
+import { answerPoint, type AreaFeature, type IdentifiedFeature, type LngLat } from './geo';
 import { Dot, Rings } from './marks';
 import {
   MAP_SIZE,
@@ -12,8 +12,6 @@ import {
   fitGlobe,
   smallTargetRings,
 } from './view';
-
-export type IdentifiedFeature = AreaFeature & { id: string };
 
 /**
  * A static map with one feature shaded and an optional dot. `fit` fits the projection to `frame`

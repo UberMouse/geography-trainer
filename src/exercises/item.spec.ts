@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ALPHA_REGIONS, COUNTRIES, DATA, DATA_WITH_ALPHA } from './fixtures';
-import { buildExerciseItem } from './item';
+import { ALPHA_REGIONS, COUNTRIES, DATA, DATA_WITH_ALPHA, PLACES } from './fixtures';
+import { buildExerciseItem, distinctCandidates } from './item';
 
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id).sort();
 
@@ -105,4 +105,43 @@ describe('buildExerciseItem: unknown ids', () => {
     'throws for %s',
     (id) => expect(() => buildExerciseItem(id, DATA_WITH_ALPHA)).toThrow(),
   );
+});
+
+describe('distinctCandidates', () => {
+  const at = (id: string, name: string, lng: number) => ({ id, name, lng, lat: 0 });
+
+  it('drops the target’s own name and keeps the nearest of each repeated name', () => {
+    const out = distinctCandidates(
+      [at('far-x', 'X', 30), at('near-x', 'X', 10), at('same', 'Target', 5), at('y', 'Y', 20)],
+      'Target',
+      [0, 0],
+    );
+    expect(ids(out)).toEqual(['near-x', 'y']);
+  });
+});
+
+describe('buildExerciseItem: same-named siblings', () => {
+  it('never offers the target’s name, or one name twice, for a place', () => {
+    const places = [
+      ...PLACES,
+      { ...PLACES[0]!, id: 'n1b', name: 'N1', lng: 9 },
+      { ...PLACES[1]!, id: 'n2b', name: 'N2', lng: 9.5 },
+    ].map((p) => (p.id === 'n1' ? { ...p, name: 'N1' } : p));
+    const item = buildExerciseItem('place:n1', { ...DATA_WITH_ALPHA, places });
+    const names = item.candidates.map((c) => c.name);
+    expect(names).not.toContain('N1');
+    expect(new Set(names).size).toBe(names.length);
+    expect(item.candidates.filter((c) => c.name === 'N2').map((c) => c.id)).toEqual(['place:n2']);
+  });
+
+  it('never offers the target’s name for a region', () => {
+    const features = ALPHA_REGIONS.features.map((f) =>
+      f.id === 'alpha.south' ? { ...f, properties: { ...f.properties, name: 'North' } } : f,
+    );
+    const item = buildExerciseItem('region:alpha.north', {
+      ...DATA_WITH_ALPHA,
+      regions: { ...ALPHA_REGIONS, features },
+    });
+    expect(item.candidates.map((c) => c.name)).toEqual(['Isle']);
+  });
 });

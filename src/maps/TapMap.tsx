@@ -1,12 +1,19 @@
 import { geoPath } from 'd3-geo';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { targetPoint, type AreaFeature, type LngLat, type TapTarget } from './geo';
+import {
+  targetPoint,
+  type AreaFeature,
+  type IdentifiedFeature,
+  type LngLat,
+  type TapTarget,
+} from './geo';
 import type { GestureEvent } from './gestures';
-import type { IdentifiedFeature } from './HighlightMap';
 import { Dot, Rings } from './marks';
 import { usePointerGestures } from './usePointerGestures';
 import {
   IDENTITY,
+  FLAT_MAX_ZOOM,
+  FLAT_MIN_ZOOM,
   MAP_SIZE,
   RING_RADIUS_PX,
   SMALL_TARGET_PX,
@@ -16,6 +23,7 @@ import {
   revealFlat,
   smallTargetRings,
   unapply,
+  wheelAtLimit,
   wheelFactor,
   zoomFlat,
   type FlatTransform,
@@ -109,8 +117,11 @@ export default function TapMap({
         update(zoomFlat(panned, e.factor, ...toViewBox(e.cx, e.cy)));
       }
     },
-    onWheel: (deltaY, x, y) =>
-      update(zoomFlat(transformRef.current, wheelFactor(deltaY), ...toViewBox(x, y))),
+    onWheel: (deltaY, x, y) => {
+      if (wheelAtLimit(transformRef.current.k, deltaY, FLAT_MIN_ZOOM, FLAT_MAX_ZOOM)) return false;
+      update(zoomFlat(transformRef.current, wheelFactor(deltaY), ...toViewBox(x, y)));
+      return true;
+    },
   });
 
   const toScreen = ([x, y]: [number, number]): [number, number] => [

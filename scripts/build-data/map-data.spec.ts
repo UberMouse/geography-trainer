@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { geoArea, geoContains } from 'd3-geo';
+import { buildExerciseItem } from '../../src/exercises/item';
 import { loadCountries, loadPlaces, loadRegions } from '../../src/data/loaders';
 import {
   answerPoint,
@@ -161,5 +162,21 @@ describe('outline of every place', () => {
       if (!at || !at.every((v) => v >= 0 && v <= MAP_SIZE)) outsideFrame.push(place.id);
     }
     expect(outsideFrame).toEqual([]);
+  });
+});
+
+describe('same-named sibling regions', () => {
+  it('never offer the target’s name as an answer option', async () => {
+    const countries = await loadCountries();
+    const regions = await loadRegions('ireland');
+    const galways = regions.features.filter((f) => f.properties.name === 'Galway');
+    expect(galways.length).toBeGreaterThan(1);
+    const data = { countries, places: await loadPlaces(), regions };
+    for (const galway of galways) {
+      const item = buildExerciseItem(`region:${galway.id}`, data);
+      const names = item.candidates.map((c) => c.name);
+      expect(names).not.toContain('Galway');
+      expect(new Set(names).size).toBe(names.length);
+    }
   });
 });

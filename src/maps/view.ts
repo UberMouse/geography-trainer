@@ -57,6 +57,50 @@ export function zoomGlobe(view: GlobeView, factor: number): GlobeView {
   return { ...view, zoom: clamp(view.zoom * factor, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM) };
 }
 
+/** How many times `zoomGlobeAt` re-aims after a zoom (each step shrinks the miss near the limb). */
+const ZOOM_AT_STEPS = 4;
+
+/**
+ * `zoomGlobe`, keeping the lng/lat under the pixel `focal` (canvas CSS px) under it: the point
+ * is found before the zoom, then the surface is dragged until it sits back under `focal`. The
+ * drag is exact only near the centre (`rotateGlobe`'s approximation), so it repeats a few times;
+ * near the limb the miss is small but not zero. A `focal` off the disc zooms about the centre.
+ */
+export function zoomGlobeAt(
+  view: GlobeView,
+  factor: number,
+  focal: [number, number],
+  width: number,
+  height: number,
+): GlobeView {
+  const project = (v: GlobeView) =>
+    geoOrthographic()
+      .rotate([-v.lng, -v.lat])
+      .scale(globeRadius(width, height, v.zoom))
+      .translate([width / 2, height / 2]);
+  const at = project(view).invert?.(focal);
+  const zoomed = zoomGlobe(view, factor);
+  const onDisc =
+    Math.hypot(focal[0] - width / 2, focal[1] - height / 2) <=
+    globeRadius(width, height, view.zoom);
+  if (!at || !onDisc || !at.every(Number.isFinite) || zoomed.zoom === view.zoom) return zoomed;
+  const radius = globeRadius(width, height, zoomed.zoom);
+  let next = zoomed;
+  for (let i = 0; i < ZOOM_AT_STEPS; i++) {
+    const now = project(next)(at as LngLat);
+    if (!now || !now.every(Number.isFinite)) break;
+    next = rotateGlobe(next, focal[0] - now[0], focal[1] - now[1], radius);
+  }
+  return next;
+}
+
+/**
+ * Whether a wheel of `deltaY` (positive scrolls out) cannot zoom: `zoom` is already at the
+ * minimum and it scrolls out, or at the maximum and it scrolls in. Then the page may scroll.
+ */
+export const wheelAtLimit = (zoom: number, deltaY: number, min: number, max: number) =>
+  (deltaY > 0 && zoom <= min) || (deltaY < 0 && zoom >= max);
+
 /** Parse `lng,lat,zoom` (the playground's `?view=`). Undefined unless all three are numbers. */
 export function parseView(text: string | null | undefined): GlobeView | undefined {
   if (!text) return undefined;

@@ -1,4 +1,4 @@
-import { geoDistance, geoPath } from 'd3-geo';
+import { geoDistance, geoOrthographic, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import { describe, expect, it } from 'vitest';
 import { mainPart, type AreaFeature, type LngLat } from './geo';
@@ -9,7 +9,10 @@ import {
   MAP_SIZE,
   NEUTRAL_VIEW,
   fitFlat,
+  GLOBE_MAX_ZOOM,
+  GLOBE_MIN_ZOOM,
   fitGlobe,
+  globeRadius,
   inFlatFrame,
   outlineFrame,
   panFlat,
@@ -19,10 +22,12 @@ import {
   rotateGlobe,
   smallTargetRings,
   unapply,
+  wheelAtLimit,
   wheelFactor,
   wrapLng,
   zoomFlat,
   zoomGlobe,
+  zoomGlobeAt,
 } from './view';
 
 const box = (w: number, s: number, e: number, n: number): AreaFeature => ({
@@ -320,5 +325,45 @@ describe('smallTargetRings', () => {
     const globe = geoPath(fitGlobe([0, 0]));
     const both = multi(box(0, 0, 0.1, 0.1), box(179.9, 0, 180, 0.1));
     expect(smallTargetRings(globe, both, 16, 16)).toHaveLength(1);
+  });
+});
+
+describe('zoomGlobeAt', () => {
+  const [width, height] = [400, 300];
+  const under = (v: { lng: number; lat: number; zoom: number }, focal: [number, number]) =>
+    geoOrthographic()
+      .rotate([-v.lng, -v.lat])
+      .scale(globeRadius(width, height, v.zoom))
+      .translate([width / 2, height / 2]).invert!(focal)!;
+
+  it('keeps the point under the focal pixel under it, near the centre and near the limb', () => {
+    const view = { lng: 10, lat: 30, zoom: 2 };
+    const radius = globeRadius(width, height, 2);
+    for (const [fx, fy, tolerance] of [
+      [230, 170, 0.01],
+      [200 + 0.8 * radius, 150, 0.5],
+      [200 + 0.5 * radius, 150 - 0.5 * radius, 0.3],
+    ] as const) {
+      const before = under(view, [fx, fy]);
+      const after = zoomGlobeAt(view, 3, [fx, fy], width, height);
+      expect(after.zoom).toBe(6);
+      expect(geoDistance(before, under(after, [fx, fy])) * (180 / Math.PI)).toBeLessThan(tolerance);
+    }
+  });
+
+  it('zooms about the centre for a focal point off the disc, and clamps the zoom', () => {
+    const view = { lng: 10, lat: 30, zoom: 1 };
+    expect(zoomGlobeAt(view, 2, [0, 0], width, height)).toEqual({ ...view, zoom: 2 });
+    expect(zoomGlobeAt(view, 0.5, [230, 170], width, height)).toEqual(view);
+  });
+});
+
+describe('wheelAtLimit', () => {
+  it('is true only when the wheel pushes against the zoom limit it is at', () => {
+    expect(wheelAtLimit(GLOBE_MIN_ZOOM, 100, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)).toBe(true);
+    expect(wheelAtLimit(GLOBE_MIN_ZOOM, -100, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)).toBe(false);
+    expect(wheelAtLimit(GLOBE_MAX_ZOOM, -100, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)).toBe(true);
+    expect(wheelAtLimit(GLOBE_MAX_ZOOM, 100, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)).toBe(false);
+    expect(wheelAtLimit(4, 100, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)).toBe(false);
   });
 });

@@ -281,6 +281,22 @@ describe('answerPoint', () => {
     expect(answerPoint(c)).toBe(at);
   });
 
+  it('is inside a sliver thinner than a grid cell whose centroid is outside it', () => {
+    // A V, 0.00001 degrees wide and 0.1 degrees across: the centroid is in the notch, and the
+    // search grid (0.005 degrees) steps over the arms.
+    const v = poly([
+      [0, 0.1],
+      [0.00001, 0.1],
+      [0.0513, 0.0002],
+      [0.10299, 0.1],
+      [0.103, 0.1],
+      [0.0513, 0],
+      [0, 0.1],
+    ]);
+    expect(geoContains(v, geoCentroid(v))).toBe(false);
+    expect(geoContains(v, answerPoint(v))).toBe(true);
+  });
+
   it('is inside a feature that crosses the antimeridian', () => {
     // The same C shape, spanning 175E to 175W.
     const c = poly([

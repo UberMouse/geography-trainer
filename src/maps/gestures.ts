@@ -31,6 +31,8 @@ export class GestureTracker {
   }
 
   down(id: number, x: number, y: number): void {
+    // A down for an id we still hold means its up was never seen: the old press is stale.
+    this.pointers.delete(id);
     if (this.pointers.size >= 2) return;
     if (this.pointers.size === 0) {
       this.travel = 0;

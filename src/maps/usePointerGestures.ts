@@ -3,14 +3,18 @@ import { GestureTracker, type GestureEvent } from './gestures';
 
 export interface GestureHandlers {
   onGesture: (event: GestureEvent) => void;
-  /** Wheel zoom: `deltaY` in px (line and page deltas converted) about (`x`, `y`). */
-  onWheel: (deltaY: number, x: number, y: number) => void;
+  /**
+   * Wheel zoom: `deltaY` in px (line and page deltas converted) about (`x`, `y`). Returns whether
+   * it zoomed: false (already at the zoom limit that way) leaves the page to scroll.
+   */
+  onWheel: (deltaY: number, x: number, y: number) => boolean;
 }
 
 /**
  * Feed an element's pointer and wheel events (coordinates relative to the element, CSS px) into a
  * `GestureTracker`. The element needs `touch-action: none` so the browser leaves touch to us; the
- * wheel listener is non-passive so it can stop the page scrolling.
+ * wheel listener is non-passive so it can stop the page scrolling, which it does only when
+ * `onWheel` returns true.
  */
 export function usePointerGestures(ref: RefObject<Element | null>, handlers: GestureHandlers) {
   const latest = useRef(handlers);
@@ -33,7 +37,17 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
       try {
         el.setPointerCapture(e.pointerId);
       } catch {
-        // InvalidStateError: the pointer is no longer active. Track the press without capture.
+        // InvalidStateError: the pointer is no longer active. Track the press without capture, and
+        // since its release may land outside the element, let go of it when the window sees that.
+        const id = e.pointerId;
+        const release = (ev: PointerEvent) => {
+          if (ev.pointerId !== id) return;
+          window.removeEventListener('pointerup', release);
+          window.removeEventListener('pointercancel', release);
+          tracker.cancel(id);
+        };
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
       }
       tracker.down(e.pointerId, ...local(e));
     };
@@ -43,9 +57,8 @@ export function usePointerGestures(ref: RefObject<Element | null>, handlers: Ges
     // turn the next press into a pinch. After a normal pointerup the tracker has already let go.
     const cancel = (e: PointerEvent) => tracker.cancel(e.pointerId);
     const wheel = (e: WheelEvent) => {
-      e.preventDefault();
       const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
-      latest.current.onWheel(e.deltaY * scale, ...local(e));
+      if (latest.current.onWheel(e.deltaY * scale, ...local(e))) e.preventDefault();
     };
 
     el.addEventListener('pointerdown', down);

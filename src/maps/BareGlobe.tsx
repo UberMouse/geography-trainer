@@ -3,6 +3,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { targetPoint, type AreaFeature, type LngLat, type TapTarget } from './geo';
 import { usePointerGestures } from './usePointerGestures';
 import {
+  GLOBE_MAX_ZOOM,
+  GLOBE_MIN_ZOOM,
   NEUTRAL_VIEW,
   RING_RADIUS_PX,
   SMALL_TARGET_PX,
@@ -10,8 +12,9 @@ import {
   revealView,
   rotateGlobe,
   smallTargetRings,
+  wheelAtLimit,
   wheelFactor,
-  zoomGlobe,
+  zoomGlobeAt,
   type GlobeView,
 } from './view';
 
@@ -212,12 +215,21 @@ export default function BareGlobe(props: Props) {
       viewRef.current =
         e.type === 'drag'
           ? rotateGlobe(view, e.dx, e.dy, radius)
-          : zoomGlobe(rotateGlobe(view, e.dx, e.dy, radius), e.factor);
+          : zoomGlobeAt(
+              rotateGlobe(view, e.dx, e.dy, radius),
+              e.factor,
+              [e.cx, e.cy],
+              width,
+              height,
+            );
       schedule();
     },
-    onWheel: (deltaY) => {
-      viewRef.current = zoomGlobe(viewRef.current, wheelFactor(deltaY));
+    onWheel: (deltaY, x, y) => {
+      const { width, height } = sizeRef.current;
+      if (wheelAtLimit(viewRef.current.zoom, deltaY, GLOBE_MIN_ZOOM, GLOBE_MAX_ZOOM)) return false;
+      viewRef.current = zoomGlobeAt(viewRef.current, wheelFactor(deltaY), [x, y], width, height);
       schedule();
+      return true;
     },
   });
 

@@ -14,6 +14,8 @@ import type { TapInput } from '../engine/grading';
 export type LngLat = [number, number];
 
 export type AreaFeature = Feature<Polygon | MultiPolygon>;
+/** An area feature with an id (a country or region of the committed data). */
+export type IdentifiedFeature = AreaFeature & { id: string };
 
 export const EARTH_RADIUS_KM = 6371;
 
@@ -272,8 +274,9 @@ function planarContains(planar: PlanarRing[], x: number, y: number) {
  * polygon and scored by distance to a thinned copy of the boundary, then a finer grid around the
  * best point repeats that. The best-scoring candidate that `geoContains` confirms is returned, so
  * the result is inside whatever the planar test says. When no candidate is (islands smaller than a
- * grid cell), the search moves to the feature's biggest polygon, and failing that the centroid
- * comes back.
+ * grid cell), the search moves to the feature's biggest polygon; failing that, points near its
+ * boundary are tried (see `nearBoundaryPoint`), and failing those the centroid comes back, which
+ * is then not confirmed to be inside.
  */
 function interiorPoint(feature: AreaFeature): LngLat {
   const [[w, s], [e0, n]] = geoBounds(feature);
@@ -350,7 +353,44 @@ function interiorPoint(feature: AreaFeature): LngLat {
     const centroid = geoCentroid(biggest);
     return geoContains(biggest, centroid) ? centroid : interiorPoint(biggest);
   }
+  // Nothing the grid tried was inside: a sliver thinner than a cell. Try points just inside its
+  // boundary before giving up.
+  const near = nearBoundaryPoint(feature);
+  if (near) return near;
+  // Last resort: the centroid, which is NOT confirmed inside.
   return geoCentroid(feature);
+}
+
+/** The most triangles `nearBoundaryPoint` tests per ring, to bound its cost on a big boundary. */
+const NEAR_BOUNDARY_TRIES = 100;
+
+/**
+ * A point just inside `feature`'s biggest polygon, found without a grid: the centroid of each
+ * triangle of three consecutive vertices of each ring (thinned to `NEAR_BOUNDARY_TRIES` per
+ * ring), the first that `geoContains` confirms. A sliver's consecutive vertices lie close
+ * together on its two edges, so such a triangle falls inside it. Undefined when none does.
+ */
+function nearBoundaryPoint(feature: AreaFeature): LngLat | undefined {
+  const g = feature.geometry;
+  const polygons = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  const biggest = polygons
+    .map((coordinates): AreaFeature => ({ ...feature, geometry: { type: 'Polygon', coordinates } }))
+    .reduce((m, p) => (geoArea(p) > geoArea(m) ? p : m));
+  for (const ring of rings(biggest)) {
+    const step = Math.max(1, Math.floor((ring.length - 2) / NEAR_BOUNDARY_TRIES));
+    for (let i = 0; i + 2 < ring.length; i += step) {
+      const [a, b, c] = [ring[i]!, ring[i + 1]!, ring[i + 2]!];
+      // Longitudes relative to the first vertex, so a triangle over the antimeridian averages well.
+      const dl = (v: number[]) => ((((v[0]! - a[0]!) % 360) + 540) % 360) - 180;
+      const lng = a[0]! + (dl(b) + dl(c)) / 3;
+      const at: LngLat = [
+        lng > 180 ? lng - 360 : lng < -180 ? lng + 360 : lng,
+        (a[1]! + b[1]! + c[1]!) / 3,
+      ];
+      if (geoContains(biggest, at)) return at;
+    }
+  }
+  return undefined;
 }
 
 /**

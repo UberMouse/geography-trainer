@@ -9,6 +9,15 @@ describe('GestureTracker', () => {
     expect(g.up(1, 103, 102)).toEqual([{ type: 'tap', x: 103, y: 102 }]);
   });
 
+  it('treats a down for a held id as a fresh gesture, so a tap still taps', () => {
+    const g = new GestureTracker();
+    g.down(1, 50, 50);
+    g.move(1, 80, 80);
+    g.down(1, 10, 10);
+    expect(g.active).toBe(1);
+    expect(g.up(1, 10, 10)).toEqual([{ type: 'tap', x: 10, y: 10 }]);
+  });
+
   it('counts total travel, so a wiggle that returns to the start is not a tap', () => {
     const g = new GestureTracker();
     g.down(1, 0, 0);

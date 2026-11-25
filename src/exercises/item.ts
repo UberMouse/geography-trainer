@@ -1,8 +1,15 @@
 import { countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
 import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
-import { answerPoint, mainPart, nearPoint, type AreaFeature, type LngLat } from '../maps/geo';
-import type { IdentifiedFeature } from '../maps/HighlightMap';
+import {
+  answerPoint,
+  distanceKm,
+  mainPart,
+  nearPoint,
+  type AreaFeature,
+  type IdentifiedFeature,
+  type LngLat,
+} from '../maps/geo';
 import { inFlatFrame } from '../maps/view';
 import type { Candidate, ExerciseItem } from './types';
 
@@ -22,6 +29,25 @@ const pointCandidate = (id: string, name: string, [lng, lat]: LngLat): Candidate
   lng,
   lat,
 });
+
+/**
+ * `candidates` without any named `name` (the target's own), and with one candidate per name, the
+ * nearest to `from`, so no two options of a question read the same.
+ */
+export function distinctCandidates(
+  candidates: Candidate[],
+  name: string,
+  from: LngLat,
+): Candidate[] {
+  const nearest = new Map<string, { candidate: Candidate; km: number }>();
+  for (const candidate of candidates) {
+    if (candidate.name === name) continue;
+    const km = distanceKm(from, [candidate.lng, candidate.lat]);
+    const best = nearest.get(candidate.name);
+    if (!best || km < best.km) nearest.set(candidate.name, { candidate, km });
+  }
+  return [...nearest.values()].map((n) => n.candidate);
+}
 
 function splitId(itemId: string): [string, string] {
   const at = itemId.indexOf(':');
@@ -75,9 +101,13 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       countryId: itemId,
       target: { feature: country, answer: answerPoint(country) },
       context: features,
-      candidates: features
-        .filter((f) => f !== country)
-        .map((f) => pointCandidate(countryItemId(f.id), f.properties.name, nearPoint(f))),
+      candidates: distinctCandidates(
+        features
+          .filter((f) => f !== country)
+          .map((f) => pointCandidate(countryItemId(f.id), f.properties.name, nearPoint(f))),
+        country.properties.name,
+        nearPoint(country),
+      ),
       outline: country,
       frame: mainPart(country),
       world: features,
@@ -102,9 +132,13 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       countryId: countryItemId(countryId),
       target: { feature: region, answer },
       context: regions.features,
-      candidates: regions.features
-        .filter((f) => f !== region && f.properties.places > 0)
-        .map((f) => pointCandidate(regionItemId(f.id), f.properties.name, nearPoint(f))),
+      candidates: distinctCandidates(
+        regions.features
+          .filter((f) => f !== region && f.properties.places > 0)
+          .map((f) => pointCandidate(regionItemId(f.id), f.properties.name, nearPoint(f))),
+        region.properties.name,
+        answer,
+      ),
       outline: region,
       frame,
       world: worldWith(country, regions.features),
@@ -131,7 +165,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       countryId: countryItemId(country.id),
       target: { point },
       context: regionFeatures.length > 0 ? regionFeatures : [country],
-      candidates: placeCandidates(place, data.places),
+      candidates: distinctCandidates(placeCandidates(place, data.places), place.name, point),
       outline,
       frame,
       world: worldWith(country, regionFeatures),
