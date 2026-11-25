@@ -1,5 +1,5 @@
 import { geoContains } from 'd3-geo';
-import { useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
   loadCountries,
@@ -26,6 +26,10 @@ function Panel({ id, title, children }: { id: string; title: string; children: R
   );
 }
 
+// Lazy, so Mantine and its CSS load only when the Globe tab opens. Pure, so a production build,
+// where the playground route is gone, drops the call and never emits the tab's chunk.
+const GlobePlayground = /* @__PURE__ */ lazy(() => import('./GlobePlayground'));
+
 const DEFAULT_COUNTRY = 'france';
 const NO_REGIONS: RegionFeature[] = [];
 
@@ -39,49 +43,62 @@ export default function Playground() {
   const initialView = useMemo(() => parseView(view), [view]);
   const [countries, retry] = useLoaded('countries', loadCountries);
   const [countryId, setCountryId] = useState(DEFAULT_COUNTRY);
-  const exercises = params.get('mode') === 'exercises' || params.has('item') || params.has('rung');
+  const globe = params.get('mode') === 'globe';
+  const exercises =
+    !globe && (params.get('mode') === 'exercises' || params.has('item') || params.has('rung'));
+  const current = (on: boolean) => (on ? 'page' : undefined);
 
   return (
     <>
       <h1>Map playground</h1>
       <nav className="playground-controls" aria-label="Playground">
-        <Link to="/playground" aria-current={exercises ? undefined : 'page'}>
+        <Link to="/playground" aria-current={current(!exercises && !globe)}>
           Maps
         </Link>
-        <Link to="/playground?mode=exercises" aria-current={exercises ? 'page' : undefined}>
+        <Link to="/playground?mode=exercises" aria-current={current(exercises)}>
           Exercises
         </Link>
+        <Link to="/playground?mode=globe" aria-current={current(globe)}>
+          Globe
+        </Link>
       </nav>
-      <Status state={countries} retry={retry}>
-        {(data) => {
-          if (exercises) return <ExercisePlayground countries={data} initialView={initialView} />;
-          const { features } = data;
-          const country = features.find((f) => f.id === countryId) ?? features[0]!;
-          const sorted = [...features].sort((a, b) =>
-            a.properties.name.localeCompare(b.properties.name),
-          );
-          return (
-            <>
-              <label className="playground-picker">
-                Country{' '}
-                <select value={country.id} onChange={(e) => setCountryId(e.target.value)}>
-                  {sorted.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.properties.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <CountryMaps
-                key={country.id}
-                world={features}
-                country={country}
-                initialView={initialView}
-              />
-            </>
-          );
-        }}
-      </Status>
+      {globe ? (
+        // The Globe tab covers the whole page, this heading and nav included.
+        <Suspense fallback={<p>Loading…</p>}>
+          <GlobePlayground />
+        </Suspense>
+      ) : (
+        <Status state={countries} retry={retry}>
+          {(data) => {
+            if (exercises) return <ExercisePlayground countries={data} initialView={initialView} />;
+            const { features } = data;
+            const country = features.find((f) => f.id === countryId) ?? features[0]!;
+            const sorted = [...features].sort((a, b) =>
+              a.properties.name.localeCompare(b.properties.name),
+            );
+            return (
+              <>
+                <label className="playground-picker">
+                  Country{' '}
+                  <select value={country.id} onChange={(e) => setCountryId(e.target.value)}>
+                    {sorted.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.properties.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <CountryMaps
+                  key={country.id}
+                  world={features}
+                  country={country}
+                  initialView={initialView}
+                />
+              </>
+            );
+          }}
+        </Status>
+      )}
     </>
   );
 }
