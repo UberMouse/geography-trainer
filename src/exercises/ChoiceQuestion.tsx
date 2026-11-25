@@ -7,7 +7,8 @@ import { useQuestion } from './useQuestion';
 
 /**
  * A multiple-choice question about `picture`: name buttons, graded on the first click. The reveal
- * marks the right option and a wrong choice.
+ * marks the right option and a wrong choice, and the options are then aria-disabled (still
+ * focusable; a click is ignored).
  */
 export default function ChoiceQuestion({
   item,
@@ -40,13 +41,14 @@ export default function ChoiceQuestion({
             type="button"
             className="exercise-choice"
             data-mark={mark(c.id)}
+            aria-disabled={result ? true : undefined}
             onClick={() => choose(c.id)}
           >
             {c.name}
           </button>
         ))}
       </div>
-      {result && <Reveal item={item} result={result} onNext={onNext} />}
+      <Reveal item={item} result={result} onNext={onNext} />
     </div>
   );
 }

@@ -41,7 +41,7 @@ export default function TapQuestion({
       <button type="button" disabled={!pin || !!result} onClick={confirm}>
         Confirm
       </button>
-      {result && <Reveal item={item} result={result} onNext={onNext} />}
+      <Reveal item={item} result={result} onNext={onNext} />
     </div>
   );
 }

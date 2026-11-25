@@ -34,6 +34,9 @@ test.describe('L1 outline → name', () => {
   test('choosing the item is correct', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
     await expect(options(page)).toHaveCount(4);
+    // The one status region is there, empty, before the answer, so the verdict is announced.
+    await expect(verdict(page)).toHaveCount(1);
+    await expect(verdict(page)).toBeEmpty();
     await option(page, 'France').click();
     await expect(verdict(page)).toHaveText(/^Correct/);
     await expect(option(page, 'France')).toHaveAttribute('data-mark', 'correct');
@@ -60,7 +63,9 @@ test.describe('L1 outline → name', () => {
     const wrong = options(page)
       .filter({ hasNotText: /^France$/ })
       .first();
-    await wrong.click();
+    await expect(wrong).toHaveAttribute('aria-disabled', 'true');
+    // Playwright will not click an aria-disabled button; force it, as a user still can.
+    await wrong.click({ force: true });
     await expect(verdict(page)).toHaveText(/^Correct/);
     await expect(wrong).not.toHaveAttribute('data-mark');
     await expect(page.getByTestId('last-correct')).toHaveText('true');
@@ -71,8 +76,9 @@ test.describe('L1 outline → name', () => {
     await option(page, 'France').click();
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('item-id')).not.toHaveText('country:france');
-    await expect(verdict(page)).toHaveCount(0);
+    await expect(verdict(page)).toBeEmpty();
     await expect(page.locator('[data-mark]')).toHaveCount(0);
+    await expect(page.locator('[aria-disabled]')).toHaveCount(0);
     await expect(options(page)).toHaveCount(4);
   });
 });
@@ -128,7 +134,7 @@ test.describe('L3 and L4 name → tap', () => {
     await confirm(page).click();
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('item-id')).not.toHaveText('country:france');
-    await expect(verdict(page)).toHaveCount(0);
+    await expect(verdict(page)).toBeEmpty();
     await expect(confirm(page)).toBeDisabled();
   });
 });
