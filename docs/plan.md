@@ -55,7 +55,7 @@ The globe is MapLibre GL JS in globe projection (WebGL). The first globe was d3 
 
 ## Curriculum & learning model
 - **Tree:** Country → Regions (when the country has ≥ 4 regions containing maptap places and ≥ 15 places) → Places in a region. Countries below that threshold go straight from country to places. Landmarks (monuments, mountains, etc.) sit in the places tier alongside cities, and the type filter is a setting.
-- **Exercise ladder per item.** An item works up L1 → L3, all on the globe. The learning phase is the first rungs; the review card lives on the highest rung reached. (Until 2026-11-26 there were 4 rungs, with *outline → name* as L1. It was dropped, and old L2–L4 became L1–L3; see *Globe and layout → Migration*.)
+- **Exercise ladder per item.** An item works up L1 → L3, all on the globe. The learning phase is the first rungs; the review card lives on the highest rung reached. (Until 2026-11-26 there were 4 rungs, with *outline → name* as L1. It was dropped, and old L2–L4 became L1–L3; see *Globe and layout → No migration*.)
   1. **Highlighted on the globe → name** (4 choices; distractors are nearby or similar-sized). Countries and regions are shaded, places are a dot.
   2. **Name → tap, with borders.** Country questions show every country's border. Region and place questions show the regions of the item's country. Correct if inside the polygon (country/region) or within the tier's km threshold (place).
   3. **Name → tap, no borders.** Imagery only, the camera stays where the last question left it (as in a maptap round). Same rule, maptap score shown.
@@ -96,7 +96,7 @@ The globe is MapLibre GL JS in globe projection (WebGL). The first globe was d3 
   - **Phone width:** the globe on top, the question panel below it where the thumb is (prompt, a 2×2 grid of choices, counter). No horizontal scroll, 16px gutters in the panel.
   - Non-question pages (Home, Progress, Settings, Credits) use the same column for their content, with the globe beside it showing progress. Settings and Credits may hide the globe at phone width.
 - **Components: Mantine 9** (`@mantine/core`, `@mantine/hooks`): buttons, choice grid, segmented controls, forms (Settings), modals (reset, import), notifications, progress bars. A dark theme suits the imagery. We write no component of our own that Mantine has.
-- **Migration (Dexie v3).** Progress is re-laddered: rung r → r − 1 (old L1 → L1). The old L1 card is dropped; the L2–L4 cards become L1–L3. The top-rung pass days and the lapse flag carry over to the new L3. Answers keep their history, and outline-rung answers count toward nothing. An export file from before v3 goes through the same mapping on import. Placement-done markers are unchanged.
+- **No migration.** Nobody has saved progress yet (user, 2026-11-26), so the move to 3 rungs is a clean break: no Dexie upgrade that re-ladders progress, and no mapping of old export files. An old file whose rungs fall outside 1–3 is rejected on import like any other malformed file.
 - **What goes:** the d3 drawing code and the SVG/canvas maps (`OutlineView`, `HighlightMap`, `TapMap`, `BareGlobe`, `ProgressMap`, `DrillMap`, our gesture code) and the outline exercise. d3-geo stays only for the spherical math in `geo.ts`.
 
 ## Data generation script (`npm run build:data`)
@@ -174,7 +174,7 @@ From here on, **each build step below is one `/sdd-loop` run**: you type it, I t
 UI redo (see *Globe and layout*):
 
 8. **The globe.** `maplibre-gl` globe with the EOX imagery and its attribution, our country and region GeoJSON as sources, the layer modes, tap → `lngLat`. Mantine installed with the app shell: the side-by-side layout and its phone-width stacking. Shown in the playground next to the old maps; nothing else changes yet.
-9. **The 3-rung ladder.** `engine/` moves to L1–L3 (mastery, lapses, placement seeding and starting rungs); the Dexie v3 migration and pre-v3 imports map progress as described. No UI change besides what the engine change forces.
+9. **The 3-rung ladder.** `engine/` moves to L1–L3 (mastery, lapses, placement seeding and starting rungs); no migration of saved progress (see *No migration*); import rejects rungs outside 1–3. No UI change besides what the engine change forces.
 10. **Questions on the globe.** The 3 exercise types for every tier on the globe, with camera moves and the reveal, in the Mantine column/panel. Session, Placement and test-out run on them. The outline exercise and the exercise maps are deleted.
 11. **Everything else on the globe.** Home and the Progress drill-down on the globe's progress mode; Settings and Credits in Mantine (Credits gains the EOX line). The remaining d3 drawing code and SVG maps are deleted, and so is anything else we built that Mantine now covers. `CLAUDE.md`'s *Stack* and *Layout* lines are updated to match (MapLibre globe, Mantine, three exercise types).
 
@@ -187,7 +187,7 @@ UI redo (see *Globe and layout*):
   - unlock rules (master FR → FR regions available, DE regions still locked)
   - placement staircase converging on synthetic users of known skill
   - export → import round-trip
-  - the v3 migration and pre-v3 import: every old rung maps as listed, and nothing else in the progress changes
+  - import rejects a file whose rungs fall outside 1–3
 - Playwright smoke test on desktop and mobile viewports: complete a placement test, then a session. Check that a tap inside a highlighted polygon scores correct, that progress survives a reload, and that the globe rotates and zooms with touch.
   - Chromium runs WebGL headless through its software renderer. Taps are aimed with a test-only hook that projects a `lngLat` to screen pixels through the live map (`map.project`), so they don't depend on pixel guesses.
   - Imagery requests to EOX are stubbed in e2e with a local tile, so tests never depend on EOX being up.
