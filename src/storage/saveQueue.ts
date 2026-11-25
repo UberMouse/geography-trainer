@@ -22,33 +22,47 @@ export function createSaveQueue<T>(write: (entry: T) => Promise<void>): SaveQueu
   const pending: T[] = [];
   const listeners = new Set<() => void>();
   let state: SaveQueueState = { unsaved: 0, failed: false };
-  let draining: Promise<void> | null = null;
+  let running = false;
+  let current: Promise<void> = Promise.resolve();
 
   function setState(next: SaveQueueState) {
     // A new object only on a real change, so `getState` suits useSyncExternalStore.
     if (next.unsaved === state.unsaved && next.failed === state.failed) return;
     state = next;
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      // A throwing listener must never stop the queue.
+      try {
+        listener();
+      } catch (error) {
+        console.error('saveQueue listener threw', error);
+      }
+    }
   }
 
+  // `running` is cleared synchronously at each exit, so a push or retry made right after (or from
+  // a listener notified at) the exit always starts a new drain.
   async function drain() {
     while (pending.length > 0) {
       try {
         await write(pending[0] as T);
       } catch {
+        running = false;
         setState({ unsaved: pending.length, failed: true });
         return;
       }
       pending.shift();
+      // `failed` clears once the write that had failed succeeds, so a retry keeps the banner up.
       setState({ unsaved: pending.length, failed: false });
     }
+    running = false;
   }
 
   function start(): Promise<void> {
-    draining ??= drain().finally(() => {
-      draining = null;
-    });
-    return draining;
+    if (!running) {
+      running = true;
+      current = drain();
+    }
+    return current;
   }
 
   return {
@@ -58,9 +72,8 @@ export function createSaveQueue<T>(write: (entry: T) => Promise<void>): SaveQueu
       if (!state.failed) void start();
     },
     retry() {
-      if (draining) return draining;
+      if (running) return current;
       if (!state.failed) return Promise.resolve();
-      setState({ unsaved: pending.length, failed: false });
       return start();
     },
     getState: () => state,

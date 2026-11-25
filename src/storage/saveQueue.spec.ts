@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createSaveQueue } from './saveQueue';
 
 /** A writer whose calls are held until the test settles them. */
@@ -99,7 +99,7 @@ describe('createSaveQueue', () => {
     expect(seen).toEqual(['1', '0']);
   });
 
-  it('reports failure to subscribers and clears it on a successful retry', async () => {
+  it('reports failure to subscribers and keeps it through a retry until the write succeeds', async () => {
     let fail = true;
     const queue = createSaveQueue(async () => {
       if (fail) throw new Error('x');
@@ -113,6 +113,42 @@ describe('createSaveQueue', () => {
     await tick();
     fail = false;
     await queue.retry();
-    expect(seen).toEqual(['1', '1F', '1', '0']);
+    expect(seen).toEqual(['1', '1F', '0']);
+  });
+
+  it('a retry made by a listener as the failure is published still retries', async () => {
+    let fail = true;
+    const written: string[] = [];
+    const queue = createSaveQueue(async (entry: string) => {
+      if (fail) {
+        fail = false;
+        throw new Error('once');
+      }
+      written.push(entry);
+    });
+    queue.subscribe(() => {
+      if (queue.getState().failed) void queue.retry();
+    });
+    queue.push('a');
+    await tick();
+    expect(written).toEqual(['a']);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
+  });
+
+  it('a throwing listener does not stop the queue', async () => {
+    const written: string[] = [];
+    const queue = createSaveQueue(async (entry: string) => {
+      written.push(entry);
+    });
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    queue.subscribe(() => {
+      throw new Error('bad listener');
+    });
+    queue.push('a');
+    queue.push('b');
+    await tick();
+    errors.mockRestore();
+    expect(written).toEqual(['a', 'b']);
+    expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
   });
 });
