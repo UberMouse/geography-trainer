@@ -364,6 +364,24 @@ describe('ensureArea', () => {
     expect(geoContains(f, [-68.26, 12.2])).toBe(true);
   });
 
+  it('gives a point its own radiusKm, and the fallback when that is not a positive number', () => {
+    const dot = (radiusKm?: unknown) =>
+      ensureArea({
+        type: 'Feature',
+        id: 'dot',
+        properties: { radiusKm },
+        geometry: { type: 'Point', coordinates: [-63.237, 17.633] },
+      });
+    // Feature size is sqrt(area) in km: a disc of radius r is sqrt(pi) * r.
+    const sizeKm = (f: AreaFeature) => Math.sqrt(geoArea(f)) * 6371;
+    expect(sizeKm(dot(5))).toBeGreaterThan(0.95 * Math.sqrt(Math.PI) * 5);
+    expect(sizeKm(dot(5))).toBeLessThan(1.05 * Math.sqrt(Math.PI) * 5);
+    const fallback = sizeKm(dot());
+    expect(fallback).toBeCloseTo(Math.sqrt(Math.PI) * POINT_FEATURE_RADIUS_KM, 1);
+    for (const bad of [0, -3, NaN, Infinity, '5'])
+      expect(sizeKm(dot(bad))).toBeCloseTo(fallback, 6);
+  });
+
   it('turns a polygon with no area into a disc at its centre', () => {
     const f = ensureArea(
       poly([

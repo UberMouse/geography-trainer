@@ -29,8 +29,8 @@ export type TapTarget =
   | { point: LngLat };
 
 /**
- * The radius in km of the disc `ensureArea` gives a feature with no area: small enough that the
- * ring marker shows it, big enough to tap once zoomed in.
+ * The radius in km of the disc `ensureArea` gives a feature with no area and no `radiusKm`
+ * property: small enough that the ring marker shows it, big enough to tap once zoomed in.
  */
 export const POINT_FEATURE_RADIUS_KM = 2;
 
@@ -40,8 +40,8 @@ const MIN_AREA_SR = 1e-12;
 /**
  * The feature with an area to draw, tap and measure: a Point or MultiPoint, or a (Multi)Polygon
  * with no area (the data stores a few tiny countries that way), becomes a disc of
- * `POINT_FEATURE_RADIUS_KM` around its centroid (else its first coordinate), with the same id and
- * properties. Any other feature comes back as it is.
+ * the feature's own `radiusKm` property (a finite number above 0, else `POINT_FEATURE_RADIUS_KM`)
+ * around its centroid (else its first coordinate), with the same id and properties. Any other feature comes back as it is.
  */
 export function ensureArea<P>(
   feature: Feature<Geometry | null, P>,
@@ -54,9 +54,11 @@ export function ensureArea<P>(
   }
   const centroid = geoCentroid(g);
   const centre = centroid.every(Number.isFinite) ? centroid : firstCoordinate(g, feature.id);
+  const own = (feature.properties as { radiusKm?: unknown } | null)?.radiusKm;
+  const radiusKm = typeof own === 'number' && Number.isFinite(own) && own > 0 ? own : null;
   const disc = geoCircle()
     .center(centre)
-    .radius((POINT_FEATURE_RADIUS_KM / EARTH_RADIUS_KM) * (180 / Math.PI))();
+    .radius(((radiusKm ?? POINT_FEATURE_RADIUS_KM) / EARTH_RADIUS_KM) * (180 / Math.PI))();
   return { ...feature, geometry: disc };
 }
 
