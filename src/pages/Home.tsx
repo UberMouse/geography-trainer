@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router';
-import { buildCountryCurriculum } from '../engine/curriculum';
+import { buildCurriculum, regionsFromPlaces } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
 import type { Place } from '../engine/types';
@@ -84,7 +84,12 @@ interface HomeContentProps {
 
 function HomeContent({ data, now, reload, imported, setImported }: HomeContentProps) {
   const curriculum = useMemo(
-    () => buildCountryCurriculum(data.countries.countries, data.places),
+    () =>
+      buildCurriculum(
+        data.countries.countries,
+        regionsFromPlaces(data.countries.countries, data.places),
+        data.places,
+      ),
     [data.countries, data.places],
   );
   const numbers = useMemo(

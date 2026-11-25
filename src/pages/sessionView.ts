@@ -1,5 +1,6 @@
 // Plain helpers for the Session page, kept out of the component so they can be unit-tested.
 
+import { unlockedBy, type Curriculum } from '../engine/curriculum';
 import type { SessionRun } from '../engine/sessionRun';
 import type { SessionQuestion } from '../engine/session';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
@@ -66,4 +67,42 @@ export function answerEntry(
 /** "Question 3 of 20": the current question's number within its round. */
 export function questionHeader(run: SessionRun): string {
   return `Question ${run.answeredInRound + 1} of ${run.roundTotal}`;
+}
+
+/**
+ * The countries whose regions the questions need drawn: the owner of every region question and of
+ * every place question under a region, in first-seen order. Ids are the bare country ids
+ * (`loadRegions`' argument).
+ */
+export function countriesNeedingRegions(
+  curriculum: Curriculum,
+  questions: readonly SessionQuestion[],
+): string[] {
+  const needed = new Set<string>();
+  for (const { itemId } of questions) {
+    const item = curriculum.items.get(itemId);
+    if (!item) throw new Error(`Unknown item "${itemId}"`);
+    if (item.tier === 'region' || item.parent?.startsWith('region:')) {
+      needed.add(item.countryId.replace(/^country:/, ''));
+    }
+  }
+  return [...needed];
+}
+
+/**
+ * The round summary's lines for the items mastered in the round: "Unlocked: France's regions",
+ * "Unlocked: Brittany's places". An item listed twice counts once; one that unlocks nothing is
+ * left out. `nameOf` gives the display name of an item id.
+ */
+export function unlockLines(
+  curriculum: Curriculum,
+  masteredIds: readonly string[],
+  nameOf: (itemId: string) => string,
+): string[] {
+  const lines: string[] = [];
+  for (const id of new Set(masteredIds)) {
+    const unlocked = unlockedBy(curriculum, id);
+    if (unlocked) lines.push(`Unlocked: ${nameOf(id)}'s ${unlocked.tier}s`);
+  }
+  return lines;
 }

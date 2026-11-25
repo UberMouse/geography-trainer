@@ -3,7 +3,9 @@ import { startRun } from '../engine/sessionRun';
 import { createProgress } from '../engine/srs';
 import { Rating } from 'ts-fsrs';
 import type { ExerciseResult } from '../exercises/types';
-import { answerEntry, questionHeader, questionSeed } from './sessionView';
+import { buildCurriculum } from '../engine/curriculum';
+import type { Country, Place } from '../engine/types';
+import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
 
 describe('questionSeed', () => {
   it('is stable, and differs by item, by position and by salt', () => {
@@ -78,5 +80,75 @@ describe('answerEntry', () => {
       .entry.answer;
     expect(tap.km).toBe(12);
     expect(tap.maptapScore).toBe(99);
+  });
+});
+
+describe('the full tree', () => {
+  const countries: Country[] = [
+    { id: 'fr', name: 'France', places: 2, hasRegions: true },
+    { id: 'jp', name: 'Japan', places: 1, hasRegions: false },
+    { id: 'xx', name: 'Nowhere', places: 0, hasRegions: false },
+  ];
+  const place = (id: string, country: string, region: string | null): Place => ({
+    id,
+    name: id,
+    country,
+    region,
+    lat: 0,
+    lng: 0,
+    type: 'city',
+    level: 1,
+  });
+  const places = [place('paris', 'fr', 'fr.idf'), place('brest', 'fr', 'fr.bre'), place('tokyo', 'jp', null)];
+  const curriculum = buildCurriculum(countries, [{ id: 'fr.idf', country: 'fr' }, { id: 'fr.bre', country: 'fr' }], places);
+  const names: Record<string, string> = {
+    'country:fr': 'France',
+    'country:jp': 'Japan',
+    'region:fr.bre': 'Brittany',
+  };
+  const nameOf = (id: string) => names[id] ?? id;
+
+  describe('countriesNeedingRegions', () => {
+    const q = (itemId: string) => ({ itemId, rung: 1 as const });
+
+    it('names the owner of each region question and each place under a region, once', () => {
+      const questions = [
+        q('country:fr'),
+        q('region:fr.idf'),
+        q('place:brest'),
+        q('place:paris'),
+        q('country:jp'),
+        q('place:tokyo'),
+      ];
+      expect(countriesNeedingRegions(curriculum, questions)).toEqual(['fr']);
+    });
+
+    it('needs nothing for countries and places directly under a country', () => {
+      expect(countriesNeedingRegions(curriculum, [q('country:fr'), q('place:tokyo')])).toEqual([]);
+    });
+
+    it('throws for an unknown item', () => {
+      expect(() => countriesNeedingRegions(curriculum, [q('place:nope')])).toThrow('Unknown item');
+    });
+  });
+
+  describe('unlockLines', () => {
+    it('says regions for a regions-tier country, places for the rest and a region', () => {
+      expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
+        "Unlocked: France's regions",
+        "Unlocked: Japan's places",
+        "Unlocked: Brittany's places",
+      ]);
+    });
+
+    it('lists an item mastered twice once and skips items that unlock nothing', () => {
+      expect(unlockLines(curriculum, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf)).toEqual([
+        "Unlocked: Japan's places",
+      ]);
+    });
+
+    it('is empty when nothing was mastered', () => {
+      expect(unlockLines(curriculum, [], nameOf)).toEqual([]);
+    });
   });
 });
