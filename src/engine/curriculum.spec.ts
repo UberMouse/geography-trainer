@@ -190,8 +190,35 @@ describe('unlockedItems', () => {
     expect(got).toContain('place:brest');
     expect(got).not.toContain('place:rennes');
     expect(got).toContain('country:germany');
-    expect(got).toContain('region:france.corse');
+    expect(got).toContain('region:france.bretagne');
     expect(ids(unlockedItems(fixture(), progress, { placeTypes: new Set() }))).not.toContain('place:brest');
+  });
+});
+
+describe('place-type filter and regions', () => {
+  const cur = buildCurriculum(
+    [country('france', 3, true)],
+    [region('france.isles', 'france', 1), region('france.towns', 'france', 2)],
+    [
+      place('i1', 'france', 'france.isles', 2, 'island'),
+      place('t1', 'france', 'france.towns', 2, 'island'),
+      place('t2', 'france', 'france.towns', 3, 'city'),
+    ],
+  );
+  const progress = { 'country:france': mastered('country:france') };
+  const city = { placeTypes: new Set(['city']) };
+
+  it('hides a region with no place of the chosen types, keeps one with a match', () => {
+    for (const got of [ids(unlockedItems(cur, progress, city)), ids(newItems(cur, progress, city))]) {
+      expect(got).not.toContain('region:france.isles');
+      expect(got).toContain('region:france.towns');
+    }
+  });
+
+  it('shows both regions with no filter', () => {
+    const got = ids(unlockedItems(cur, progress));
+    expect(got).toContain('region:france.isles');
+    expect(got).toContain('region:france.towns');
   });
 });
 
@@ -205,8 +232,8 @@ describe('newItems', () => {
 
   it('keeps unanswered progress as new: a placement seed without a pass', () => {
     const progress = {
-      'country:france': seedFromPlacement('country:france', 'untestedAtOrBelow', T0),
-      'country:germany': seedFromPlacement('country:germany', 'passed', T0),
+      'country:france': seedFromPlacement('country:france', 'untestedAtOrBelow', T0, '2026-03-01'),
+      'country:germany': seedFromPlacement('country:germany', 'passed', T0, '2026-03-01'),
     };
     const got = ids(newItems(fixture(), progress));
     expect(got).toContain('country:france');
@@ -244,7 +271,7 @@ describe('newItems', () => {
 
   it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
     const progress = { 'country:france': mastered('country:france') };
-    const got = ids(newItems(fixture(), progress, { placeTypes: new Set() }));
+    const got = ids(newItems(fixture(), progress, { placeTypes: new Set(['city', 'monument', 'capital']) }));
     // Difficulties: germany 1, bretagne 2, tuvalu 3, corse 4 (the empty crozet is not an item).
     expect(got).toEqual([
       'country:germany',

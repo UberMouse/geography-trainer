@@ -8,7 +8,7 @@ import {
   type Curriculum,
 } from './curriculum';
 import { buildSession } from './session';
-import { createProgress, nextDue, seedFromPlacement, type ItemProgress } from './srs';
+import { createProgress, localDayKey, nextDue, seedFromPlacement, type ItemProgress } from './srs';
 import type { Place } from './types';
 
 const NOW = new Date('2026-03-10T12:00:00Z');
@@ -48,9 +48,9 @@ const cid = (n: number) => countryItemId(`c${String(n).padStart(2, '0')}`);
 function dueProgress(itemId: string, rung: 1 | 3 | 4, daysAgo: number): ItemProgress {
   const base: ItemProgress =
     rung === 4
-      ? seedFromPlacement(itemId, 'passed', NOW)
+      ? seedFromPlacement(itemId, 'passed', NOW, localDayKey(NOW, 0))
       : rung === 3
-        ? seedFromPlacement(itemId, 'untestedAtOrBelow', NOW)
+        ? seedFromPlacement(itemId, 'untestedAtOrBelow', NOW, localDayKey(NOW, 0))
         : createProgress(itemId, NOW);
   const card = base.cards[base.rung]!;
   const due = NOW.getTime() - daysAgo * DAY;
@@ -200,7 +200,7 @@ describe('buildSession', () => {
 
   it('caps placement-seeded items as new, asked at L3, and asks nothing twice', () => {
     const progress: Record<string, ItemProgress> = {};
-    for (let i = 0; i < 30; i++) progress[cid(i)] = seedFromPlacement(cid(i), 'untestedAtOrBelow', NOW);
+    for (let i = 0; i < 30; i++) progress[cid(i)] = seedFromPlacement(cid(i), 'untestedAtOrBelow', NOW, localDayKey(NOW, 0));
     const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, rng });
     expect(q).toHaveLength(15);
     expect(q.every((x) => x.rung === 3)).toBe(true);
@@ -208,7 +208,7 @@ describe('buildSession', () => {
   });
 
   it('leaves a passed seed out until it is due, then reviews it at L4', () => {
-    const progress = { [cid(1)]: seedFromPlacement(cid(1), 'passed', NOW) };
+    const progress = { [cid(1)]: seedFromPlacement(cid(1), 'passed', NOW, localDayKey(NOW, 0)) };
     const at = (days: number) =>
       buildSession({
         curriculum: cur,
@@ -230,7 +230,22 @@ describe('buildSession', () => {
     expect(longestRun(q.map((x) => x.rung))).toBeLessThanOrEqual(2);
   });
 
-  it('reaches a longest run of 2 whenever some order of the same questions does', () => {
+  it('spreads the minority rung when a run of 2 is impossible', () => {
+    // 3 due L2 reviews ahead of 15 new L1 items: the best longest run is ceil(15 / 4) = 4.
+    const progress: Record<string, ItemProgress> = {};
+    for (let i = 0; i < 3; i++) {
+      const p = dueProgress(cid(i), 1, 5 - i);
+      progress[cid(i)] = { ...p, rung: 2, highestRung: 2, cards: { 2: p.cards[1]! } };
+    }
+    const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, dailyCap: 15, rng });
+    const rungs = q.map((x) => x.rung);
+    expect(rungs).toHaveLength(18);
+    expect(longestRun(rungs)).toBe(4);
+    expect(rungs.slice(0, 4)).not.toEqual([2, 2, 2, 1]);
+    expect(rungs.lastIndexOf(2)).toBeGreaterThan(8);
+  });
+
+  it('reaches the smallest achievable longest run (at least 2) for every mix', () => {
     // Shortest longest-run over all distinct orderings of a multiset of rungs.
     const best = (left: number[], last = 0, run = 0): number => {
       if (left.length === 0) return run;
@@ -252,7 +267,11 @@ describe('buildSession', () => {
         const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: DAILY_NEW_CAP, rng });
         const rungs = q.map((x) => x.rung);
         expect(rungs, mix.join('')).toHaveLength(len);
-        if (best(rungs) <= 2) expect(longestRun(rungs), mix.join('')).toBeLessThanOrEqual(2);
+        // The target is max(2, best); a mix whose best is 1 (a single item, strict alternation) may
+        // also come out below 2, so only a best above 2 must be matched exactly.
+        const want = best(rungs);
+        expect(longestRun(rungs), mix.join('')).toBeLessThanOrEqual(Math.max(2, want));
+        if (want > 2) expect(longestRun(rungs), mix.join('')).toBe(want);
       }
     }
     // Brute force: ~0.5 s alone, but it timed out at the 5 s default on a heavily loaded machine.

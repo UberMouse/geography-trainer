@@ -101,6 +101,9 @@ export function applyAnswer(
 
   const cards = { ...progress.cards, [rung]: toStored(scheduler.next(fromStored(card), now, rating).card) };
   const passed = rating === Rating.Good || rating === Rating.Easy;
+  // On the multiple-choice rungs (L1, L2) a slow but correct answer is Hard, so it climbs too. On
+  // L3 and L4 Hard is a near-miss tap and keeps the item on its rung.
+  const climbs = passed || (rating === Rating.Hard && progress.rung <= 2);
 
   let l4PassDays = progress.l4PassDays;
   if (rung === 4 && progress.rung === 4 && passed && !l4PassDays.includes(dayKey)) {
@@ -109,7 +112,7 @@ export function applyAnswer(
 
   let { rung: current, highestRung, inL4Lapse } = progress;
   if (rung === current) {
-    if (passed && current < 4) {
+    if (climbs && current < 4) {
       current = (current + 1) as Rung;
       if (current === 4) inL4Lapse = false;
     } else if (rating === Rating.Again && current > 1) {
@@ -153,8 +156,17 @@ export function nextDue(progress: ItemProgress): number {
   return card.due;
 }
 
-/** Progress for an item as a placement test leaves it. Never counts as an L4 pass day. */
-export function seedFromPlacement(itemId: string, outcome: PlacementOutcome, now: Date): ItemProgress {
+/**
+ * Progress for an item as a placement test leaves it. `dayKey` is the learner's local day (see
+ * `localDayKey`): a `passed` seed counts as the first L4 pass day, so one later L4 pass on a
+ * different day masters the item. Other outcomes ignore it. A passed seed is not yet mastered.
+ */
+export function seedFromPlacement(
+  itemId: string,
+  outcome: PlacementOutcome,
+  now: Date,
+  dayKey: string,
+): ItemProgress {
   const base = createProgress(itemId, now);
   switch (outcome) {
     case 'aboveEstimate':
@@ -176,7 +188,7 @@ export function seedFromPlacement(itemId: string, outcome: PlacementOutcome, now
         state: State.Review,
         last_review: now.getTime(),
       };
-      return { ...base, rung: 4, highestRung: 4, cards: { 4: seeded } };
+      return { ...base, rung: 4, highestRung: 4, cards: { 4: seeded }, l4PassDays: [dayKey] };
     }
   }
 }

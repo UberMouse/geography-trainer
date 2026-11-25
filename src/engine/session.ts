@@ -32,7 +32,8 @@ export interface SessionInput {
  * progress, or progress never answered, such as a placement seed) in curriculum order, at most
  * `dailyCap - introducedToday`; each is asked at `dueRung` when it has progress (a seed at L3) and
  * at L1 otherwise. No item appears twice. The result is then interleaved so no `SESSION_MAX_RUN + 1`
- * questions in a row share a rung whenever some ordering avoids that. Known trade-off: when the due
+ * questions in a row share a rung whenever some ordering avoids that; otherwise its longest run is
+ * the smallest any ordering can reach. Known trade-off: when the due
  * reviews alone cannot avoid a long same-rung run, new items are pulled forward to break it, so they
  * can precede overdue reviews.
  */
@@ -62,20 +63,28 @@ export function buildSession(input: SessionInput): SessionQuestion[] {
 
 /**
  * Keeps priority order as the preference. Each pick is the highest-priority remaining question
- * that (a) does not extend the current run past SESSION_MAX_RUN and (b) leaves a remainder that
- * can still be arranged without a longer run. Failing that, the highest-priority one satisfying
- * (a); failing that, the highest-priority one (an unavoidable run).
+ * that (a) does not extend the current run past the target run and (b) leaves a remainder that
+ * can still be arranged without a longer run. The target is SESSION_MAX_RUN, or the smallest
+ * longest run any order can reach when that is larger (so minority rungs are spread, not spent
+ * early). Failing that, the highest-priority one satisfying (a); failing that, the
+ * highest-priority one (an unavoidable run).
  */
 function interleave(priority: SessionQuestion[]): SessionQuestion[] {
   const remaining = [...priority];
   const counts = new Map<Rung, number>();
   for (const q of remaining) counts.set(q.rung, (counts.get(q.rung) ?? 0) + 1);
+  if (remaining.length === 0) return [];
+
+  // The target longest run: SESSION_MAX_RUN when some order achieves it, else the smallest run any
+  // order can achieve (the biggest rung split by the other questions into at most n - cMax + 1 runs).
+  const cMax = Math.max(...counts.values());
+  const maxRun = Math.max(SESSION_MAX_RUN, Math.ceil(cMax / (remaining.length - cMax + 1)));
 
   // Can `n` questions with per-rung `counts` follow a tail of `runLength` questions at `tail`?
-  // Rung r needs a separator between runs of SESSION_MAX_RUN, and may use up the tail's run first.
+  // Rung r needs a separator between runs of maxRun, and may use up the tail's run first.
   const feasible = (n: number, tail: Rung, runLength: number): boolean => {
     for (const [r, c] of counts) {
-      if (c > SESSION_MAX_RUN * (n - c + 1) - (r === tail ? runLength : 0)) return false;
+      if (c > maxRun * (n - c + 1) - (r === tail ? runLength : 0)) return false;
     }
     return true;
   };
@@ -89,7 +98,7 @@ function interleave(priority: SessionQuestion[]): SessionQuestion[] {
     for (let i = 0; i < remaining.length && pick < 0; i++) {
       const q = remaining[i]!;
       const length = q.rung === runRung ? runLength + 1 : 1;
-      if (length > SESSION_MAX_RUN) continue;
+      if (length > maxRun) continue;
       if (withinRun < 0) withinRun = i;
       counts.set(q.rung, counts.get(q.rung)! - 1);
       if (feasible(remaining.length - 1, q.rung, length)) pick = i;

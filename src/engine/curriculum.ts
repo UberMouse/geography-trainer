@@ -105,7 +105,11 @@ export function buildCurriculum(
   return { items, countryPlaceCount };
 }
 
-/** Unlocked items, mastered and in-progress ones included. A mastered parent unlocks its children. */
+/**
+ * Unlocked items, mastered and in-progress ones included. A mastered parent unlocks its children.
+ * With `placeTypes`, places of other types are left out, and so are regions with no place of those
+ * types; countries are always kept.
+ */
 export function unlockedItems(
   curriculum: Curriculum,
   progress: Readonly<Record<string, ItemProgress>>,
@@ -113,7 +117,12 @@ export function unlockedItems(
 ): CurriculumItem[] {
   const out: CurriculumItem[] = [];
   for (const item of curriculum.items.values()) {
-    if (item.place && opts.placeTypes && !opts.placeTypes.has(item.place.type)) continue;
+    const types = opts.placeTypes;
+    if (types && item.place && !types.has(item.place.type)) continue;
+    if (types && item.tier === 'region') {
+      const hasMatch = item.children.some((c) => types.has(curriculum.items.get(c)!.place!.type));
+      if (!hasMatch) continue;
+    }
     if (item.parent !== null) {
       const parentProgress = progress[item.parent];
       if (!parentProgress || !isMastered(parentProgress)) continue;

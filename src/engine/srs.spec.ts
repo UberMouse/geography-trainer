@@ -16,6 +16,7 @@ import {
 
 const T0 = new Date('2026-03-01T00:00:00Z');
 const DAY = 86_400_000;
+const DK = '2026-03-01';
 const at = (days: number) => new Date(T0.getTime() + days * DAY);
 
 function answer(p: ItemProgress, rung: Rung, rating: Grade, d = 0) {
@@ -63,7 +64,7 @@ describe('FSRS scheduling', () => {
   });
 
   it('increments lapses on Again for a review card', () => {
-    const p = seedFromPlacement('a', 'passed', T0);
+    const p = seedFromPlacement('a', 'passed', T0, DK);
     const lapsed = answer(p, 4, Rating.Again, 3);
     expect(lapsed.cards[4]?.lapses).toBe(1);
     expect(lapsed.cards[4]?.state).toBe(State.Relearning);
@@ -90,8 +91,11 @@ describe('ladder', () => {
     expect(p.rung).toBe(4);
   });
 
-  it('keeps the rung on Hard', () => {
-    expect(answer(createProgress('a', T0), 1, Rating.Hard).rung).toBe(1);
+  it('climbs on Hard at L1 and L2, a slow but correct multiple-choice answer', () => {
+    const p = answer(createProgress('a', T0), 1, Rating.Hard);
+    expect(p).toMatchObject({ rung: 2, highestRung: 2 });
+    expect(p.cards[1]?.reps).toBe(1);
+    expect(answer(p, 2, Rating.Hard)).toMatchObject({ rung: 3, highestRung: 3 });
   });
 
   it('drops one rung on Again, never below 1', () => {
@@ -132,10 +136,9 @@ describe('ladder', () => {
     expect(p.cards[2]?.due).not.toBe(before.cards[2]?.due);
   });
 
-  it('Hard at L2, L3 and L4 stays put', () => {
+  it('Hard at L3 and L4 stays put', () => {
     let p = createProgress('a', T0);
     p = answer(p, 1, Rating.Good);
-    expect(answer(p, 2, Rating.Hard).rung).toBe(2);
     p = answer(p, 2, Rating.Good);
     expect(answer(p, 3, Rating.Hard).rung).toBe(3);
     expect(answer(atRung4(), 4, Rating.Hard)).toMatchObject({ rung: 4, inL4Lapse: false, l4PassDays: [] });
@@ -224,7 +227,7 @@ describe('introducedAt', () => {
   it('is null for a fresh item and every seed outcome', () => {
     expect(createProgress('a', T0).introducedAt).toBeNull();
     for (const o of ['passed', 'failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
-      expect(seedFromPlacement('a', o, T0).introducedAt).toBeNull();
+      expect(seedFromPlacement('a', o, T0, DK).introducedAt).toBeNull();
     }
   });
 
@@ -235,12 +238,12 @@ describe('introducedAt', () => {
   });
 
   it('is set by the first answer to an untested seed', () => {
-    const p = answer(seedFromPlacement('a', 'untestedAtOrBelow', T0), 3, Rating.Good, 1);
+    const p = answer(seedFromPlacement('a', 'untestedAtOrBelow', T0, DK), 3, Rating.Good, 1);
     expect(p.introducedAt).toBe(at(1).getTime());
   });
 
   it('stays null when a passed seed is answered', () => {
-    expect(answer(seedFromPlacement('a', 'passed', T0), 4, Rating.Good, 1).introducedAt).toBeNull();
+    expect(answer(seedFromPlacement('a', 'passed', T0, DK), 4, Rating.Good, 1).introducedAt).toBeNull();
   });
 
   it('survives JSON as null', () => {
@@ -250,18 +253,18 @@ describe('introducedAt', () => {
 });
 
 describe('L4 pass during a lapse', () => {
-  it('adds no pass day and leaves the ladder alone', () => {
-    const lapsed = answer(seedFromPlacement('a', 'passed', T0), 4, Rating.Again, 1);
+  it('adds no further pass day and leaves the ladder alone', () => {
+    const lapsed = answer(seedFromPlacement('a', 'passed', T0, DK), 4, Rating.Again, 1);
     expect(lapsed).toMatchObject({ rung: 3, inL4Lapse: true });
     const p = answer(lapsed, 4, Rating.Good, 2);
-    expect(p).toMatchObject({ rung: 3, inL4Lapse: true, l4PassDays: [] });
+    expect(p).toMatchObject({ rung: 3, inL4Lapse: true, l4PassDays: [DK] });
   });
 });
 
 describe('seedFromPlacement', () => {
   it('passed: rung 4, review card with seed stability, not mastered', () => {
-    const p = seedFromPlacement('a', 'passed', T0);
-    expect(p).toMatchObject({ rung: 4, highestRung: 4, l4PassDays: [], inL4Lapse: false, introducedAt: null });
+    const p = seedFromPlacement('a', 'passed', T0, DK);
+    expect(p).toMatchObject({ rung: 4, highestRung: 4, l4PassDays: [DK], inL4Lapse: false, introducedAt: null });
     expect(p.cards[4]).toMatchObject({
       state: State.Review,
       stability: PLACEMENT_SEED_STABILITY_DAYS,
@@ -276,25 +279,33 @@ describe('seedFromPlacement', () => {
     expect(nextDue(p)).toBe(T0.getTime() + PLACEMENT_SEED_STABILITY_DAYS * DAY);
   });
 
+  it('passed: the seed is the first L4 pass day; one Good on another day masters, the same day does not', () => {
+    const p = seedFromPlacement('a', 'passed', T0, DK);
+    expect(p.l4PassDays).toEqual([DK]);
+    expect(isMastered(p)).toBe(false);
+    expect(isMastered(answer(p, 4, Rating.Good, 0))).toBe(false);
+    expect(isMastered(answer(p, 4, Rating.Good, 3))).toBe(true);
+  });
+
   it('aboveEstimate: rung 1', () => {
-    expect(seedFromPlacement('a', 'aboveEstimate', T0)).toEqual(createProgress('a', T0));
+    expect(seedFromPlacement('a', 'aboveEstimate', T0, DK)).toEqual(createProgress('a', T0));
   });
 
   it('failed: rung 1 with a new card', () => {
-    expect(seedFromPlacement('a', 'failed', T0)).toEqual(createProgress('a', T0));
+    expect(seedFromPlacement('a', 'failed', T0, DK)).toEqual(createProgress('a', T0));
   });
 
   it('only a passed seed counts as introduced', () => {
-    expect(isIntroduced(seedFromPlacement('a', 'passed', T0))).toBe(true);
+    expect(isIntroduced(seedFromPlacement('a', 'passed', T0, DK))).toBe(true);
     for (const o of ['failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
-      expect(isIntroduced(seedFromPlacement('a', o, T0))).toBe(false);
+      expect(isIntroduced(seedFromPlacement('a', o, T0, DK))).toBe(false);
     }
     expect(isIntroduced(createProgress('a', T0))).toBe(false);
     expect(isIntroduced(answer(createProgress('a', T0), 1, Rating.Again))).toBe(true);
   });
 
   it('untestedAtOrBelow: rung 3 with a new card due now', () => {
-    const p = seedFromPlacement('a', 'untestedAtOrBelow', T0);
+    const p = seedFromPlacement('a', 'untestedAtOrBelow', T0, DK);
     expect(p).toMatchObject({ rung: 3, highestRung: 3 });
     expect(p.cards[3]).toMatchObject({ state: State.New, due: T0.getTime() });
     expect(nextDue(p)).toBe(T0.getTime());
