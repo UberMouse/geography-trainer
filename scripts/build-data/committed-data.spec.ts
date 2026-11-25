@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { normalizeName } from './normalize';
 import { validateDataDir } from './validate';
 
 const dataDir = fileURLToPath(new URL('../../public/data', import.meta.url));
@@ -27,12 +28,14 @@ describe('public/data/regions', () => {
       const topo = JSON.parse(readFileSync(`${dir}/${file}`, 'utf8')) as {
         objects: Record<string, { geometries: { properties: { name: string } }[] }>;
       };
-      const seen = new Set<string>();
+      const seen = new Map<string, string>();
       for (const object of Object.values(topo.objects)) {
         for (const g of object.geometries) {
           const { name } = g.properties;
-          if (seen.has(name)) shared.push(`${file}: ${name}`);
-          seen.add(name);
+          const key = normalizeName(name);
+          const earlier = seen.get(key);
+          if (earlier !== undefined) shared.push(`${file}: "${earlier}" and "${name}"`);
+          seen.set(key, name);
         }
       }
     }

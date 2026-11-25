@@ -10,6 +10,7 @@ import {
   admin1Rows,
   assignRegion,
   applyRegionNameOverrides,
+  assertNoDissolvedOverrides,
   assertDistinctRegionNames,
   buildRegions,
   hasRegionsTier,
@@ -100,7 +101,9 @@ async function main(): Promise<number> {
     const { rows, dropped } = admin1Rows(country, namedAdmin1, matched);
     droppedAdmin1.push(...dropped);
     if (rows.length > 0) {
-      const regions = buildRegions(country.id, rows, DISSOLVE_BY_REGION.has(country.id));
+      const dissolve = DISSOLVE_BY_REGION.has(country.id);
+      if (dissolve) assertNoDissolvedOverrides(country.id, rows, REGION_NAME_OVERRIDES);
+      const regions = buildRegions(country.id, rows, dissolve);
       regionsByCountry.set(country.id, regions);
     }
   }

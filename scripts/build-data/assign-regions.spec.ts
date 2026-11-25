@@ -3,6 +3,7 @@ import { REGIONS_TIER_MIN_PLACES, REGIONS_TIER_MIN_REGIONS } from '../../src/eng
 import {
   adminDisagrees,
   applyRegionNameOverrides,
+  assertNoDissolvedOverrides,
   assertDistinctRegionNames,
   admin1Rows,
   assignRegion,
@@ -188,6 +189,25 @@ describe('region name overrides', () => {
     const inParwan = assignRegion(regions, 1.5, 0.5, 'Parwan');
     expect(adminDisagrees(inParwan, 'Parwan')).toBe(false);
     expect(assignRegion(regions, 0.5, 0.5, 'Charikar').adminMatches).toEqual([]);
+  });
+
+  it("matches a mislabel override's aliases against an admin naming the correct region", () => {
+    const named = applyRegionNameOverrides(
+      [admin1('AAA-1', 'Brodsko', [0, 0], { nameEn: 'Brodsko' }), admin1('AAA-2', 'Other', [1, 0])],
+      {
+        'AAA-1': { name: 'Pozeska', reason: 'test', mislabel: true, aliases: ['Pozega-Slavonia'] },
+      },
+    );
+    expect(named[0]).toMatchObject({ nameEn: null, nameAlt: 'Pozega-Slavonia' });
+    const regions = buildRegions('croatia', named, false);
+    const hit = assignRegion(regions, 1.5, 0.5, 'Pozega-Slavonia');
+    expect(hit.adminMatches.map((r) => r.name)).toEqual(['Pozeska']);
+    expect(assignRegion(regions, 0.5, 0.5, 'Brodsko').adminMatches).toEqual([]);
+  });
+
+  it('fails for an override on a row of a dissolved country, naming the code and country', () => {
+    expect(() => assertNoDissolvedOverrides('france', rows, overrides)).toThrow(/france.*AAA-1/);
+    expect(() => assertNoDissolvedOverrides('france', [rows[2]!], overrides)).not.toThrow();
   });
 
   it('fails for an override whose code is not in NE', () => {

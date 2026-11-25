@@ -78,16 +78,22 @@ export function admin1Rows(
   return { rows, dropped };
 }
 
+export type RegionNameOverrides = Record<
+  string,
+  { name: string; reason: string; mislabel?: true; aliases?: string[] }
+>;
+
 /**
  * Applies region-name overrides (by NE code) to admin-1 rows: the row's `name` becomes the
  * override and NE's own name moves to `neName`, which still matches maptap's admin. A `mislabel`
  * override means NE's name and aliases describe another region: `neName`, `nameEn` and `nameAlt`
- * are all dropped, so the override name is the row's only name. An override naming no row throws,
- * so a stale one cannot go unnoticed.
+ * are dropped, and the override's own `aliases` (spellings of the correct name from the same NE
+ * row) become the row's `nameAlt`. An override naming no row throws, so a stale one cannot go
+ * unnoticed.
  */
 export function applyRegionNameOverrides(
   admin1: NeAdmin1[],
-  overrides: Record<string, { name: string; reason: string; mislabel?: true }>,
+  overrides: RegionNameOverrides,
 ): NeAdmin1[] {
   const codes = new Set(admin1.map((row) => row.code));
   const stale = Object.keys(overrides).filter((code) => !codes.has(code));
@@ -98,8 +104,26 @@ export function applyRegionNameOverrides(
     const override = overrides[row.code];
     if (!override) return row;
     if (!override.mislabel) return { ...row, name: override.name, neName: row.name };
-    return { ...row, name: override.name, nameEn: null, nameAlt: null };
+    const nameAlt = override.aliases?.join('|') ?? null;
+    return { ...row, name: override.name, nameEn: null, nameAlt };
   });
+}
+
+/**
+ * Throws when an override names a row of a country whose rows are dissolved by `region`: the
+ * dissolved region is named after `row.region`, so the override would silently do nothing.
+ */
+export function assertNoDissolvedOverrides(
+  countryId: string,
+  rows: NeAdmin1[],
+  overrides: RegionNameOverrides,
+): void {
+  const codes = rows.map((row) => row.code).filter((code) => code in overrides);
+  if (codes.length > 0) {
+    throw new Error(
+      `region name overrides for ${countryId}, whose regions are named after NE's region field: ${codes.join(', ')}`,
+    );
+  }
 }
 
 /** Throws when two regions of a country share a display name, naming the country and rows. */
