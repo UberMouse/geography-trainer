@@ -1,7 +1,7 @@
 import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { buildCurriculum } from '../engine/curriculum';
-import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
+import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import type { Country, Place, Region } from '../engine/types';
 import { resolveTestOutRoute, testOutLabel, testOutPath } from './testOutView';
 
@@ -83,6 +83,19 @@ describe('resolveTestOutRoute', () => {
   it('still runs when one child already has a row', () => {
     const progress = { ...masteredFrance, ...rowFor('region:france.bretagne') };
     expect(resolve(progress, 'france').kind).toBe('run');
+  });
+
+  it('still runs when a child has only a passed placement seed', () => {
+    const seed = seedFromPlacement('region:france.bretagne', 'passed', T0, localDayKey(T0, 0));
+    expect(resolve({ ...masteredFrance, 'region:france.bretagne': seed }, 'france').kind).toBe('run');
+  });
+
+  it('is unavailable at the country once a child has been studied', () => {
+    const studied = applyAnswer(createProgress('region:france.bretagne', T0), 1, Rating.Good, T0, localDayKey(T0, 0));
+    expect(resolve({ ...masteredFrance, 'region:france.bretagne': studied }, 'france')).toEqual({
+      kind: 'unavailable',
+      back: '/progress/france',
+    });
   });
 
   it('is unavailable at the world for an unknown country, with or without a region', () => {

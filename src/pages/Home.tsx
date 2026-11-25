@@ -107,7 +107,7 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
           <dd data-testid="today-learned">{numbers.learned}</dd>
         </div>
       </dl>
-      {offersPlacement(data.progress) && (
+      {offersPlacement(data.curriculum, data.progress) && (
         <p>
           Already know some countries? <Link to="/placement">Take the placement test</Link> (about{' '}
           {PLACEMENT_MAX_QUESTIONS} questions)

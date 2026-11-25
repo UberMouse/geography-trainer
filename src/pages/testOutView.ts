@@ -2,6 +2,7 @@
 // unit-tested.
 
 import { countryItemId, regionItemId, unlockedBy, type Curriculum } from '../engine/curriculum';
+import { isStudied } from '../engine/placement';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
 import type { PlacementTier } from './placementView';
@@ -24,8 +25,9 @@ export type TestOutRoute =
 
 /**
  * What `/placement/:country[/:region]` names (a region id is the full `<country>.<region>` id).
- * The test runs for a mastered item with children, even when some child already has a row (it then
- * covers the children without one). Anything else is unavailable. The country list is checked
+ * The test runs for a mastered item with children none of which has been studied (`isStudied`),
+ * even when some child has a placement row (it then covers the children without one). Anything
+ * else is unavailable, as for `canTestOut`. The country list is checked
  * first, so an unknown country never reaches `loadRegions`.
  */
 export function resolveTestOutRoute(
@@ -56,6 +58,7 @@ export function resolveTestOutRoute(
   const unlocked = unlockedBy(curriculum, itemId);
   const own = progress[itemId];
   if (!unlocked || !own || !isMastered(own)) return unavailable;
+  if (unlocked.childIds.some((id) => progress[id] && isStudied(progress[id]))) return unavailable;
   return {
     kind: 'run',
     itemId,

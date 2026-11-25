@@ -1,6 +1,7 @@
 // Plain helpers for Home's export and import, kept out of the component so they can be unit-tested.
 
-import { isStudied } from '../engine/placement';
+import { isStudied, placementPool } from '../engine/placement';
+import type { Curriculum } from '../engine/curriculum';
 import { localDayKey, type ItemProgress } from '../engine/srs';
 import { startedByTier, validateProgressFile, type ProgressFile, type TierCounts } from '../storage/progressFile';
 
@@ -71,7 +72,7 @@ export const leftOutText = (n: number): string =>
 
 /**
  * Whether Home offers the placement test: while no item has been studied (`isStudied`: a
- * placement seed alone is not studied).
+ * placement seed alone is not studied) and some country is left to place.
  */
-export const offersPlacement = (progress: Readonly<Record<string, ItemProgress>>): boolean =>
-  !Object.values(progress).some(isStudied);
+export const offersPlacement = (curriculum: Curriculum, progress: Readonly<Record<string, ItemProgress>>): boolean =>
+  !Object.values(progress).some(isStudied) && placementPool(curriculum, progress, 'countries').length > 0;

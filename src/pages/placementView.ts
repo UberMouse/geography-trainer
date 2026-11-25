@@ -32,8 +32,8 @@ export function saveFailureText(failed: readonly FailedSave[]): string | null {
   if (failed.length === 0) return null;
   const { message } = failed[failed.length - 1]!;
   return failed.length === 1
-    ? `This answer could not be saved: ${message}`
-    : `${failed.length} answers could not be saved: ${message}`;
+    ? `1 answer could not be saved: ${message}. It is saved again when you finish.`
+    : `${failed.length} answers could not be saved: ${message}. They are saved again when you finish.`;
 }
 
 /**
