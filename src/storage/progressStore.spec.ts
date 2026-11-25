@@ -94,4 +94,64 @@ describe('createProgressStore', () => {
     const file = await store.exportProgress(NOW);
     expect(file.progress.map((p) => p.itemId)).toEqual(['country:france']);
   });
+
+  it('exportProgress retries a failed queue and includes the entry once it saves', async () => {
+    const store = createProgressStore(flaky(1));
+    store.answers.push(entry('country:peru'));
+    await store.answers.whenSettled();
+    expect(store.answers.getState().failed).toBe(true);
+    const file = await store.exportProgress(NOW);
+    expect(file.progress.map((p) => p.itemId)).toEqual(['country:peru']);
+  });
+
+  it('exportProgress resolves without an entry that keeps failing', async () => {
+    const store = createProgressStore(flaky(Infinity));
+    store.answers.push(entry('country:peru'));
+    const file = await store.exportProgress(NOW);
+    expect(file.progress).toEqual([]);
+    expect(store.answers.getState()).toEqual({ unsaved: 1, failed: true });
+  });
+
+  it('a failed importProgress puts the dropped entries back in the queue', async () => {
+    const source = createRepo(`store-source-${counter}`);
+    try {
+      await source.recordAnswer(entry('country:peru'));
+      const file = await source.exportProgress(NOW);
+      const store = createProgressStore({
+        ...flaky(Infinity),
+        async importProgress() {
+          throw new Error('quota');
+        },
+      });
+      store.answers.push(entry('country:france'));
+      await store.answers.whenSettled();
+      await expect(store.importProgress(file)).rejects.toThrow('quota');
+      expect(store.answers.getState()).toEqual({ unsaved: 1, failed: true });
+      expect(store.answers.unsavedEntries()[0]?.progress.itemId).toBe('country:france');
+    } finally {
+      source.close();
+    }
+  });
+
+  it('a retry during the import does not write the old entry over it', async () => {
+    const source = createRepo(`store-source-${counter}`);
+    try {
+      await source.recordAnswer(entry('country:peru'));
+      const file = await source.exportProgress(NOW);
+      const flakyRepo = flaky(1);
+      const store = createProgressStore({
+        ...flakyRepo,
+        async importProgress(parsed) {
+          void store.answers.retry();
+          await repo.importProgress(parsed);
+        },
+      });
+      store.answers.push(entry('country:france'));
+      await store.answers.whenSettled();
+      await store.importProgress(file);
+      expect(Object.keys(await repo.loadProgress())).toEqual(['country:peru']);
+    } finally {
+      source.close();
+    }
+  });
 });

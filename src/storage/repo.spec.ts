@@ -146,6 +146,14 @@ describe('import rejection leaves the database unchanged', () => {
     ['a string km', (f) => (f.answers[0].km = '5'), /km/],
     ['a string maptapScore', (f) => (f.answers[0].maptapScore = '5'), /maptapScore/],
     ['a missing dayKey', (f) => delete f.answers[0].dayKey, /dayKey/],
+    ['an answer dayKey of "yesterday"', (f) => (f.answers[0].dayKey = 'yesterday'), /dayKey/],
+    ['an answer dayKey of 2026-13-45', (f) => (f.answers[0].dayKey = '2026-13-45'), /dayKey/],
+    ['l4PassDays with an impossible date', (f) => (f.progress[0].l4PassDays = ['2026-02-30']), /l4PassDays/],
+    [
+      'l4PassDays with days at highestRung 1',
+      (f) => ((f.progress[0].rung = 1), (f.progress[0].highestRung = 1), (f.progress[0].l4PassDays = ['2026-01-01'])),
+      /l4PassDays/,
+    ],
     ['a duplicate progress itemId', (f) => f.progress.push({ ...f.progress[0] }), /progress rows/],
     ['a duplicate answer id', (f) => f.answers.push({ ...f.answers[0] }), /answer rows/],
   ];

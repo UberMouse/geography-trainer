@@ -26,7 +26,12 @@ const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(val
 
 const isCount = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 0;
 
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar day as `localDayKey` writes it: `YYYY-MM-DD` that survives a round trip through Date. */
+function isDayKey(value: unknown): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 const CARD_NUMBERS = ['due', 'stability', 'difficulty'] as const;
 // Whole-number fields: ts-fsrs rounds scheduled_days, and `state` is its State enum (0 New .. 3 Relearning).
@@ -62,11 +67,14 @@ function checkProgress(row: unknown, index: number) {
     checkCard(card, `${where}.cards.${key}`);
   }
   if (!(String(row.rung) in row.cards)) throw new Error(`${where}.cards has no card for its rung`);
-  if (!Array.isArray(row.l4PassDays) || !row.l4PassDays.every((day) => typeof day === 'string' && DAY_KEY.test(day))) {
+  if (!Array.isArray(row.l4PassDays) || !row.l4PassDays.every(isDayKey)) {
     throw new Error(`${where}.l4PassDays is not an array of YYYY-MM-DD strings`);
   }
   if (new Set(row.l4PassDays).size !== row.l4PassDays.length) {
     throw new Error(`${where}.l4PassDays has a repeated day`);
+  }
+  if (row.l4PassDays.length > 0 && row.highestRung !== 4) {
+    throw new Error(`${where}.l4PassDays has days but highestRung is not 4`);
   }
   if (typeof row.inL4Lapse !== 'boolean') throw new Error(`${where}.inL4Lapse is not a boolean`);
   if (row.introducedAt !== null && !isNum(row.introducedAt)) {
@@ -84,7 +92,7 @@ function checkAnswer(row: unknown, index: number) {
   if (typeof row.correct !== 'boolean') throw new Error(`${where}.correct is not a boolean`);
   if (!isNum(row.timeMs)) throw new Error(`${where}.timeMs is not a number`);
   if (!isNum(row.at)) throw new Error(`${where}.at is not a number`);
-  if (typeof row.dayKey !== 'string') throw new Error(`${where}.dayKey is not a string`);
+  if (!isDayKey(row.dayKey)) throw new Error(`${where}.dayKey is not a YYYY-MM-DD day`);
   for (const key of ['km', 'maptapScore']) {
     if (row[key] !== undefined && !isNum(row[key])) throw new Error(`${where}.${key} is not a number`);
   }
