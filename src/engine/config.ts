@@ -34,3 +34,19 @@ export const PLACE_HARD_KM = 200;
 export const MASTERY_DISTINCT_DAYS = 2;
 /** Stability, in days, of the L4 card a placement test seeds for an item the learner passed. */
 export const PLACEMENT_SEED_STABILITY_DAYS = 2;
+
+// Sessions.
+/** New items introduced per local day. */
+export const DAILY_NEW_CAP = 15;
+/** A session never asks more than this many questions at the same rung in a row when the mix allows. */
+export const SESSION_MAX_RUN = 2;
+
+// Placement staircase.
+export const PLACEMENT_MIN_LEVEL = 1;
+export const PLACEMENT_MAX_LEVEL = 8;
+export const PLACEMENT_START_LEVEL = 4;
+export const PLACEMENT_MAX_QUESTIONS = 20;
+/** The test stops once the staircase has turned this many times. */
+export const PLACEMENT_REVERSALS = 6;
+/** The estimate is the mean level of this many most recent reversals. */
+export const PLACEMENT_ESTIMATE_REVERSALS = 4;
