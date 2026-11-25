@@ -255,7 +255,8 @@ describe('buildSession', () => {
         if (best(rungs) <= 2) expect(longestRun(rungs), mix.join('')).toBeLessThanOrEqual(2);
       }
     }
-  });
+    // Brute force: ~0.5 s alone, but it timed out at the 5 s default on a heavily loaded machine.
+  }, 30_000);
 
   it('keeps a single-rung queue intact when there is nothing to interleave with', () => {
     const q = buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday: 0, rng });
