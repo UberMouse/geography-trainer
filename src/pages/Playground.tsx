@@ -1,5 +1,5 @@
 import { geoContains } from 'd3-geo';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import {
   loadCountries,
@@ -13,64 +13,8 @@ import HighlightMap from '../maps/HighlightMap';
 import OutlineView from '../maps/OutlineView';
 import TapMap from '../maps/TapMap';
 import { parseView, type GlobeView } from '../maps/view';
-
-type Loaded<T> =
-  { status: 'loading' } | { status: 'error'; error: Error } | { status: 'ready'; data: T };
-
-/**
- * Run `load` for `key` (again on `retry`), tracking loading, error and result. A result is kept
- * with the key and attempt it answers, so a stale one reads as loading.
- */
-function useLoaded<T>(key: string, load: () => Promise<T>): [Loaded<T>, () => void] {
-  const [attempt, setAttempt] = useState(0);
-  const [settled, setSettled] = useState<{ for: string; result: Loaded<T> } | null>(null);
-  const current = `${key}#${attempt}`;
-  useEffect(() => {
-    let live = true;
-    load().then(
-      (data) => live && setSettled({ for: current, result: { status: 'ready', data } }),
-      (error: unknown) =>
-        live &&
-        setSettled({
-          for: current,
-          result: {
-            status: 'error',
-            error: error instanceof Error ? error : new Error(String(error)),
-          },
-        }),
-    );
-    return () => {
-      live = false;
-    };
-    // `load` is keyed by `key`: a new closure for the same key is the same load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current]);
-  const state = settled?.for === current ? settled.result : { status: 'loading' as const };
-  return [state, () => setAttempt((a) => a + 1)];
-}
-
-function Status<T>({
-  state,
-  retry,
-  children,
-}: {
-  state: Loaded<T>;
-  retry: () => void;
-  children: (data: T) => ReactNode;
-}) {
-  if (state.status === 'loading') return <p>Loading…</p>;
-  if (state.status === 'error') {
-    return (
-      <div role="alert">
-        <p>Could not load the map data: {state.error.message}</p>
-        <button type="button" onClick={retry}>
-          Retry
-        </button>
-      </div>
-    );
-  }
-  return children(state.data);
-}
+import Status from './LoadStatus';
+import { useLoaded } from './useLoaded';
 
 function Panel({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
