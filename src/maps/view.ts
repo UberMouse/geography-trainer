@@ -6,7 +6,14 @@ import {
   geoOrthographic,
   type GeoPath,
 } from 'd3-geo';
-import { clusterAt, ensureArea, mainPart, type AreaFeature, type LngLat } from './geo';
+import {
+  EARTH_RADIUS_KM,
+  clusterAt,
+  ensureArea,
+  mainPart,
+  type AreaFeature,
+  type LngLat,
+} from './geo';
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -175,17 +182,35 @@ export function fitFlat(features: AreaFeature[], size = MAP_SIZE, padding = MAP_
     );
 }
 
-/** An orthographic globe rotated to `centre`, fitted into the square viewBox with padding. */
-export function fitGlobe(centre: LngLat, size = MAP_SIZE, padding = MAP_PADDING) {
-  return geoOrthographic()
-    .rotate([-centre[0], -centre[1]])
-    .fitExtent(
+/**
+ * How much ground (km, edge to edge) a point-only target's globe shows. The target's near
+ * neighbours (Sint Eustatius 28 km from Saba) are the wrong options, so the picture must separate
+ * them: at this span a ring sits clear of land 28 km away, while the neighbouring islands (Saint
+ * Kitts, Saint Barthelemy, Sint Maarten) still show as separate land. Zoomed out to the whole Earth
+ * one ring covered all of them.
+ */
+export const NEIGHBOURHOOD_VIEW_KM = 600;
+
+/**
+ * An orthographic globe rotated to `centre`, fitted into the square viewBox with padding. With
+ * `spanKm`, it is instead zoomed so that much ground, centred on `centre`, spans the padded
+ * extent (the sphere then reaches past the viewBox: the SVG clips it).
+ */
+export function fitGlobe(centre: LngLat, size = MAP_SIZE, padding = MAP_PADDING, spanKm?: number) {
+  const globe = geoOrthographic().rotate([-centre[0], -centre[1]]);
+  if (spanKm === undefined) {
+    return globe.fitExtent(
       [
         [padding, padding],
         [size - padding, size - padding],
       ],
       { type: 'Sphere' },
     );
+  }
+  // A point `theta` from the centre projects at `radius * sin(theta)`; the span's edge is at
+  // `theta = spanKm / 2 / R` and must land half the padded extent from the centre.
+  const radius = (size / 2 - padding) / Math.sin(spanKm / 2 / EARTH_RADIUS_KM);
+  return globe.scale(radius).translate([size / 2, size / 2]);
 }
 
 /** Screen = k · map + (x, y), in viewBox units. */

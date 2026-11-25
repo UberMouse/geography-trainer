@@ -13,6 +13,7 @@ import {
   GLOBE_MIN_ZOOM,
   fitGlobe,
   globeRadius,
+  NEIGHBOURHOOD_VIEW_KM,
   inFlatFrame,
   outlineFrame,
   panFlat,
@@ -325,6 +326,27 @@ describe('smallTargetRings', () => {
     const globe = geoPath(fitGlobe([0, 0]));
     const both = multi(box(0, 0, 0.1, 0.1), box(179.9, 0, 180, 0.1));
     expect(smallTargetRings(globe, both, 16, 16)).toHaveLength(1);
+  });
+});
+
+describe('fitGlobe', () => {
+  it('without a span fits the whole sphere, centred', () => {
+    const p = fitGlobe([10, 20]);
+    expect(p([10, 20])).toEqual([MAP_SIZE / 2, MAP_SIZE / 2]);
+    const [[x0], [x1]] = geoPath(p).bounds({ type: 'Sphere' });
+    expect([x0, x1]).toEqual([MAP_PADDING, MAP_SIZE - MAP_PADDING]);
+  });
+
+  it('with a span, ground that far apart straddling the centre fills the padded extent', () => {
+    const centre: LngLat = [-63.23, 17.63];
+    const p = fitGlobe(centre, MAP_SIZE, MAP_PADDING, NEIGHBOURHOOD_VIEW_KM);
+    expect(p(centre)!.map(Math.round)).toEqual([MAP_SIZE / 2, MAP_SIZE / 2]);
+    // The same angle each side of the centre along the meridian: `span` km apart in all.
+    const half = NEIGHBOURHOOD_VIEW_KM / 2 / 6371 / (Math.PI / 180);
+    const [, top] = p([centre[0], centre[1] + half])!;
+    const [, bottom] = p([centre[0], centre[1] - half])!;
+    expect(bottom - top).toBeGreaterThan((MAP_SIZE - 2 * MAP_PADDING) * 0.95);
+    expect(bottom - top).toBeLessThan((MAP_SIZE - 2 * MAP_PADDING) * 1.05);
   });
 });
 

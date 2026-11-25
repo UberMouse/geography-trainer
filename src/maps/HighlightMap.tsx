@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { answerPoint, type AreaFeature, type IdentifiedFeature, type LngLat } from './geo';
 import { Dot, Rings } from './marks';
 import {
+  MAP_PADDING,
   MAP_SIZE,
   NEUTRAL_VIEW,
   RING_RADIUS_PX,
@@ -18,7 +19,8 @@ import {
  * when given (such as a country's main part), else to `features` (a country with its region
  * borders); features outside the frame are cut off. `globe` draws an orthographic globe of
  * `features` (every country) rotated to centre the highlighted one, else the dot. A highlight too
- * small to see gets ring markers (`smallTargetRings`).
+ * small to see gets ring markers (`smallTargetRings`). `spanKm` zooms the globe to that much
+ * ground across the map, centred on the target.
  */
 export default function HighlightMap({
   features,
@@ -26,19 +28,21 @@ export default function HighlightMap({
   point,
   mode,
   frame,
+  spanKm,
 }: {
   features: IdentifiedFeature[];
   highlightId?: string;
   point?: LngLat;
   mode: 'fit' | 'globe';
   frame?: AreaFeature;
+  spanKm?: number;
 }) {
   const highlight = features.find((f) => f.id === highlightId);
   const projection = useMemo(() => {
     if (mode === 'fit') return fitFlat(frame ? [frame] : features);
     const centre = highlight ? answerPoint(highlight) : point;
-    return fitGlobe(centre ?? [NEUTRAL_VIEW.lng, NEUTRAL_VIEW.lat]);
-  }, [mode, features, frame, highlight, point]);
+    return fitGlobe(centre ?? [NEUTRAL_VIEW.lng, NEUTRAL_VIEW.lat], MAP_SIZE, MAP_PADDING, spanKm);
+  }, [mode, features, frame, highlight, point, spanKm]);
   const path = useMemo(() => geoPath(projection), [projection]);
   const rings = highlight
     ? smallTargetRings(

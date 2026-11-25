@@ -165,6 +165,8 @@ test.describe('L1 point-only country', () => {
   test('a tiny real polygon keeps its outline', async ({ page }) => {
     await openExercise(page, 'item=country:tuvalu&rung=1');
     await expect(page.getByText('Which country is this?')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Outline' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Highlight map' })).toHaveCount(0);
   });
 });
 
