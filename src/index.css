@@ -394,6 +394,15 @@ a {
   border: 1px solid var(--map-border);
 }
 
+.drill-map {
+  margin: 16px 0;
+}
+
+.drill-list {
+  padding-left: 0;
+  list-style: none;
+}
+
 .home-map {
   margin: 16px 0;
 }

@@ -42,6 +42,29 @@ export interface CountryLook {
   fill: string;
 }
 
+/** An item's state and fill; a mastered one deepens with the share of its descendants mastered. */
+export function itemLook(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  itemId: string,
+): CountryLook {
+  const state = itemState(curriculum, progress, itemId);
+  // Only a mastered item's fill depends on its subtree: skip the walk for the rest.
+  const subtree =
+    state === 'mastered'
+      ? subtreeProgress(curriculum, progress, itemId)
+      : { total: 0, mastered: 0 };
+  return { state, fill: progressFill(state, subtree) };
+}
+
+const LOCKED_LOOK: CountryLook = { state: 'locked', fill: 'var(--progress-locked)' };
+
+/** A map's `look` callback: the entry in `looks`, else locked. */
+export const lookOrLocked =
+  (looks: ReadonlyMap<string, CountryLook>) =>
+  (id: string): CountryLook =>
+    looks.get(id) ?? LOCKED_LOOK;
+
 /** Each country's state and fill, for the countries that are in the curriculum. */
 export function countryLooks(
   curriculum: Curriculum,
@@ -51,14 +74,7 @@ export function countryLooks(
   const looks = new Map<string, CountryLook>();
   for (const { id } of countries) {
     const itemId = countryItemId(id);
-    if (!curriculum.items.has(itemId)) continue;
-    const state = itemState(curriculum, progress, itemId);
-    // Only a mastered country's fill depends on its subtree: skip the walk for the rest.
-    const subtree =
-      state === 'mastered'
-        ? subtreeProgress(curriculum, progress, itemId)
-        : { total: 0, mastered: 0 };
-    looks.set(id, { state, fill: progressFill(state, subtree) });
+    if (curriculum.items.has(itemId)) looks.set(id, itemLook(curriculum, progress, itemId));
   }
   return looks;
 }

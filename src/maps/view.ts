@@ -1,3 +1,4 @@
+import type { Feature } from 'geojson';
 import {
   geoAzimuthalEqualArea,
   geoCentroid,
@@ -168,7 +169,7 @@ export const MAP_PADDING = 16;
  * viewBox with padding. Centring on the features keeps maps that cross the antimeridian (Russia,
  * Fiji) in one piece.
  */
-export function fitFlat(features: AreaFeature[], size = MAP_SIZE, padding = MAP_PADDING) {
+export function fitFlat(features: Feature[], size = MAP_SIZE, padding = MAP_PADDING) {
   const collection = { type: 'FeatureCollection' as const, features };
   const [lng, lat] = geoCentroid(collection);
   return geoAzimuthalEqualArea()

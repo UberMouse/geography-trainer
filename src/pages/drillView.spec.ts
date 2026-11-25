@@ -1,0 +1,138 @@
+import { describe, expect, it } from 'vitest';
+import { buildCurriculum, countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
+import type { ItemProgress } from '../engine/srs';
+import type { Country, Place } from '../engine/types';
+import { childRows, resolveDrillRoute } from './drillView';
+
+const countries: Country[] = [
+  { id: 'fr', name: 'France', places: 2, hasRegions: true },
+  { id: 'de', name: 'Germany', places: 1, hasRegions: true },
+  { id: 'sg', name: 'Singapore', places: 1, hasRegions: false },
+  { id: 'nowhere', name: 'Nowhere', places: 0, hasRegions: false },
+];
+const place = (id: string, country: string, region: string | null): Place => ({
+  id,
+  name: id.toUpperCase(),
+  country,
+  region,
+  lat: 0,
+  lng: 0,
+  type: 'city',
+  level: 1,
+});
+const places = [
+  place('paris', 'fr', 'fr.idf'),
+  place('lyon', 'fr', 'fr.ara'),
+  place('berlin', 'de', 'de.be'),
+  place('changi', 'sg', null),
+];
+// `fr.empty` has no places, so the curriculum drops it.
+const regions = [
+  { id: 'fr.idf', country: 'fr' },
+  { id: 'fr.ara', country: 'fr' },
+  { id: 'fr.empty', country: 'fr' },
+  { id: 'de.be', country: 'de' },
+];
+const curriculum = buildCurriculum(countries, regions, places);
+
+// Mastered: L4 passed on two different days.
+const mastered = (itemId: string): ItemProgress =>
+  ({
+    itemId,
+    rung: 4,
+    highestRung: 4,
+    cards: {},
+    l4PassDays: ['2026-01-10', '2026-01-20'],
+    inL4Lapse: false,
+    introducedAt: 1,
+  }) as unknown as ItemProgress;
+
+describe('resolveDrillRoute', () => {
+  const resolve = (c: string, r?: string) => resolveDrillRoute(curriculum, countries, c, r);
+
+  it('resolves a known country, with whether it has a regions tier', () => {
+    expect(resolve('fr')).toEqual({ kind: 'country', countryId: 'fr', hasRegions: true });
+    expect(resolve('sg')).toEqual({ kind: 'country', countryId: 'sg', hasRegions: false });
+  });
+
+  it('resolves a country with no places', () => {
+    expect(resolve('nowhere')).toMatchObject({ kind: 'country' });
+  });
+
+  it('sends an unknown country back to Progress', () => {
+    expect(resolve('atlantis')).toEqual({ kind: 'not-found', back: '/progress' });
+    expect(resolve('atlantis', 'fr.idf')).toEqual({ kind: 'not-found', back: '/progress' });
+  });
+
+  it('resolves a region of the country by its full id', () => {
+    expect(resolve('fr', 'fr.idf')).toEqual({ kind: 'region', countryId: 'fr', regionId: 'fr.idf' });
+  });
+
+  it('sends a region of another country back to the country', () => {
+    expect(resolve('fr', 'de.be')).toEqual({ kind: 'not-found', back: '/progress/fr' });
+  });
+
+  it('sends a region with no places, or an unknown one, back to the country', () => {
+    expect(resolve('fr', 'fr.empty')).toEqual({ kind: 'not-found', back: '/progress/fr' });
+    expect(resolve('fr', 'fr.nope')).toEqual({ kind: 'not-found', back: '/progress/fr' });
+  });
+
+  it('sends a region URL under a country without a regions tier back to the country', () => {
+    expect(resolve('sg', 'sg.x')).toEqual({ kind: 'not-found', back: '/progress/sg' });
+  });
+
+  it('does not take a place id for a region id', () => {
+    expect(resolve('sg', 'changi')).toEqual({ kind: 'not-found', back: '/progress/sg' });
+  });
+});
+
+describe('childRows', () => {
+  const names = new Map([
+    [countryItemId('fr'), 'France'],
+    [countryItemId('de'), 'Germany'],
+    [regionItemId('fr.idf'), 'Ile-de-France'],
+    [regionItemId('fr.ara'), 'Auvergne'],
+    [placeItemId('paris'), 'Paris'],
+  ]);
+
+  it('lists a locked country’s regions with what unlocks them and a link each', () => {
+    const rows = childRows(curriculum, {}, countryItemId('fr'), names);
+    expect(rows.map((r) => [r.name, r.state, r.stateLabel, r.unlockText, r.href])).toEqual([
+      ['Ile-de-France', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.idf'],
+      ['Auvergne', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.ara'],
+    ]);
+  });
+
+  it('shows the regions as new, with no unlock text, once the country is mastered', () => {
+    const progress = { [countryItemId('fr')]: mastered(countryItemId('fr')) };
+    const rows = childRows(curriculum, progress, countryItemId('fr'), names);
+    expect(rows.map((r) => [r.state, r.unlockText])).toEqual([
+      ['new', null],
+      ['new', null],
+    ]);
+  });
+
+  it('lists a region’s places without links, naming the region that unlocks them', () => {
+    const [row] = childRows(curriculum, {}, regionItemId('fr.idf'), names);
+    expect(row).toMatchObject({
+      name: 'Paris',
+      tier: 'place',
+      state: 'locked',
+      unlockText: 'Master Ile-de-France to unlock',
+      href: null,
+    });
+  });
+
+  it('lists the places of a country without a regions tier', () => {
+    const sg = countryItemId('sg');
+    const rows = childRows(curriculum, {}, sg, new Map([[sg, 'Singapore']]));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ tier: 'place', state: 'locked', unlockText: 'Master Singapore to unlock' });
+    const open = childRows(curriculum, { [sg]: mastered(sg) }, sg, new Map());
+    expect(open[0]).toMatchObject({ state: 'new', unlockText: null });
+  });
+
+  it('is empty for a country with no places', () => {
+    expect(childRows(curriculum, {}, countryItemId('nowhere'), names)).toEqual([]);
+  });
+});

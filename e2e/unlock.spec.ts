@@ -97,27 +97,101 @@ test('the Progress page shows the mastered country and its map shape', async ({ 
   // Germany is a country: new, as it has no parent to lock it.
   await expect(map.locator('[data-item-id="germany"]')).toHaveAttribute('data-state', 'new');
 
-  await recordNavigations(page);
   await started.getByRole('link', { name: 'United States' }).click();
-  expect(await navigations(page)).toContain('/progress/united-states');
+  await expect(page).toHaveURL(/\/progress\/united-states$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('United States', WAIT);
 });
-
-// The drill-down pages are a later step, so their URLs fall through to Home: watch the history
-// pushes rather than the final URL.
-const recordNavigations = (page: Page) =>
-  page.evaluate(
-    `window.__navs = []; const push = history.pushState.bind(history);
-     history.pushState = (s, t, url) => { window.__navs.push(String(url)); push(s, t, url); };`,
-  );
-const navigations = (page: Page) => page.evaluate<string[]>('window.__navs');
 
 test('tapping a country on the map goes to its page', async ({ page }) => {
   await page.goto('/progress');
   const shape = page.getByTestId('progress-map').locator('[data-item-id="germany"]');
   await expect(shape).toBeAttached(WAIT);
-  await recordNavigations(page);
   await shape.dispatchEvent('click');
-  expect(await navigations(page)).toContain('/progress/germany');
+  await expect(page).toHaveURL(/\/progress\/germany$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+});
+
+test('the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
+  const file = testInfo.outputPath('mastered-us.json');
+  await writeMasteredUnitedStates(file);
+  await importMastered(page, file);
+
+  await page.goto('/progress/united-states');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('United States', WAIT);
+  await expect(page.getByTestId('drill-state')).toHaveText('(Mastered)');
+  const list = page.getByTestId('drill-list');
+  const texas = list.locator('li[data-item-id="region:united-states.texas"]');
+  await expect(texas).toHaveAttribute('data-state', 'new', WAIT);
+  await expect(texas).toContainText('Texas: New');
+  await expect(list.locator('li[data-state="new"]')).toHaveCount(await list.locator('li').count());
+});
+
+test('a country whose parent is not mastered lists its regions as locked', async ({ page }) => {
+  await page.goto('/progress/germany');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+  const rows = page.getByTestId('drill-list').locator('li');
+  await expect(rows.first()).toBeVisible(WAIT);
+  for (const row of await rows.all()) {
+    await expect(row).toHaveAttribute('data-state', 'locked');
+    await expect(row).toContainText('Master Germany to unlock');
+  }
+});
+
+test('the drill-down goes from the world to a country to a region and back', async ({ page }) => {
+  await page.goto('/progress');
+  const started = page.getByTestId('progress-map').locator('[data-item-id="germany"]');
+  await expect(started).toBeAttached(WAIT);
+  await started.dispatchEvent('click');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+
+  // The regions map: tapping a region opens its page.
+  const bayern = page.getByTestId('drill-map').locator('[data-item-id="germany.bayern"]');
+  await expect(bayern).toBeAttached(WAIT);
+  await bayern.dispatchEvent('click');
+  await expect(page).toHaveURL(/\/progress\/germany\/germany\.bayern$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Bayern', WAIT);
+  const places = page.getByTestId('drill-list').locator('li');
+  await expect(places.first()).toContainText('Master Bayern to unlock', WAIT);
+  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]').first()).toBeAttached();
+
+  await page.getByRole('link', { name: 'Back to Germany' }).click();
+  await expect(page).toHaveURL(/\/progress\/germany$/);
+  // The list links to a region too.
+  await page.getByTestId('drill-list').getByRole('link', { name: 'Bayern' }).click();
+  await expect(page).toHaveURL(/\/progress\/germany\/germany\.bayern$/);
+  await page.getByRole('link', { name: 'Back to Germany' }).click();
+  await page.getByRole('link', { name: 'Back to the world' }).click();
+  await expect(page).toHaveURL(/\/progress$/);
+  await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible(WAIT);
+});
+
+test('a country without regions draws its places as dots', async ({ page }) => {
+  await page.goto('/progress/singapore');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Singapore', WAIT);
+  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]')).toHaveCount(
+    await page.getByTestId('drill-list').locator('li').count(),
+  );
+});
+
+test('an unknown country or region shows not found with a link back', async ({ page }) => {
+  await page.goto('/progress/atlantis');
+  await expect(page.getByText('There is nothing to show at this address.')).toBeVisible(WAIT);
+  await page.getByRole('link', { name: 'Back to the world' }).click();
+  await expect(page).toHaveURL(/\/progress$/);
+
+  await page.goto('/progress/germany/france.paris');
+  await expect(page.getByText('There is nothing to show at this address.')).toBeVisible(WAIT);
+  await page.getByRole('link', { name: 'Back to the country' }).click();
+  await expect(page).toHaveURL(/\/progress\/germany$/);
+});
+
+test('the drill-down pages do not scroll sideways', async ({ page }) => {
+  for (const path of ['/progress/united-states', '/progress/united-states/united-states.texas']) {
+    await page.goto(path);
+    await expect(page.getByTestId('drill-map')).toBeVisible(WAIT);
+    const fits = await page.locator('html').evaluate((el) => el.scrollWidth <= el.clientWidth);
+    expect(fits, `${path} has no horizontal scroll`).toBe(true);
+  }
 });
 
 test('Home shows the small progress map and a link to Progress', async ({ page }) => {

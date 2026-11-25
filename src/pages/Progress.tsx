@@ -6,6 +6,7 @@ import Status from './LoadStatus';
 import {
   STATE_LABELS,
   countryLooks,
+  lookOrLocked,
   startedCountries,
   tierCountText,
 } from './progressView';
@@ -55,7 +56,7 @@ function ProgressContent({ data }: { data: WorldData }) {
       </ul>
       <ProgressMap
         features={data.countries.features as ProgressFeature[]}
-        look={(id) => looks.get(id) ?? { state: 'locked', fill: 'var(--progress-locked)' }}
+        look={lookOrLocked(looks)}
         onSelect={(id) => navigate(`/progress/${id}`)}
       />
       <ul className="progress-legend" aria-label="Legend">

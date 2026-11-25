@@ -5,8 +5,11 @@ import type { IdentifiedFeature } from './geo';
 export const PROGRESS_MAP_WIDTH = 960;
 export const PROGRESS_MAP_HEIGHT = 500;
 const PADDING = 8;
-/** A point-only country's marker radius in viewBox units: 3 px on a 358 px wide (phone) map. */
-const POINT_RADIUS = 8;
+/**
+ * A point-only country's marker radius in viewBox units: just over 3 px on a 358 px wide (phone)
+ * map, where the 960 unit viewBox is scaled by 358 / 960.
+ */
+const POINT_RADIUS = 8.1;
 
 export interface ProgressLook {
   state: string;

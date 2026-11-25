@@ -6,7 +6,7 @@ import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
 import { progressStore } from '../storage/progressStore';
 import { checkImportText, exportFilename, importConfirmText, leftOutText, type ImportSummary } from './homeView';
 import Status from './LoadStatus';
-import { countryLooks } from './progressView';
+import { countryLooks, lookOrLocked } from './progressView';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, useCurriculum, type WorldData } from './worldData';
 
@@ -111,7 +111,7 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
       <div className="home-map">
         <ProgressMap
           features={data.countries.features as ProgressFeature[]}
-          look={(id) => looks.get(id) ?? { state: 'locked', fill: 'var(--progress-locked)' }}
+          look={lookOrLocked(looks)}
         />
         <p>
           <Link to="/progress">See your progress</Link>
