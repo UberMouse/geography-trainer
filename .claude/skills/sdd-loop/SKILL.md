@@ -36,8 +36,8 @@ planning gates."
   4. Verify        `npm run verify` exits 0
   5. Branch review /code-review high on the branch ─► fix every CONFIRMED finding
                      ─► decide every PLAUSIBLE one (fix / skip) ─► re-verify ─► screenshots
-  6. Ship          commit; PR (ready, not draft) when a GitHub remote exists, else the local
-                     branch for the user to merge; report
+  6. Ship          commit; PR (ready, not draft) when a GitHub remote exists, else
+                     fast-forward local main to the branch yourself; report
 ```
 
 ## When to use
@@ -111,7 +111,8 @@ remember about the loop, re-read it:
    not `done`. A task whose `agentInFlight` died on an API error: see §3 step 1. If every task
    is already `done`, `Read` §4–§6 too. Find where the tail stopped from durable evidence:
    - A GitHub remote and `gh pr list --head "$BRANCH" --json number` returns a PR, or no remote
-     and the final report was given (a `notes` entry says so) → §6 already ran; write
+     and `git merge-base --is-ancestor "$BRANCH" main` succeeds (main already fast-forwarded)
+     → §6 already ran; give the report if a `notes` entry doesn't say it was given, and write
      `phase: "done"`.
    - A staged but uncommitted diff → a §5 fix group stopped mid-review; do §5 step 3 on it first.
    - Otherwise re-run §4, then §5 from the start. Both are safe to repeat: `fix(review): …`
@@ -468,11 +469,14 @@ This skill ends in a **reviewed branch**, not a question.
   state.json, any UNREVIEWED task listed by id), *Verification* (§4's result),
   *Screenshots* (or N/A), *Follow-ups*. End it with the PR attribution lines from the session's
   system reminder.
-- **Without a remote**: the branch is the deliverable. Leave it committed for the user to merge
-  (`git merge --ff-only <branch>` from `main`, or open a PR once a remote exists).
-- **Never** push to `main`, force-push, or merge.
+- **Without a remote**: merge your own finished work (CLAUDE.md *Git*). Once §4 and §5 are
+  green, leave the worktree (`ExitWorktree`, `keep`: a worktree-isolated session cannot run git
+  in the main checkout), check the main checkout is clean and on `main`, and run
+  `git merge --ff-only <branch>` there. If `main` moved and the merge is not a fast-forward, or
+  the main checkout is dirty, stop and report instead of rebasing or merging another way.
+- **Never** push to `main`, force-push, rewrite `main`'s history, or merge red or unreviewed work.
 - Branch names must not contain `/`.
-- After the PR is opened (or the report given, without a remote), write `phase: "done"` to
+- After the PR is opened (without a remote: after `main` is fast-forwarded and the report given), write `phase: "done"` to
   state.json and a `notes` entry saying so. The resume hook and autocompact key on `phase`, and
   a finished run left at `implement` reads as a stalled one.
 
@@ -486,7 +490,7 @@ This skill ends in a **reviewed branch**, not a question.
 - Branch review: confirmed findings fixed, plausible findings promoted and skipped (one line
   each with the reason), anything deferred.
 - Final `npm run verify` result.
-- The branch name, and the PR link or the merge command.
+- The branch name, and the PR link or the commit `main` was fast-forwarded to.
 - Any assumption you had to make, and *Follow-ups*: the tech debt and improvements you noticed
   but kept out of scope.
 
