@@ -147,6 +147,52 @@ describe('placement staircase', () => {
     expect(finishPlacement(s).outcomes).toEqual({ x: 'aboveEstimate' });
   });
 
+  it('keeps non-finite items above the estimate through a JSON round trip', () => {
+    const rng = mulberry32(5);
+    const s = startPlacement(
+      [
+        { itemId: 'z', level: Infinity },
+        { itemId: 'a', level: 1 },
+      ],
+      rng,
+    );
+    const revived = JSON.parse(JSON.stringify(s)) as PlacementState;
+    expect(finishPlacement(revived).outcomes).toEqual({ z: 'aboveEstimate', a: 'untestedAtOrBelow' });
+  });
+
+  it('bases the staircase on the level asked when the target level has run out', () => {
+    const rng = mulberry32(6);
+    // Two level-7 items and a single level-8 one: after the level-8 item is gone, target 8 falls back to 7.
+    const sparse: PlacementItem[] = [
+      { itemId: 'e1', level: 4 },
+      { itemId: 'e2', level: 5 },
+      { itemId: 'e3', level: 6 },
+      { itemId: 'e4', level: 7 },
+      { itemId: 'h8', level: 8 },
+      { itemId: 'h7', level: 7 },
+    ];
+    let s = startPlacement(sparse, rng);
+    let asked = 0;
+    let maxLevel = 0;
+    // Pass until the level-8 item has been asked, then fail the next (a level-7 fallback).
+    for (;;) {
+      const n = nextQuestion(s, rng)!;
+      const q = n.question;
+      maxLevel = Math.max(maxLevel, q.level);
+      asked++;
+      const afterEight = s.answers.some((a) => a.level === 8);
+      s = answerPlacement(n.state, q.itemId, afterEight ? Rating.Again : Rating.Good);
+      if (afterEight) {
+        expect(q.level).toBe(7);
+        break;
+      }
+      expect(asked).toBeLessThan(10);
+    }
+    expect(s.reversals).toEqual([7]);
+    expect(finishPlacement(s).estimate).toBe(7);
+    expect(finishPlacement(s).estimate).toBeLessThanOrEqual(maxLevel);
+  });
+
   it('rejects answers for items that are not the pending question', () => {
     const rng = mulberry32(6);
     let s = startPlacement(items, rng);
@@ -224,8 +270,8 @@ describe('placement staircase', () => {
     expect(estimate).toBe(5);
     expect(outcomes).toEqual({
       p1: 'passed',
-      f1: 'untestedAtOrBelow',
-      f2: 'untestedAtOrBelow',
+      f1: 'failed',
+      f2: 'failed',
       u1: 'untestedAtOrBelow',
       u2: 'aboveEstimate',
     });
