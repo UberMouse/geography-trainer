@@ -18,9 +18,14 @@ const count = (n: number, tier: PlacementTier) => `${n} ${n === 1 ? NOUNS[tier].
 export const placementHeader = (answered: number): string =>
   `Placement: question ${answered + 1} of up to ${PLACEMENT_MAX_QUESTIONS}`;
 
-/** The message for a test with nothing to test. */
-export const emptyPoolText = (tier: PlacementTier): string =>
-  `There is nothing left to place: you have started every ${NOUNS[tier].one}.`;
+/**
+ * The message for a test with nothing to test. A test out of `scopeName` (a country or region)
+ * says what was started in it.
+ */
+export const emptyPoolText = (tier: PlacementTier, scopeName?: string): string =>
+  scopeName === undefined
+    ? `There is nothing left to place: you have started every ${NOUNS[tier].one}.`
+    : `There is nothing left to test: you have started all of ${scopeName}'s ${NOUNS[tier].many}.`;
 
 /** The message for a pool none of whose items can be asked (none has a difficulty). */
 export const NOTHING_TO_ASK_TEXT = 'There are no questions to ask here yet.';

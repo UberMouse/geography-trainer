@@ -1,6 +1,13 @@
 import { Fragment, useMemo, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { countryItemId, placeItemId, regionItemId, type Curriculum } from '../engine/curriculum';
+import {
+  countryItemId,
+  placeItemId,
+  regionItemId,
+  unlockedBy,
+  type Curriculum,
+} from '../engine/curriculum';
+import { canTestOut } from '../engine/placement';
 import { loadRegions, type RegionsData } from '../data/loaders';
 import { answerPoint, mainPart } from '../maps/geo';
 import DrillMap, { type DrillDot } from '../maps/DrillMap';
@@ -16,6 +23,7 @@ import {
 } from './drillView';
 import Status from './LoadStatus';
 import { STATE_LABELS, itemLook } from './progressView';
+import { testOutLabel, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
@@ -154,6 +162,9 @@ function Drill({
   const self = itemLook(curriculum, data.progress, itemId);
   const name = names.get(itemId) ?? itemId;
   const isRegion = route.kind === 'region';
+  const testOutTier = canTestOut(curriculum, data.progress, itemId)
+    ? (`${unlockedBy(curriculum, itemId)!.tier}s` as const)
+    : null;
   const regionBase = `/progress/${countryId}`;
 
   return (
@@ -168,6 +179,11 @@ function Drill({
       <h1>
         {name} <span data-testid="drill-state">({STATE_LABELS[self.state]})</span>
       </h1>
+      {testOutTier && (
+        <p>
+          <Link to={testOutPath(itemId)}>{testOutLabel(name, testOutTier)}</Link>
+        </p>
+      )}
       <DrillMap
         features={features}
         dots={dots}

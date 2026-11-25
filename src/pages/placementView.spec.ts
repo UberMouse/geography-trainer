@@ -32,6 +32,15 @@ describe('emptyPoolText', () => {
     expect(emptyPoolText('regions')).toBe('There is nothing left to place: you have started every region.');
     expect(emptyPoolText('places')).toBe('There is nothing left to place: you have started every place.');
   });
+
+  it('says what was started in the country or region being tested out of', () => {
+    expect(emptyPoolText('regions', 'France')).toBe(
+      "There is nothing left to test: you have started all of France's regions.",
+    );
+    expect(emptyPoolText('places', 'Bretagne')).toBe(
+      "There is nothing left to test: you have started all of Bretagne's places.",
+    );
+  });
 });
 
 describe('resultLines', () => {

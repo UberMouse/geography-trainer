@@ -7,6 +7,7 @@ import Progress from './pages/Progress';
 import ProgressDrill from './pages/ProgressDrill';
 import Playground from './pages/Playground';
 import Session from './pages/Session';
+import TestOut from './pages/TestOut';
 
 export default function App() {
   return (
@@ -19,6 +20,8 @@ export default function App() {
           <Route path="/progress/:country" element={<ProgressDrill />} />
           <Route path="/progress/:country/:region" element={<ProgressDrill />} />
           <Route path="/placement" element={<Placement />} />
+          <Route path="/placement/:country" element={<TestOut />} />
+          <Route path="/placement/:country/:region" element={<TestOut />} />
           <Route path="/session" element={<Session />} />
           {import.meta.env.DEV && <Route path="/playground" element={<Playground />} />}
           <Route path="*" element={<Navigate to="/" replace />} />

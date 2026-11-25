@@ -30,13 +30,15 @@ export interface PlacementRunProps {
   tier: PlacementTier;
   /** The page title, shown above the test. */
   heading: string;
+  /** The country or region being tested out of; absent for the countries test. */
+  scopeName?: string;
 }
 
 const dayKeyOf = (now: Date) => localDayKey(now, -now.getTimezoneOffset());
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** One placement test over `pool`: the question loop, saving, and the result screen. */
-export default function PlacementRun({ pool, items, progress, tier, heading }: PlacementRunProps) {
+export default function PlacementRun({ pool, items, progress, tier, heading, scopeName }: PlacementRunProps) {
   // The state holding the pending question, and that question; null once nothing is left to ask.
   const [asking, setAsking] = useState<{ state: PlacementState; question: PlacementQuestion } | null>(
     () => nextQuestion(startPlacement(pool, Math.random), Math.random),
@@ -89,7 +91,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading }: P
     return (
       <>
         <h1>{heading}</h1>
-        <p>{pool.length === 0 ? emptyPoolText(tier) : NOTHING_TO_ASK_TEXT}</p>
+        <p>{pool.length === 0 ? emptyPoolText(tier, scopeName) : NOTHING_TO_ASK_TEXT}</p>
         <p>
           <Link to="/">Back to Home</Link>
         </p>

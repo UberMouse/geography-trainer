@@ -63,3 +63,14 @@ test('Finish now ends the test after one answer, at 390 px without horizontal sc
   await expect(page.getByRole('link', { name: 'Start studying' })).toBeVisible(WAIT);
   await noHorizontalScroll(page);
 });
+
+test('a test-out page for an item that is not mastered is not available', async ({ page, isMobile }) => {
+  await page.goto('/placement/germany');
+  await expect(page.getByText('This test is not available.')).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: 'Back to the country' })).toHaveAttribute(
+    'href',
+    '/progress/germany',
+  );
+  await expect(question(page, TEST_ID)).toHaveCount(0);
+  if (isMobile) await noHorizontalScroll(page);
+});

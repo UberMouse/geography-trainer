@@ -11,6 +11,7 @@ import {
   startRun,
   type SessionRun,
 } from '../engine/sessionRun';
+import { canTestOut } from '../engine/placement';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import { introducedToday } from '../engine/today';
 import { loadCountries, loadPlaces, loadRegions, type CountriesData, type RegionsData } from '../data/loaders';
@@ -20,6 +21,7 @@ import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { progressStore } from '../storage/progressStore';
 import Status from './LoadStatus';
 import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
+import { testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 
 interface SessionData {
@@ -83,6 +85,8 @@ function Runner({ data }: { data: SessionData }) {
   const empty = data.questions.length === 0;
   // Ids of the items that passed from not mastered to mastered in this round, in answer order.
   const [mastered, setMastered] = useState<readonly string[]>([]);
+  // Those of them that can be tested out of, judged when they were mastered.
+  const [testable, setTestable] = useState<readonly string[]>([]);
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   // True when the current question's answer could not be recorded and the question is skipped.
@@ -137,7 +141,15 @@ function Runner({ data }: { data: SessionData }) {
           Round done: {run.correctInRound} of {run.answeredInRound} right
         </h2>
         {unlocks.map((line) => (
-          <p key={line.id}>{line.text}</p>
+          <p key={line.id}>
+            {line.text}
+            {testable.includes(line.id) && (
+              <>
+                {' '}
+                <Link to={testOutPath(line.id)}>Test out</Link>
+              </>
+            )}
+          </p>
         ))}
         {unlocks.length > 0 && <p>These join your new questions from your next session.</p>}
         {questionsRemain(run) ? (
@@ -147,6 +159,7 @@ function Runner({ data }: { data: SessionData }) {
               className="session-button"
               onClick={() => {
                 setMastered([]);
+                setTestable([]);
                 setRun(nextRound(run));
               }}
             >
@@ -180,6 +193,9 @@ function Runner({ data }: { data: SessionData }) {
       progress.current = { ...progress.current, [question.itemId]: after };
       if (isMastered(after) && !(before && isMastered(before))) {
         setMastered((ids) => [...ids, question.itemId]);
+        if (canTestOut(curriculum, progress.current, question.itemId)) {
+          setTestable((ids) => [...ids, question.itemId]);
+        }
       }
     } catch (error) {
       console.error('[session] could not record answer', question.itemId, error);

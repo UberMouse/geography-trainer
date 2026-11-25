@@ -28,4 +28,9 @@ describe('App', () => {
   it('renders the Placement page (loading first)', () => {
     expect(render('/placement')).toContain('Loading…');
   });
+
+  it('renders the test-out routes (loading first)', () => {
+    expect(render('/placement/france')).toContain('Loading…');
+    expect(render('/placement/france/france.bretagne')).toContain('Loading…');
+  });
 });
