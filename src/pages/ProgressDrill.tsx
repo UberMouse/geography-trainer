@@ -17,7 +17,7 @@ import {
 import Status from './LoadStatus';
 import { STATE_LABELS, itemLook } from './progressView';
 import { useLoaded } from './useLoaded';
-import { loadWorldData, useCurriculum, type WorldData } from './worldData';
+import { loadWorldData, type WorldData } from './worldData';
 
 const LOAD_FAILURE = 'Could not load the map data or your saved progress:';
 
@@ -41,7 +41,7 @@ function Resolved({
   countryId: string;
   regionId: string | undefined;
 }) {
-  const curriculum = useCurriculum(data);
+  const { curriculum } = data;
   const route = useMemo(
     () => resolveDrillRoute(curriculum, data.countries.countries, countryId, regionId),
     [curriculum, data.countries.countries, countryId, regionId],

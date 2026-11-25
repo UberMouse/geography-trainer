@@ -8,7 +8,7 @@ import { checkImportText, exportFilename, importConfirmText, leftOutText, type I
 import Status from './LoadStatus';
 import { countryLooks, lookOrLocked } from './progressView';
 import { useLoaded } from './useLoaded';
-import { loadWorldData, useCurriculum, type WorldData } from './worldData';
+import { loadWorldData, type WorldData } from './worldData';
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
 
@@ -68,7 +68,7 @@ interface HomeContentProps {
 }
 
 function HomeContent({ data, now, reload, imported, setImported }: HomeContentProps) {
-  const curriculum = useCurriculum(data);
+  const { curriculum } = data;
   const looks = useMemo(
     () => countryLooks(curriculum, data.progress, data.countries.countries),
     [curriculum, data.progress, data.countries],

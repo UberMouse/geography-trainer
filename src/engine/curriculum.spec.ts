@@ -349,8 +349,10 @@ describe('regionsFromPlaces', () => {
       { id: 'france.bretagne', country: 'france' },
     ]);
   });
+});
 
-  it('builds a curriculum over the committed data', () => {
+describe('the committed data', () => {
+  it('builds a curriculum', () => {
     const geoms = (
       realCountries as unknown as {
         objects: { countries: { geometries: { id: string; properties: { hasRegions: boolean } }[] } };

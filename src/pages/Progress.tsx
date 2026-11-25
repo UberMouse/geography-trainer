@@ -11,7 +11,7 @@ import {
   tierCountText,
 } from './progressView';
 import { useLoaded } from './useLoaded';
-import { loadWorldData, useCurriculum, type WorldData } from './worldData';
+import { loadWorldData, type WorldData } from './worldData';
 
 const TIERS: Tier[] = ['country', 'region', 'place'];
 const LEGEND: ItemState[] = ['locked', 'new', 'learning', 'mastered'];
@@ -35,7 +35,7 @@ export default function Progress() {
 
 function ProgressContent({ data }: { data: WorldData }) {
   const navigate = useNavigate();
-  const curriculum = useCurriculum(data);
+  const { curriculum } = data;
   const counts = useMemo(() => tierCounts(curriculum, data.progress), [curriculum, data.progress]);
   const looks = useMemo(
     () => countryLooks(curriculum, data.progress, data.countries.countries),
