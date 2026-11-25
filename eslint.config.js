@@ -63,7 +63,25 @@ export default defineConfig([
       ],
       'no-restricted-globals': [
         'error',
-        ...['globalThis', 'window', 'self', 'crypto', 'performance'].map((name) => ({
+        ...[
+          'globalThis',
+          'window',
+          'self',
+          'crypto',
+          'performance',
+          'document',
+          'navigator',
+          'location',
+          'localStorage',
+          'sessionStorage',
+          'indexedDB',
+          'fetch',
+          'XMLHttpRequest',
+          'setTimeout',
+          'setInterval',
+          'requestAnimationFrame',
+          'Intl',
+        ].map((name) => ({
           name,
           message: `src/engine takes time and randomness as arguments and has no DOM: no ${name}.`,
         })),
