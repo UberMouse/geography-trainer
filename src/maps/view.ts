@@ -4,6 +4,7 @@ import {
   geoDistance,
   geoInterpolate,
   geoOrthographic,
+  type GeoPath,
 } from 'd3-geo';
 import type { AreaFeature, LngLat } from './geo';
 
@@ -177,3 +178,52 @@ export const unapply = (t: FlatTransform, [x, y]: [number, number]): [number, nu
 
 /** Wheel delta (px) to a zoom factor: one notch (100 px) is about 1.2×. */
 export const wheelFactor = (deltaY: number) => Math.exp(-deltaY * 0.0018);
+
+/**
+ * Whether `point` falls inside the square viewBox of a flat map fitted to `frame` (`fitFlat`):
+ * reachable on that map, whose pan never leaves the fitted frame.
+ */
+export function inFlatFrame(frame: AreaFeature, point: LngLat, size = MAP_SIZE): boolean {
+  const p = fitFlat([frame], size)(point);
+  return !!p && p.every(Number.isFinite) && p.every((v) => v >= 0 && v <= size);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Small targets
+
+/** A target that covers less area than a square this many CSS px across gets ring markers. */
+export const SMALL_TARGET_PX = 12;
+/** A ring marker's radius in CSS px. */
+export const RING_RADIUS_PX = 12;
+/**
+ * viewBox units per CSS px on an SVG map at phone width, where the 480-unit viewBox is drawn about
+ * 360 px wide. Wider maps draw a unit nearer a px, so their rings come a little early.
+ */
+export const SVG_UNITS_PER_PX = MAP_SIZE / 360;
+
+/**
+ * Where to draw ring markers around a target that `path` would draw too small to see: none when
+ * the feature covers at least a `minSize` square (in `path`'s units); else one at the centre of
+ * each drawn polygon (so a spread archipelago gets one per island group), skipping a polygon whose
+ * ring would overlap one already placed (centres within `2 * radius`). Polygons `path` does not
+ * draw (behind a globe) get none.
+ */
+export function smallTargetRings(
+  path: GeoPath,
+  feature: AreaFeature,
+  minSize: number,
+  radius: number,
+): [number, number][] {
+  if (path.area(feature) >= minSize * minSize) return [];
+  const g = feature.geometry;
+  const polygons = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  const rings: [number, number][] = [];
+  for (const coordinates of polygons) {
+    const [[x0, y0], [x1, y1]] = path.bounds({ type: 'Polygon', coordinates });
+    const centre: [number, number] = [(x0 + x1) / 2, (y0 + y1) / 2];
+    if (!centre.every(Number.isFinite)) continue;
+    if (rings.some(([x, y]) => Math.hypot(x - centre[0], y - centre[1]) < 2 * radius)) continue;
+    rings.push(centre);
+  }
+  return rings;
+}

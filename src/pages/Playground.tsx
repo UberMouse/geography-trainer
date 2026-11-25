@@ -1,6 +1,6 @@
 import { geoContains } from 'd3-geo';
 import { useMemo, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import {
   loadCountries,
   loadRegions,
@@ -13,6 +13,7 @@ import HighlightMap from '../maps/HighlightMap';
 import OutlineView from '../maps/OutlineView';
 import TapMap from '../maps/TapMap';
 import { parseView, type GlobeView } from '../maps/view';
+import ExercisePlayground from './ExercisePlayground';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
 
@@ -28,18 +29,33 @@ function Panel({ id, title, children }: { id: string; title: string; children: R
 const DEFAULT_COUNTRY = 'france';
 const NO_REGIONS: RegionFeature[] = [];
 
-/** Dev-only: every map component for one country, to try by hand and drive from e2e. */
+/**
+ * Dev-only: every map component for one country, or (with `?mode=exercises`, or an `item` or
+ * `rung` in the URL) one exercise, to try by hand and drive from e2e.
+ */
 export default function Playground() {
   const [params] = useSearchParams();
-  const initialView = useMemo(() => parseView(params.get('view')), [params]);
+  const view = params.get('view');
+  const initialView = useMemo(() => parseView(view), [view]);
   const [countries, retry] = useLoaded('countries', loadCountries);
   const [countryId, setCountryId] = useState(DEFAULT_COUNTRY);
+  const exercises = params.get('mode') === 'exercises' || params.has('item') || params.has('rung');
 
   return (
     <>
       <h1>Map playground</h1>
+      <nav className="playground-controls" aria-label="Playground">
+        <Link to="/playground" aria-current={exercises ? undefined : 'page'}>
+          Maps
+        </Link>
+        <Link to="/playground?mode=exercises" aria-current={exercises ? 'page' : undefined}>
+          Exercises
+        </Link>
+      </nav>
       <Status state={countries} retry={retry}>
-        {({ features }) => {
+        {(data) => {
+          if (exercises) return <ExercisePlayground countries={data} initialView={initialView} />;
+          const { features } = data;
           const country = features.find((f) => f.id === countryId) ?? features[0]!;
           const sorted = [...features].sort((a, b) =>
             a.properties.name.localeCompare(b.properties.name),

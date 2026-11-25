@@ -1,4 +1,5 @@
-import { geoDistance } from 'd3-geo';
+import { geoDistance, geoPath } from 'd3-geo';
+import type { Polygon } from 'geojson';
 import { describe, expect, it } from 'vitest';
 import type { AreaFeature, LngLat } from './geo';
 import {
@@ -8,10 +9,13 @@ import {
   MAP_SIZE,
   NEUTRAL_VIEW,
   fitFlat,
+  fitGlobe,
+  inFlatFrame,
   panFlat,
   parseView,
   revealView,
   rotateGlobe,
+  smallTargetRings,
   unapply,
   wheelFactor,
   wrapLng,
@@ -174,5 +178,60 @@ describe('flat maps', () => {
     const zoomed = zoomFlat(IDENTITY, 2, 0, 0);
     expect(panFlat(zoomed, -100, 0).x).toBe(-100);
     expect(panFlat(zoomed, -10_000, 0).x).toBe(MAP_SIZE - 2 * MAP_SIZE);
+  });
+});
+
+describe('inFlatFrame', () => {
+  const frame = box(0, 40, 10, 50);
+
+  it('is true for a point inside the frame and one just off its coast', () => {
+    expect(inFlatFrame(frame, [5, 45])).toBe(true);
+    expect(inFlatFrame(frame, [10.2, 45])).toBe(true);
+  });
+
+  it('is false for a point far outside the frame, or round the back of the globe', () => {
+    expect(inFlatFrame(frame, [55, -21])).toBe(false);
+    expect(inFlatFrame(frame, [-175, -45])).toBe(false);
+  });
+});
+
+describe('smallTargetRings', () => {
+  const multi = (...parts: AreaFeature[]): AreaFeature => ({
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'MultiPolygon',
+      coordinates: parts.map((p) => (p.geometry as Polygon).coordinates),
+    },
+  });
+  // About 11 viewBox units per degree at this fit: a 0.1° island is about 1 unit across.
+  const path = geoPath(fitFlat([box(0, 0, 40, 40)]));
+
+  it('gives no ring for a target big enough to see', () => {
+    expect(smallTargetRings(path, box(10, 10, 20, 20), 16, 16)).toEqual([]);
+  });
+
+  it('rings a tiny target at its centre', () => {
+    const island = box(20, 20, 20.1, 20.1);
+    const rings = smallTargetRings(path, island, 16, 16);
+    expect(rings).toHaveLength(1);
+    const [x, y] = path.centroid(island);
+    expect(rings[0]![0]).toBeCloseTo(x, 0);
+    expect(rings[0]![1]).toBeCloseTo(y, 0);
+  });
+
+  it('rings each far-apart island of a spread archipelago once, merging near ones', () => {
+    const atolls = multi(
+      box(2, 2, 2.1, 2.1),
+      box(2.2, 2.2, 2.3, 2.3), // its ring would overlap the first's: merged
+      box(35, 35, 35.1, 35.1),
+    );
+    expect(smallTargetRings(path, atolls, 16, 16)).toHaveLength(2);
+  });
+
+  it('skips parts the path does not draw (behind the globe)', () => {
+    const globe = geoPath(fitGlobe([0, 0]));
+    const both = multi(box(0, 0, 0.1, 0.1), box(179.9, 0, 180, 0.1));
+    expect(smallTargetRings(globe, both, 16, 16)).toHaveLength(1);
   });
 });

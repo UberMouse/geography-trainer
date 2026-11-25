@@ -4,9 +4,12 @@ import { targetPoint, type AreaFeature, type LngLat, type TapTarget } from './ge
 import { usePointerGestures } from './usePointerGestures';
 import {
   NEUTRAL_VIEW,
+  RING_RADIUS_PX,
+  SMALL_TARGET_PX,
   globeRadius,
   revealView,
   rotateGlobe,
+  smallTargetRings,
   wheelFactor,
   zoomGlobe,
   type GlobeView,
@@ -28,7 +31,8 @@ const SPHERE: GeoPermissibleObjects = { type: 'Sphere' };
 /**
  * An orthographic globe on a canvas: ocean and land only, with country borders when `borders`.
  * Drag rotates, wheel or pinch zooms (1–64×), a tap calls `onPin`. On `reveal` it turns to the
- * target (see `revealView`) and draws the target, the pin and the great circle between them. The
+ * target (see `revealView`) and draws the target (ringed when too small to see, see
+ * `smallTargetRings`), the pin and the great circle between them. The
  * canvas carries its view as `data-rotation="<lng>,<lat>"` and `data-zoom`.
  */
 export default function BareGlobe(props: Props) {
@@ -96,6 +100,15 @@ export default function BareGlobe(props: Props) {
       if ('feature' in target) {
         fill(target.feature, colour('--map-reveal'));
         stroke(target.feature, colour('--map-border'), 1);
+        const rings = smallTargetRings(path, target.feature, SMALL_TARGET_PX, RING_RADIUS_PX);
+        ctx.beginPath();
+        for (const [x, y] of rings) {
+          ctx.moveTo(x + RING_RADIUS_PX, y);
+          ctx.arc(x, y, RING_RADIUS_PX, 0, 2 * Math.PI);
+        }
+        ctx.strokeStyle = colour('--map-reveal');
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
       if (pin) {
         stroke(

@@ -1,8 +1,17 @@
 import { geoPath } from 'd3-geo';
 import { useMemo } from 'react';
 import { answerPoint, type AreaFeature, type LngLat } from './geo';
-import { Dot } from './marks';
-import { MAP_SIZE, NEUTRAL_VIEW, fitFlat, fitGlobe } from './view';
+import { Dot, Rings } from './marks';
+import {
+  MAP_SIZE,
+  NEUTRAL_VIEW,
+  RING_RADIUS_PX,
+  SMALL_TARGET_PX,
+  SVG_UNITS_PER_PX,
+  fitFlat,
+  fitGlobe,
+  smallTargetRings,
+} from './view';
 
 export type IdentifiedFeature = AreaFeature & { id: string };
 
@@ -10,7 +19,8 @@ export type IdentifiedFeature = AreaFeature & { id: string };
  * A static map with one feature shaded and an optional dot. `fit` fits the projection to `frame`
  * when given (such as a country's main part), else to `features` (a country with its region
  * borders); features outside the frame are cut off. `globe` draws an orthographic globe of
- * `features` (every country) rotated to centre the highlighted one.
+ * `features` (every country) rotated to centre the highlighted one, else the dot. A highlight too
+ * small to see gets ring markers (`smallTargetRings`).
  */
 export default function HighlightMap({
   features,
@@ -28,9 +38,18 @@ export default function HighlightMap({
   const highlight = features.find((f) => f.id === highlightId);
   const projection = useMemo(() => {
     if (mode === 'fit') return fitFlat(frame ? [frame] : features);
-    return fitGlobe(highlight ? answerPoint(highlight) : [NEUTRAL_VIEW.lng, NEUTRAL_VIEW.lat]);
-  }, [mode, features, frame, highlight]);
+    const centre = highlight ? answerPoint(highlight) : point;
+    return fitGlobe(centre ?? [NEUTRAL_VIEW.lng, NEUTRAL_VIEW.lat]);
+  }, [mode, features, frame, highlight, point]);
   const path = useMemo(() => geoPath(projection), [projection]);
+  const rings = highlight
+    ? smallTargetRings(
+        path,
+        highlight,
+        SMALL_TARGET_PX * SVG_UNITS_PER_PX,
+        RING_RADIUS_PX * SVG_UNITS_PER_PX,
+      )
+    : [];
   return (
     <svg
       className="map"
@@ -44,6 +63,7 @@ export default function HighlightMap({
       )}
       {/* Drawn last so its neighbours' borders do not paint over it. */}
       {highlight && <path className="map-land map-highlight" d={path(highlight) ?? ''} />}
+      <Rings at={rings} />
       {point && <Dot projection={projection} at={point} />}
     </svg>
   );

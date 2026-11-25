@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
-import { gradeMultipleChoice, gradeTap, maptapScore, maptapScoreRaw, type TapInput } from './grading';
+import {
+  gradeMultipleChoice,
+  gradeTap,
+  isPass,
+  maptapScore,
+  maptapScoreRaw,
+  type TapInput,
+} from './grading';
+
+describe('isPass', () => {
+  it('passes Good and Easy, not Hard or Again', () => {
+    expect([Rating.Again, Rating.Hard, Rating.Good, Rating.Easy].map(isPass)).toEqual([
+      false,
+      false,
+      true,
+      true,
+    ]);
+  });
+});
 
 describe('maptapScore', () => {
   it('is 100 at 0 km', () => expect(maptapScore(0)).toBe(100));

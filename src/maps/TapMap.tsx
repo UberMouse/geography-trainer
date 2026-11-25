@@ -3,13 +3,17 @@ import { useMemo, useRef, useState } from 'react';
 import type { AreaFeature, LngLat, TapTarget } from './geo';
 import type { GestureEvent } from './gestures';
 import type { IdentifiedFeature } from './HighlightMap';
-import { Dot } from './marks';
+import { Dot, Rings } from './marks';
 import { usePointerGestures } from './usePointerGestures';
 import {
   IDENTITY,
   MAP_SIZE,
+  RING_RADIUS_PX,
+  SMALL_TARGET_PX,
+  SVG_UNITS_PER_PX,
   fitFlat,
   panFlat,
+  smallTargetRings,
   unapply,
   wheelFactor,
   zoomFlat,
@@ -20,7 +24,8 @@ import {
  * A flat bordered map fitted to `frame` when given (such as a country's main part), else to
  * `features`, to tap on. Wheel or pinch zooms (1–16×), drag pans (never beyond the fitted frame),
  * and a tap calls `onPin` with the tapped lng/lat. `reveal` shades the target feature (or draws
- * its point) under the pin.
+ * its point) under the pin, with ring markers when it is drawn too small to see at the current
+ * zoom (`smallTargetRings`).
  */
 export default function TapMap({
   features,
@@ -49,6 +54,17 @@ export default function TapMap({
     () => (reveal && 'feature' in reveal ? (geoPath(projection)(reveal.feature) ?? '') : null),
     [projection, reveal],
   );
+
+  // In map units, so they follow the zoom; drawn through `toScreen` at a fixed size.
+  const rings =
+    reveal && 'feature' in reveal
+      ? smallTargetRings(
+          geoPath(projection),
+          reveal.feature,
+          (SMALL_TARGET_PX * SVG_UNITS_PER_PX) / transform.k,
+          (RING_RADIUS_PX * SVG_UNITS_PER_PX) / transform.k,
+        )
+      : [];
 
   const update = (next: FlatTransform) => {
     transformRef.current = next;
@@ -100,6 +116,7 @@ export default function TapMap({
         ))}
         {revealD !== null && <path className="map-land map-reveal" d={revealD} />}
       </g>
+      <Rings at={rings.map(toScreen)} reveal />
       {reveal && 'point' in reveal && (
         <Dot projection={projection} at={reveal.point} transform={toScreen} />
       )}
