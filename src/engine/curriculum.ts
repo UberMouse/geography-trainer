@@ -16,7 +16,7 @@ export interface CurriculumItem {
   /** Namespaced id of the owning country (itself for a country). */
   readonly countryId: string;
   /** A place's `level`; a country's or region's is the minimum `level` among all its places
-   * (Infinity when it has none). */
+   * (a region always has one; a country with no places has Infinity). */
   readonly difficulty: number;
   /** The underlying place, for place items. */
   readonly place?: Readonly<Place>;
@@ -40,7 +40,9 @@ export const placeItemId = (id: string) => `place:${id}`;
 /** An item while the tree is being built: `children` and `difficulty` still change. */
 type DraftItem = { -readonly [K in keyof CurriculumItem]: CurriculumItem[K] } & { children: string[] };
 
-/** Throws on a duplicate country, region or place id, an unknown country, or a place without its region. */
+/** Throws on a duplicate country, region or place id, an unknown country, or a place without its region.
+ * A region with no places (every region of a country without a regions tier, and many others) is
+ * left out: it is not an item and not its country's child. */
 export function buildCurriculum(
   countries: readonly Country[],
   regions: readonly Region[],
@@ -92,6 +94,13 @@ export function buildCurriculum(
     countryPlaceCount.set(countryId, (countryPlaceCount.get(countryId) ?? 0) + 1);
     country.difficulty = Math.min(country.difficulty, p.level);
     parent.difficulty = Math.min(parent.difficulty, p.level);
+  }
+  for (const r of regions) {
+    const region = items.get(regionItemId(r.id))!;
+    if (region.children.length > 0) continue;
+    items.delete(region.id);
+    const country = items.get(region.parent!)!;
+    country.children = country.children.filter((c) => c !== region.id);
   }
   return { items, countryPlaceCount };
 }

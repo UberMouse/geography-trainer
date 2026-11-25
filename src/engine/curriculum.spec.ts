@@ -63,7 +63,6 @@ describe('buildCurriculum', () => {
     const c = fixture();
     expect(c.items.get('country:france')!.children).toEqual([
       'region:france.bretagne',
-      'region:france.crozet',
       'region:france.corse',
     ]);
     expect(c.items.get('region:france.bretagne')!.children).toEqual(['place:rennes', 'place:brest']);
@@ -83,8 +82,21 @@ describe('buildCurriculum', () => {
     expect(c.items.get('place:brest')!.difficulty).toBe(3);
     expect(c.items.get('region:france.bretagne')!.difficulty).toBe(2);
     expect(c.items.get('country:france')!.difficulty).toBe(2);
-    expect(c.items.get('region:france.crozet')!.difficulty).toBe(Infinity);
+    expect(c.items.get('region:france.corse')!.difficulty).toBe(4);
     expect(c.countryPlaceCount.get('country:france')).toBe(3);
+  });
+
+  it('leaves out regions with no places, including those of a country without a regions tier', () => {
+    const c = buildCurriculum(
+      [country('france', 1, true), country('tuvalu', 1, false)],
+      [region('france.a', 'france', 1), region('france.empty', 'france', 0), region('tuvalu.x', 'tuvalu', 0)],
+      [place('p', 'france', 'france.a', 1), place('q', 'tuvalu', null, 2)],
+    );
+    expect(c.items.has('region:france.empty')).toBe(false);
+    expect(c.items.has('region:tuvalu.x')).toBe(false);
+    expect(c.items.get('country:france')!.children).toEqual(['region:france.a']);
+    expect(c.items.get('country:tuvalu')!.children).toEqual(['place:q']);
+    expect(c.items.size).toBe(5);
   });
 
   it('throws on a place with an unknown country or a missing region', () => {
@@ -134,7 +146,8 @@ describe('unlockedItems', () => {
   it("mastering France unlocks its regions but not Germany's", () => {
     const got = ids(unlockedItems(fixture(), { 'country:france': mastered('country:france') }));
     expect(got).toContain('region:france.bretagne');
-    expect(got).toContain('region:france.crozet');
+    expect(got).toContain('region:france.corse');
+    expect(got).not.toContain('region:france.crozet');
     expect(got).not.toContain('region:germany.bayern');
     expect(got).not.toContain('place:rennes');
   });
@@ -232,13 +245,12 @@ describe('newItems', () => {
   it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
     const progress = { 'country:france': mastered('country:france') };
     const got = ids(newItems(fixture(), progress, { placeTypes: new Set() }));
-    // Difficulties: germany 1, bretagne 2, tuvalu 3, corse 4, crozet Infinity (france has progress).
+    // Difficulties: germany 1, bretagne 2, tuvalu 3, corse 4 (the empty crozet is not an item).
     expect(got).toEqual([
       'country:germany',
       'region:france.bretagne',
       'country:tuvalu',
       'region:france.corse',
-      'region:france.crozet',
     ]);
   });
 });

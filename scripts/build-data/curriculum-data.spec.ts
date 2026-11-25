@@ -42,7 +42,11 @@ describe('curriculum on the committed data', () => {
 
   it('builds, and puts London before Akron and the US before Tuvalu', () => {
     const c = buildCurriculum(countries, regions, places);
-    expect(c.items.size).toBe(countries.length + regions.length + places.length);
+    const regionItems = [...c.items.values()].filter((i) => i.tier === 'region');
+    expect(regionItems.length).toBeGreaterThan(0);
+    expect(regionItems.length).toBeLessThan(regions.length);
+    expect(regionItems.every((r) => r.children.length > 0)).toBe(true);
+    expect(c.items.size).toBe(countries.length + regionItems.length + places.length);
     const progress: Record<string, ItemProgress> = {};
     for (const item of c.items.values()) {
       if (item.tier !== 'place') progress[item.id] = mastered(item.id);
