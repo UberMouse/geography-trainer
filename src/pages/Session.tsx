@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { buildCountryCurriculum } from '../engine/curriculum';
 import { buildSession } from '../engine/session';
@@ -10,7 +10,7 @@ import {
   startRun,
   type SessionRun,
 } from '../engine/sessionRun';
-import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
+import type { ItemProgress } from '../engine/srs';
 import { introducedToday } from '../engine/today';
 import type { Place } from '../engine/types';
 import { loadCountries, loadPlaces, type CountriesData } from '../data/loaders';
@@ -20,7 +20,7 @@ import type { ExerciseResult } from '../exercises/types';
 import { repo, type AnswerEntry } from '../storage/repo';
 import { createSaveQueue } from '../storage/saveQueue';
 import Status from './LoadStatus';
-import { questionHeader, questionSeed } from './sessionView';
+import { answerEntry, questionHeader, questionSeed } from './sessionView';
 import { useLoaded } from './useLoaded';
 
 interface SessionData {
@@ -71,6 +71,26 @@ function Runner({ data }: { data: SessionData }) {
   const progress = useRef(data.progress);
   const [queue] = useState(() => createSaveQueue<AnswerEntry>((entry) => repo.recordAnswer(entry)));
   const { failed, unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
+  // Chosen once per visit, so the same item at the same position varies its options between visits.
+  const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
+  const question = run.queue[0];
+  const ended = roundEnded(run);
+  // Built once per question: a new `item.target` on every render would reset the globe's view.
+  const item = useMemo(
+    () => (question ? buildExerciseItem(question.itemId, { countries, places }) : null),
+    [question, countries, places],
+  );
+  const questionRef = useRef<HTMLDivElement>(null);
+  const summaryRef = useRef<HTMLHeadingElement>(null);
+  const firstRender = useRef(true);
+  // Move focus to the new question or the summary: the button that had it has unmounted.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    (ended ? summaryRef : questionRef).current?.focus();
+  }, [run.answered, ended]);
 
   if (initial.empty) {
     return (
@@ -95,16 +115,16 @@ function Runner({ data }: { data: SessionData }) {
     </div>
   );
 
-  if (roundEnded(run)) {
+  if (ended || !question || !item) {
     return (
-      <>
+      <div data-unsaved={unsaved}>
         {banner}
-        <h1>
+        <h2 ref={summaryRef} tabIndex={-1} className="session-summary">
           Round done: {run.correctInRound} of {run.answeredInRound} right
-        </h1>
+        </h2>
         {questionsRemain(run) ? (
           <p>
-            <button type="button" onClick={() => setRun(nextRound(run))}>
+            <button type="button" className="session-button" onClick={() => setRun(nextRound(run))}>
               Keep going
             </button>
           </p>
@@ -114,33 +134,21 @@ function Runner({ data }: { data: SessionData }) {
         <p>
           <Link to="/">Back to Home</Link>
         </p>
-      </>
+      </div>
     );
   }
 
-  const question = run.queue[0]!;
-  const item = buildExerciseItem(question.itemId, { countries, places });
-
   const onAnswer = (result: ExerciseResult) => {
     const now = new Date();
-    const dayKey = localDayKey(now, -now.getTimezoneOffset());
-    const before = progress.current[question.itemId] ?? createProgress(question.itemId, now);
-    const after = applyAnswer(before, question.rung, result.rating, now, dayKey);
+    const { after, entry } = answerEntry(
+      progress.current[question.itemId],
+      question,
+      result,
+      now,
+      -now.getTimezoneOffset(),
+    );
     progress.current = { ...progress.current, [question.itemId]: after };
-    queue.push({
-      progress: after,
-      answer: {
-        itemId: question.itemId,
-        rung: question.rung,
-        rating: result.rating,
-        correct: result.correct,
-        timeMs: result.timeMs,
-        km: result.km,
-        maptapScore: result.maptapScore,
-        at: now.getTime(),
-        dayKey,
-      },
-    });
+    queue.push(entry);
     setAnsweredRun(answerCurrent(run, { rating: result.rating, correct: result.correct, after }));
   };
 
@@ -150,13 +158,15 @@ function Runner({ data }: { data: SessionData }) {
   };
 
   return (
-    <>
+    <div data-unsaved={unsaved}>
       {banner}
       <div className="session-header">
         <span>{questionHeader(run)}</span>
         <Link to="/">Quit</Link>
       </div>
       <div
+        ref={questionRef}
+        tabIndex={-1}
         data-testid="session-question"
         data-item-id={item.id}
         data-item-name={item.name}
@@ -166,11 +176,11 @@ function Runner({ data }: { data: SessionData }) {
           key={run.answered}
           item={item}
           rung={question.rung}
-          seed={questionSeed(item.id, run.answered)}
+          seed={questionSeed(item.id, run.answered, salt)}
           onAnswer={onAnswer}
           onNext={onNext}
         />
       </div>
-    </>
+    </div>
   );
 }

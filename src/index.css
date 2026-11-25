@@ -270,3 +270,19 @@ a {
 .session-banner p {
   margin: 0 0 8px;
 }
+
+.session-summary {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.session-button {
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+}
+
+.session-summary:focus,
+[data-testid='session-question']:focus {
+  outline: none;
+}

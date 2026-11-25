@@ -73,13 +73,15 @@ test('a correct L1 answer brings the same item back at L2 within the next 4 ques
 test('a round ends in a summary, and progress survives a reload', async ({ page, isMobile }) => {
   await page.goto('/session');
   const first = await current(page);
-  while (!(await summary(page).isVisible())) {
+  for (let i = 0; i < 25 && !(await summary(page).isVisible()); i++) {
     const q = await current(page);
     await answer(page, isMobile, q);
     await next(page);
     await expect(question(page).or(summary(page))).toBeVisible(WAIT);
   }
   await expect(summary(page)).toHaveText(/ of 20 right$/);
+  // Every answer is written to IndexedDB before the reload.
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
   await expect(page.getByRole('button', { name: 'Keep going' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible();
 
