@@ -7,6 +7,7 @@ import {
   nextRound,
   questionsRemain,
   roundEnded,
+  skipCurrent,
   startRun,
   type SessionRun,
 } from '../engine/sessionRun';
@@ -67,6 +68,8 @@ function Runner({ data }: { data: SessionData }) {
   const [run, setRun] = useState<SessionRun>(initial.run);
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
+  // True when the current question's answer could not be recorded and the question is skipped.
+  const [recordFailed, setRecordFailed] = useState(false);
   const progress = useRef(data.progress);
   const queue = progressStore.answers;
   const { unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
@@ -81,13 +84,12 @@ function Runner({ data }: { data: SessionData }) {
   );
   const questionRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLHeadingElement>(null);
-  const firstRender = useRef(true);
-  // Move focus to the new question or the summary: the button that had it has unmounted.
+  const lastSeen = useRef({ answered: run.answered, ended });
+  // Move focus to the new question or the summary: the button that had it has unmounted. Skipped
+  // when nothing changed, so the first mount (and StrictMode's second effect run) leaves focus alone.
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
+    if (lastSeen.current.answered === run.answered && lastSeen.current.ended === ended) return;
+    lastSeen.current = { answered: run.answered, ended };
     (ended ? summaryRef : questionRef).current?.focus();
   }, [run.answered, ended]);
 
@@ -126,21 +128,31 @@ function Runner({ data }: { data: SessionData }) {
 
   const onAnswer = (result: ExerciseResult) => {
     const now = new Date();
-    const { after, entry } = answerEntry(
-      progress.current[question.itemId],
-      question,
-      result,
-      now,
-      -now.getTimezoneOffset(),
-    );
-    progress.current = { ...progress.current, [question.itemId]: after };
-    queue.push(entry);
+    let after;
+    try {
+      const recorded = answerEntry(
+        progress.current[question.itemId],
+        question,
+        result,
+        now,
+        -now.getTimezoneOffset(),
+      );
+      after = recorded.after;
+      queue.push(recorded.entry);
+      progress.current = { ...progress.current, [question.itemId]: after };
+    } catch (error) {
+      console.error('[session] could not record answer', question.itemId, error);
+      setRecordFailed(true);
+      setAnsweredRun(skipCurrent(run));
+      return;
+    }
     setAnsweredRun(answerCurrent(run, { rating: result.rating, correct: result.correct, after }));
   };
 
   const onNext = () => {
     if (answeredRun) setRun(answeredRun);
     setAnsweredRun(null);
+    setRecordFailed(false);
   };
 
   return (
@@ -165,6 +177,9 @@ function Runner({ data }: { data: SessionData }) {
           onAnswer={onAnswer}
           onNext={onNext}
         />
+        {recordFailed && (
+          <p role="alert">This answer could not be recorded, so this country is skipped for now.</p>
+        )}
       </div>
     </div>
   );

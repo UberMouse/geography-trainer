@@ -82,6 +82,24 @@ export function answerCurrent(run: SessionRun, answer: RunAnswer): SessionRun {
   };
 }
 
+/**
+ * Drops the current question (the head of the queue) without re-queuing it, counting it as an answered,
+ * incorrect question. For an answer that could not be recorded. Throws when the queue is empty.
+ */
+export function skipCurrent(run: SessionRun): SessionRun {
+  const [current, ...queue] = run.queue;
+  if (!current) throw new Error('No current question');
+  const answeredInRound = run.answeredInRound + 1;
+  return {
+    queue,
+    answered: run.answered + 1,
+    answeredInRound,
+    correctInRound: run.correctInRound,
+    asks: { ...run.asks, [current.itemId]: (run.asks[current.itemId] ?? 0) + 1 },
+    roundTotal: roundTotalOf(answeredInRound, queue.length),
+  };
+}
+
 /** "Keep going": the next round, with its counts at zero and the queue as it is. */
 export function nextRound(run: SessionRun): SessionRun {
   return { ...run, answeredInRound: 0, correctInRound: 0, roundTotal: roundTotalOf(0, run.queue.length) };

@@ -7,6 +7,7 @@ import {
   nextRound,
   questionsRemain,
   roundEnded,
+  skipCurrent,
   startRun,
   type SessionRun,
 } from './sessionRun';
@@ -151,5 +152,33 @@ describe('sessionRun', () => {
     expect(JSON.stringify(run)).toBe(runSnapshot);
     expect(JSON.stringify(progress)).toBe(progressSnapshot);
     expect(queue).toEqual(queueOf(5));
+  });
+
+  describe('skipCurrent', () => {
+    it('removes the head without a re-queue and counts an incorrect answered question', () => {
+      const run = startRun(queueOf(4));
+      const next = skipCurrent(run);
+      expect(ids(next)).toEqual(['1', '2', '3']);
+      expect(next.answered).toBe(1);
+      expect(next.answeredInRound).toBe(1);
+      expect(next.correctInRound).toBe(0);
+      expect(next.asks).toEqual({ 'country:c0': 1 });
+      expect(next.roundTotal).toBe(4);
+    });
+
+    it('still ends the round at SESSION_ROUND_SIZE', () => {
+      let run = startRun(queueOf(SESSION_ROUND_SIZE + 5));
+      for (let i = 0; i < SESSION_ROUND_SIZE; i++) run = skipCurrent(run);
+      expect(roundEnded(run)).toBe(true);
+      expect(questionsRemain(run)).toBe(true);
+    });
+
+    it('does not mutate its input and throws on an empty queue', () => {
+      const run = startRun(queueOf(3));
+      const snapshot = JSON.stringify(run);
+      skipCurrent(run);
+      expect(JSON.stringify(run)).toBe(snapshot);
+      expect(() => skipCurrent(startRun([]))).toThrow('No current question');
+    });
   });
 });

@@ -116,7 +116,7 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
       {numbers.sessionLength > 0 ? (
         <p>
           <Link to="/session" className="home-start">
-            Start ({numbers.sessionLength} questions)
+            Start ({numbers.sessionLength} {numbers.sessionLength === 1 ? 'question' : 'questions'})
           </Link>
         </p>
       ) : (
