@@ -69,7 +69,10 @@ claude plugin test .claude/skills/idle-compact
 
 ## Git
 
-- `main` is the default branch. Work happens on a feature branch in a worktree; never push to
-  `main`, force-push or merge from an agent.
+- `main` is the default branch. Work happens on a feature branch in a worktree.
+- The agent merges its own finished work: once a branch is reviewed and `npm run verify` passes
+  on it, fast-forward local `main` to it (`git merge --ff-only <branch>` from the main checkout)
+  and carry on with the next step. Never merge red or unreviewed work, never force-push, and
+  never rewrite `main`'s history.
 - Commit subjects are `<type>(<scope>): <what>` (`feat`, `fix`, `refactor`, `test`, `chore`,
   `docs`, `data`). A `refactor` commit changes no behaviour and says `No behaviour change.`
