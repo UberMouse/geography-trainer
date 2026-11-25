@@ -113,6 +113,12 @@ describe('offersPlacement', () => {
     expect(offersPlacement({ 'country:france': seed })).toBe(true);
   });
 
+  it('stops offering once a passed seed is answered in a session', () => {
+    const seed = seedFromPlacement('country:france', 'passed', NOW, '2026-03-04');
+    const studied = applyAnswer(seed, 4, 3, NOW, '2026-03-04');
+    expect(offersPlacement({ 'country:france': studied })).toBe(false);
+  });
+
   it('stops offering once an item is answered in a session', () => {
     expect(offersPlacement({ 'country:france': started('country:france') })).toBe(false);
   });

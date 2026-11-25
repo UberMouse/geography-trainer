@@ -8,6 +8,7 @@ import {
   answerPlacement,
   canTestOut,
   finishPlacement,
+  isStudied,
   nextQuestion,
   placementPool,
   placementSeeds,
@@ -509,6 +510,27 @@ describe('placementSeeds', () => {
   });
 });
 
+describe('isStudied', () => {
+  const DAY = '2026-03-04';
+  it('is false for a fresh row and for every placement seed', () => {
+    expect(isStudied(createProgress('country:a', T0))).toBe(false);
+    for (const outcome of ['passed', 'untestedAtOrBelow', 'failed', 'aboveEstimate'] as const) {
+      expect(isStudied(seedFromPlacement('country:a', outcome, T0, DAY))).toBe(false);
+    }
+  });
+
+  it('is true for a passed seed after one answer at rung 4, whatever the rating', () => {
+    const seed = seedFromPlacement('country:a', 'passed', T0, DAY);
+    expect(isStudied(applyAnswer(seed, 4, Rating.Good, T0, DAY))).toBe(true);
+    expect(isStudied(applyAnswer(seed, 4, Rating.Again, T0, DAY))).toBe(true);
+  });
+
+  it('is true for an untestedAtOrBelow seed after one answer', () => {
+    const seed = seedFromPlacement('country:a', 'untestedAtOrBelow', T0, DAY);
+    expect(isStudied(applyAnswer(seed, 3, Rating.Good, T0, DAY))).toBe(true);
+  });
+});
+
 describe('canTestOut', () => {
   const c = fixture();
   const masteredFrance = { 'country:france': mastered('country:france') };
@@ -531,6 +553,12 @@ describe('canTestOut', () => {
   it('is false once a child has been studied', () => {
     const studied = applyAnswer(createProgress('region:france.corse', T0), 1, Rating.Good, T0, '2026-03-04');
     expect(studied.introducedAt).not.toBeNull();
+    expect(canTestOut(c, { ...masteredFrance, 'region:france.corse': studied }, 'country:france')).toBe(false);
+  });
+
+  it('is false once a passed-seed child has been studied', () => {
+    const seed = seedFromPlacement('region:france.corse', 'passed', T0, '2026-03-04');
+    const studied = applyAnswer(seed, 4, Rating.Good, T0, '2026-03-04');
     expect(canTestOut(c, { ...masteredFrance, 'region:france.corse': studied }, 'country:france')).toBe(false);
   });
 

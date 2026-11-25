@@ -192,6 +192,29 @@ describe('seedProgress', () => {
     expect(stored).toHaveProperty('country:peru');
   });
 
+  it('makes loadProgress wait for a seed write in flight, and a failed one does not reject it', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const store = createProgressStore({
+      ...repo,
+      async seedProgress(rows) {
+        await gate;
+        await repo.seedProgress(rows);
+      },
+    });
+    const seeding = store.seedProgress([createProgress('country:peru', NOW)]);
+    const loading = store.loadProgress();
+    release();
+    await seeding;
+    expect(await loading).toHaveProperty('country:peru');
+
+    const failing = createProgressStore({ ...repo, seedProgress: () => Promise.reject(new Error('disk full')) });
+    const failed = failing.seedProgress([createProgress('country:chile', NOW)]);
+    const loadAfter = failing.loadProgress();
+    await expect(failed).rejects.toThrow('disk full');
+    await expect(loadAfter).resolves.not.toHaveProperty('country:chile');
+  });
+
   it('rejects when the write fails', async () => {
     const store = createProgressStore({
       ...repo,

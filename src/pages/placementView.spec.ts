@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlacementResult } from '../engine/placement';
 import type { PlacementOutcome } from '../engine/srs';
-import { emptyPoolText, placementHeader, resultLines, type PlacementTier } from './placementView';
+import { emptyPoolText, placementHeader, resultLines, saveFailureText, type PlacementTier } from './placementView';
 
 /** A result with the given number of items of each outcome. */
 function result(
@@ -21,8 +21,30 @@ function result(
 
 describe('placementHeader', () => {
   it('counts the question being asked, out of the maximum', () => {
-    expect(placementHeader(0)).toBe('Placement: question 1 of up to 20');
-    expect(placementHeader(6)).toBe('Placement: question 7 of up to 20');
+    expect(placementHeader(0, 50)).toBe('Placement: question 1 of up to 20');
+    expect(placementHeader(6, 20)).toBe('Placement: question 7 of up to 20');
+  });
+
+  it('caps the total at the number of askable items', () => {
+    expect(placementHeader(0, 3)).toBe('Placement: question 1 of up to 3');
+  });
+});
+
+describe('saveFailureText', () => {
+  it('is null when nothing failed', () => {
+    expect(saveFailureText([])).toBeNull();
+  });
+
+  it('words one failure for an answer and several for a count, with the latest error', () => {
+    expect(saveFailureText([{ itemId: 'country:peru', message: 'disk full' }])).toBe(
+      'This answer could not be saved: disk full',
+    );
+    expect(
+      saveFailureText([
+        { itemId: 'country:peru', message: 'disk full' },
+        { itemId: 'country:chile', message: 'quota' },
+      ]),
+    ).toBe('2 answers could not be saved: quota');
   });
 });
 

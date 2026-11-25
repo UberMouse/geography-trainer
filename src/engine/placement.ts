@@ -213,10 +213,20 @@ export function placementSeeds(
 }
 
 /**
+ * Whether the item has been studied: answered in a study session. That is `introducedAt` set, or
+ * a card past one rep. A passed placement seed is built at L4 with one rep and keeps
+ * `introducedAt` null (setting it would count the seed against the daily new-item cap), so its
+ * first answer in a session shows only as a second rep. A placement seed alone is not studied.
+ */
+export function isStudied(progress: ItemProgress): boolean {
+  return progress.introducedAt !== null || Object.values(progress.cards).some((c) => c.reps > 1);
+}
+
+/**
  * Whether the item can be tested out of: mastered, with children, at least one of which has no
- * progress row, and none of which has been studied (`introducedAt` set by an answer in a study
- * session). Rows a placement left (seeds) do not hide it, so quitting a test-out partway keeps
- * the link. Throws for an id not in the curriculum.
+ * progress row, and none of which has been studied (`isStudied`). Rows a placement left (seeds)
+ * do not hide it, so quitting a test-out partway keeps the link. Throws for an id not in the
+ * curriculum.
  */
 export function canTestOut(curriculum: Curriculum, progress: ProgressMap, itemId: string): boolean {
   if (!curriculum.items.has(itemId)) throw new Error(`Unknown item ${itemId}`);
@@ -226,6 +236,6 @@ export function canTestOut(curriculum: Curriculum, progress: ProgressMap, itemId
   const { childIds } = unlocked;
   return (
     childIds.some((id) => !progress[id]) &&
-    childIds.every((id) => (progress[id]?.introducedAt ?? null) === null)
+    childIds.every((id) => !progress[id] || !isStudied(progress[id]))
   );
 }

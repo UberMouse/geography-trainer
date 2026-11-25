@@ -31,29 +31,43 @@ export interface ProgressStore {
 
 export function createProgressStore(repository: ProgressRepo): ProgressStore {
   const answers = createSaveQueue<AnswerEntry>((entry) => repository.recordAnswer(entry));
+  // Seed writes in flight, from the call to settling; reads and the import wait for them.
+  const seeding = new Set<Promise<void>>();
+  const whenSeedsSettled = async () => {
+    await Promise.allSettled([...seeding]);
+  };
 
   return {
     answers,
     async loadProgress() {
       await answers.whenSettled();
+      await whenSeedsSettled();
       const stored = await repository.loadProgress();
       const progress = { ...stored };
       for (const entry of answers.unsavedEntries())
         progress[entry.progress.itemId] = entry.progress;
       return progress;
     },
-    async seedProgress(rows) {
-      await answers.whenSettled();
-      await repository.seedProgress(rows);
+    seedProgress(rows) {
+      const write = (async () => {
+        await answers.whenSettled();
+        await repository.seedProgress(rows);
+      })();
+      seeding.add(write);
+      const done = () => void seeding.delete(write);
+      write.then(done, done);
+      return write;
     },
     async exportProgress(now) {
       if (answers.getState().failed) await answers.retry();
       await answers.whenSettled();
+      await whenSeedsSettled();
       return repository.exportProgress(now);
     },
     async importProgress(parsed) {
       validateProgressFile(parsed);
       await answers.whenSettled();
+      await whenSeedsSettled();
       // Nothing is running now; an emptied queue has nothing for a retry or push to write over the import.
       const dropped = answers.unsavedEntries();
       const wasFailed = answers.getState().failed;

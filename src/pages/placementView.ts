@@ -1,6 +1,6 @@
 // Wording and counts for the placement test, kept out of the components so they can be unit-tested.
 
-import { PLACEMENT_MAX_QUESTIONS } from '../engine/config';
+import { PLACEMENT_MAX_LEVEL, PLACEMENT_MAX_QUESTIONS } from '../engine/config';
 import type { PlacementResult } from '../engine/placement';
 
 /** What a placement test is over: the tier whose items are tested. */
@@ -14,9 +14,27 @@ const NOUNS: Record<PlacementTier, { one: string; many: string }> = {
 
 const count = (n: number, tier: PlacementTier) => `${n} ${n === 1 ? NOUNS[tier].one : NOUNS[tier].many}`;
 
-/** "Placement: question 3 of up to 20", with `answered` questions already answered. */
-export const placementHeader = (answered: number): string =>
-  `Placement: question ${answered + 1} of up to ${PLACEMENT_MAX_QUESTIONS}`;
+/**
+ * "Placement: question 3 of up to 20", with `answered` questions already answered and
+ * `askable` items that can be asked (the test asks at most `PLACEMENT_MAX_QUESTIONS`).
+ */
+export const placementHeader = (answered: number, askable: number): string =>
+  `Placement: question ${answered + 1} of up to ${Math.min(PLACEMENT_MAX_QUESTIONS, askable)}`;
+
+/** A pass that failed to save as it was answered: the item and the error's message. */
+export interface FailedSave {
+  itemId: string;
+  message: string;
+}
+
+/** The alert for answers that could not be saved (with the latest error), or null when none failed. */
+export function saveFailureText(failed: readonly FailedSave[]): string | null {
+  if (failed.length === 0) return null;
+  const { message } = failed[failed.length - 1]!;
+  return failed.length === 1
+    ? `This answer could not be saved: ${message}`
+    : `${failed.length} answers could not be saved: ${message}`;
+}
 
 /**
  * The message for a test with nothing to test. A test out of `scopeName` (a country or region)
@@ -39,7 +57,7 @@ export function resultLines(result: PlacementResult, tier: PlacementTier): strin
   if (result.estimate === 0 && passed === 0 && below === 0) {
     return ['No level placed yet: everything starts from the beginning.'];
   }
-  const lines = [result.estimate === 0 ? 'No level placed yet.' : `Your level: ${result.estimate} of 8.`];
+  const lines = [result.estimate === 0 ? 'No level placed yet.' : `Your level: ${result.estimate} of ${PLACEMENT_MAX_LEVEL}.`];
   if (passed > 0) {
     const verb = passed === 1 ? 'comes' : 'come';
     lines.push(`${count(passed, tier)} you got right ${verb} back within a couple of days to confirm.`);

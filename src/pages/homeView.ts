@@ -1,5 +1,6 @@
 // Plain helpers for Home's export and import, kept out of the component so they can be unit-tested.
 
+import { isStudied } from '../engine/placement';
 import { localDayKey, type ItemProgress } from '../engine/srs';
 import { startedByTier, validateProgressFile, type ProgressFile, type TierCounts } from '../storage/progressFile';
 
@@ -69,8 +70,8 @@ export const leftOutText = (n: number): string =>
   `${n === 1 ? '1 answer' : `${n} answers`} could not be saved and ${n === 1 ? 'is' : 'are'} not in the file.`;
 
 /**
- * Whether Home offers the placement test: while no item has been studied, meaning no row has an
- * `introducedAt` (set by an answer in a study session; placement seeds never set it).
+ * Whether Home offers the placement test: while no item has been studied (`isStudied`: a
+ * placement seed alone is not studied).
  */
 export const offersPlacement = (progress: Readonly<Record<string, ItemProgress>>): boolean =>
-  Object.values(progress).every((row) => row.introducedAt === null);
+  !Object.values(progress).some(isStudied);

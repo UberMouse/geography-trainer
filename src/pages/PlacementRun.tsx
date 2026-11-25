@@ -16,7 +16,15 @@ import { localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs
 import Exercise from '../exercises/Exercise';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { progressStore } from '../storage/progressStore';
-import { emptyPoolText, NOTHING_TO_ASK_TEXT, placementHeader, resultLines, type PlacementTier } from './placementView';
+import {
+  emptyPoolText,
+  NOTHING_TO_ASK_TEXT,
+  placementHeader,
+  resultLines,
+  saveFailureText,
+  type FailedSave,
+  type PlacementTier,
+} from './placementView';
 import { questionSeed } from './sessionView';
 
 export interface PlacementRunProps {
@@ -50,15 +58,14 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   const [saving, setSaving] = useState<{ status: 'saving' | 'saved' } | { status: 'failed'; error: string }>(
     { status: 'saving' },
   );
-  // The save error belongs to the question (by position) whose answer failed to save.
-  const [passSaveError, setPassSaveError] = useState<{ position: number; message: string } | null>(
-    null,
-  );
+  // Passes that failed to save as they were answered; the final save writes them again.
+  const [failedSaves, setFailedSaves] = useState<FailedSave[]>([]);
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const questionRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const state = answered ?? asking?.state ?? null;
   const answeredCount = state?.answers.length ?? 0;
+  const saveFailure = saveFailureText(failedSaves);
   // How many questions came before the one on screen: unchanged while its reveal shows.
   const position = asking?.state.answers.length ?? 0;
   const lastSeen = useRef({ position, over: ended !== null });
@@ -156,7 +163,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
       () => undefined,
       (error: unknown) => {
         console.error('[placement] could not save answer', question.itemId, error);
-        setPassSaveError({ position: asking!.state.answers.length, message: messageOf(error) });
+        setFailedSaves((prev) => [...prev, { itemId: question.itemId, message: messageOf(error) }]);
       },
     );
   };
@@ -173,7 +180,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
     <>
       <h1>{heading}</h1>
       <div className="session-header">
-        <span>{placementHeader(position)}</span>
+        <span>{placementHeader(position, state?.items.length ?? 0)}</span>
         <Link to="/">Quit</Link>
       </div>
       <div
@@ -192,10 +199,8 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           onAnswer={onAnswer}
           onNext={onNext}
         />
-        {answered && passSaveError?.position === position && (
-          <p role="alert">This answer could not be saved: {passSaveError.message}</p>
-        )}
       </div>
+      {saveFailure !== null && <p role="alert">{saveFailure}</p>}
       {answeredCount > 0 && (
         <p>
           <button type="button" className="session-button" onClick={() => finish(state!)}>
