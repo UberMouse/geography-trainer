@@ -145,4 +145,18 @@ export const REGION_NAME_OVERRIDES: Record<string, { name: string; reason: strin
     reason:
       'NE labels it "Uruzgan", but gn_name/woe_name say Daykundi (split from Uruzgan in 2004)',
   },
+  'HRV-1604': {
+    name: 'Požeško-Slavonska',
+    reason:
+      'NE labels it "Brodsko-Posavska" (twin of HRV-1602), but its FIPS HR11, wikidata Q58111 and centre are Požega-Slavonia\'s',
+  },
+  'UGA-3371': {
+    name: 'Kiruhura',
+    reason: 'NE labels it "Mbarara", but its gn_name is Kiruhura District (UGA-3374 is Mbarara)',
+  },
+  'HUN-3158': { name: 'Veszprém (county)', reason: 'NE type County; shares a name with the city' },
+  'HUN-4909': {
+    name: 'Veszprém (city)',
+    reason: 'NE type Urban county; shares a name with the county',
+  },
 };

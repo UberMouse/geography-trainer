@@ -101,7 +101,6 @@ async function main(): Promise<number> {
     droppedAdmin1.push(...dropped);
     if (rows.length > 0) {
       const regions = buildRegions(country.id, rows, DISSOLVE_BY_REGION.has(country.id));
-      assertDistinctRegionNames(country.id, regions);
       regionsByCountry.set(country.id, regions);
     }
   }
@@ -147,6 +146,8 @@ async function main(): Promise<number> {
       )
       .map(([id]) => id),
   );
+  // Only regions that ship need distinct names; a country without a tier may repeat them.
+  for (const id of tier) assertDistinctRegionNames(id, regionsByCountry.get(id)!);
 
   const places: PlaceOut[] = kept.map(({ entry, country }) => ({
     id: entry.id,
