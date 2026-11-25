@@ -339,12 +339,6 @@
   ],
   "droppedAdmin1": [
     {
-      "code": "MAR-3456",
-      "name": "Laâyoune - Boujdour - Sakia El Hamra",
-      "country": "morocco",
-      "labelIn": "western-sahara"
-    },
-    {
       "code": "NLD-5147",
       "name": "Saba",
       "country": "netherlands",
