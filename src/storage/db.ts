@@ -20,6 +20,15 @@ export interface AnswerRow {
   dayKey: string;
 }
 
+/**
+ * One row of the key-value table: a finished-placement marker (key `placement:…`, value `true`) or
+ * a setting (key `setting:…`).
+ */
+export interface MetaRow {
+  key: string;
+  value: unknown;
+}
+
 export type NewAnswer = Omit<AnswerRow, 'id'>;
 
 export const DB_NAME = 'geography-trainer';
@@ -27,9 +36,12 @@ export const DB_NAME = 'geography-trainer';
 export class GeographyDb extends Dexie {
   progress!: EntityTable<ItemProgress, 'itemId'>;
   answers!: EntityTable<AnswerRow, 'id'>;
+  meta!: EntityTable<MetaRow, 'key'>;
 
   constructor(name: string = DB_NAME) {
     super(name);
     this.version(1).stores({ progress: 'itemId', answers: '++id' });
+    // Version 2 adds the key-value table; the progress and answers rows are left as they are.
+    this.version(2).stores({ progress: 'itemId', answers: '++id', meta: 'key' });
   }
 }

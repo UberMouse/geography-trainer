@@ -1,10 +1,12 @@
 import 'fake-indexeddb/auto';
 import { Rating, S_MIN } from 'ts-fsrs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import type { NewAnswer } from './db';
 import { startedByTier, validateProgressFile } from './progressFile';
 import { createRepo, type ProgressRepo } from './repo';
+import Dexie from 'dexie';
+import { placementKey } from './placementKeys';
 
 const NOW = new Date('2026-03-04T10:00:00Z');
 
@@ -62,7 +64,8 @@ describe('export and import', () => {
     await seed();
     const before = await repo.exportProgress(NOW);
     expect(before.format).toBe('geography-trainer-progress');
-    expect(before.version).toBe(1);
+    expect(before.version).toBe(2);
+    expect(before.placementsDone).toEqual([]);
     expect(before.exportedAt).toBe(NOW.toISOString());
     expect(before.progress).toHaveLength(2);
     expect(before.answers).toHaveLength(3);
@@ -99,7 +102,7 @@ describe('import rejection leaves the database unchanged', () => {
   type Mutate = (file: Record<string, any>) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
   const cases: [string, Mutate, RegExp][] = [
     ['a wrong format', (f) => (f.format = 'other'), /format/],
-    ['an unsupported version', (f) => (f.version = 2), /version/],
+    ['an unsupported version', (f) => (f.version = 3), /version/],
     ['a non-array progress', (f) => (f.progress = {}), /progress is not an array/],
     ['a non-array answers', (f) => (f.answers = 'x'), /answers is not an array/],
     ['a progress row without itemId', (f) => delete f.progress[0].itemId, /itemId/],
@@ -250,5 +253,174 @@ describe('seedProgress', () => {
     await repo.importProgress(file);
     expect(await repo.exportProgress(NOW)).toEqual(file);
     expect(Object.keys(await repo.loadProgress()).sort()).toEqual(['country:chad', 'country:peru']);
+  });
+});
+
+describe('the version-2 upgrade', () => {
+  it('keeps every progress and answers row and starts with no settings or markers', async () => {
+    const name = `upgrade-${counter}`;
+    const progress = [answered('country:france'), answered('country:peru')];
+    const answers = [
+      { id: 1, ...answerRow('country:france', { km: 4 }) },
+      { id: 2, ...answerRow('country:peru') },
+    ];
+    const old = new Dexie(name);
+    old.version(1).stores({ progress: 'itemId', answers: '++id' });
+    await old.table('progress').bulkAdd(progress);
+    await old.table('answers').bulkAdd(answers);
+    old.close();
+
+    const upgraded = createRepo(name);
+    try {
+      const file = await upgraded.exportProgress(NOW);
+      expect(file.progress).toEqual(progress);
+      expect(file.answers).toEqual(answers);
+      expect(file.placementsDone).toEqual([]);
+      expect(await upgraded.loadFinishedTests()).toEqual([]);
+      expect(await upgraded.loadSettings()).toEqual({ dailyNewCap: 15 });
+    } finally {
+      upgraded.close();
+    }
+  });
+});
+
+describe('settings', () => {
+  it('reads 15 when none is stored, then what was saved', async () => {
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 15 });
+    await repo.saveDailyNewCap(30);
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 30 });
+    await repo.saveDailyNewCap(5);
+    await repo.saveDailyNewCap(50);
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 50 });
+  });
+
+  it.each([4, 51, 10.5, NaN, Infinity, -10])('rejects %s without writing', async (value) => {
+    await repo.saveDailyNewCap(20);
+    await expect(repo.saveDailyNewCap(value)).rejects.toThrow(/daily limit/);
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 20 });
+  });
+
+  it('a stored value outside 5-50 or not an integer reads as 15', async () => {
+    const db = new Dexie(`test-${counter}`);
+    db.version(2).stores({ progress: 'itemId', answers: '++id', meta: 'key' });
+    for (const bad of [3, 99, 7.5, '20', null]) {
+      await db.table('meta').put({ key: 'setting:dailyNewCap', value: bad });
+      expect(await repo.loadSettings()).toEqual({ dailyNewCap: 15 });
+    }
+    db.close();
+  });
+
+  it('settings are not in the export, survive an import and a reset', async () => {
+    await repo.saveDailyNewCap(25);
+    const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
+    expect(JSON.stringify(file)).not.toContain('25');
+    await repo.importProgress(file);
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 25 });
+    await repo.resetProgress();
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 25 });
+  });
+});
+
+describe('finishPlacement', () => {
+  it('writes the seed rows (add-if-absent) and the marker', async () => {
+    const stored = answered('country:france');
+    await repo.recordAnswer({ progress: stored, answer: answerRow(stored.itemId) });
+    const fresh = createProgress('country:peru', NOW);
+    await repo.finishPlacement(placementKey('countries'), [createProgress('country:france', NOW), fresh]);
+    expect(await repo.loadProgress()).toEqual({ 'country:france': stored, 'country:peru': fresh });
+    expect(await repo.loadFinishedTests()).toEqual(['placement:countries']);
+  });
+
+  it('a failed seed write leaves no marker and no rows', async () => {
+    const dupe = createProgress('country:peru', NOW);
+    // bulkAdd of two rows with one item id fails inside the transaction, after the rows are checked.
+    await expect(repo.finishPlacement(placementKey('countries'), [dupe, dupe])).rejects.toThrow();
+    expect(await repo.loadProgress()).toEqual({});
+    expect(await repo.loadFinishedTests()).toEqual([]);
+  });
+
+  it('a failed marker write rolls back the seed rows already added', async () => {
+    const probe = new Dexie(`probe-${counter}`);
+    probe.version(1).stores({ meta: 'key' });
+    // Dexie gives each database its own table class; `put` is defined on the shared base class.
+    let tableClass = Object.getPrototypeOf(probe.table('meta'));
+    while (!Object.hasOwn(tableClass, 'put')) tableClass = Object.getPrototypeOf(tableClass);
+    const put = vi.spyOn(tableClass, 'put').mockRejectedValueOnce(new Error('disk full'));
+    try {
+      await expect(repo.finishPlacement(placementKey('countries'), [createProgress('country:peru', NOW)])).rejects.toThrow(
+        'disk full',
+      );
+    } finally {
+      put.mockRestore();
+      probe.close();
+    }
+    expect(await repo.loadProgress()).toEqual({});
+    expect(await repo.loadFinishedTests()).toEqual([]);
+  });
+
+  it('rejects a malformed key without writing', async () => {
+    await expect(repo.finishPlacement('placement:place:paris', [createProgress('country:peru', NOW)])).rejects.toThrow(
+      /placement key/,
+    );
+    expect(await repo.loadProgress()).toEqual({});
+  });
+
+  it('markers for several tests are listed and a retake writes the same marker again', async () => {
+    await repo.finishPlacement(placementKey('region:us.tx'), []);
+    await repo.finishPlacement(placementKey('country:peru'), []);
+    await repo.finishPlacement(placementKey('country:peru'), []);
+    expect(await repo.loadFinishedTests()).toEqual(['placement:country:peru', 'placement:region:us.tx']);
+  });
+});
+
+describe('resetProgress', () => {
+  it('clears progress, answers and markers and keeps settings', async () => {
+    await seed();
+    await repo.finishPlacement(placementKey('countries'), []);
+    await repo.saveDailyNewCap(40);
+    await repo.resetProgress();
+    const file = await repo.exportProgress(NOW);
+    expect(file).toMatchObject({ progress: [], answers: [], placementsDone: [] });
+    expect(await repo.loadSettings()).toEqual({ dailyNewCap: 40 });
+  });
+});
+
+describe('export version 2 and import', () => {
+  it('round-trips the markers, replacing the markers already stored', async () => {
+    await seed();
+    await repo.finishPlacement(placementKey('countries'), []);
+    await repo.finishPlacement(placementKey('region:us.tx'), []);
+    const before = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
+    expect(before.placementsDone).toEqual(['placement:countries', 'placement:region:us.tx']);
+    await repo.finishPlacement(placementKey('country:peru'), []);
+    await repo.importProgress(before);
+    expect(await repo.exportProgress(NOW)).toEqual(before);
+  });
+
+  it('a version-1 file still imports, replacing the markers with none', async () => {
+    await repo.finishPlacement(placementKey('countries'), []);
+    const v1 = { format: 'geography-trainer-progress', version: 1, exportedAt: NOW.toISOString(), progress: [answered('country:chad')], answers: [] };
+    await repo.importProgress(v1);
+    const after = await repo.exportProgress(NOW);
+    expect(after.version).toBe(2);
+    expect(after.placementsDone).toEqual([]);
+    expect(after.progress).toEqual(v1.progress);
+    expect(validateProgressFile(v1)).toMatchObject({ version: 2, placementsDone: [] });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['not an array', 'placement:countries'],
+    ['holding a non-string', [3]],
+    ['holding a malformed key', ['placement:place:paris']],
+    ['holding an empty region part', ['placement:region:us.']],
+    ['holding an empty country id', ['placement:country:']],
+    ['holding a duplicate', ['placement:countries', 'placement:countries']],
+  ])('rejects a version-2 file whose placementsDone is %s, leaving the data unchanged', async (_, value) => {
+    await seed();
+    const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
+    file.placementsDone = value;
+    await expect(repo.importProgress(file)).rejects.toThrow(/placement/);
+    expect((await repo.exportProgress(NOW)).progress).toHaveLength(2);
   });
 });

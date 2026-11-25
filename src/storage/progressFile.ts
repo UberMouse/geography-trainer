@@ -3,9 +3,10 @@
 import { S_MIN } from 'ts-fsrs';
 import { isIntroduced, type ItemProgress } from '../engine/srs';
 import type { AnswerRow } from './db';
+import { isPlacementKey } from './placementKeys';
 
 export const FILE_FORMAT = 'geography-trainer-progress';
-export const FILE_VERSION = 1;
+export const FILE_VERSION = 2;
 
 export interface ProgressFile {
   format: typeof FILE_FORMAT;
@@ -14,6 +15,8 @@ export interface ProgressFile {
   exportedAt: string;
   progress: ItemProgress[];
   answers: AnswerRow[];
+  /** Marker keys of the finished placement tests (see `placementKeys.ts`). */
+  placementsDone: string[];
 }
 
 type Obj = Record<string, unknown>;
@@ -120,19 +123,32 @@ function checkUnique(keys: (string | number)[], what: string) {
   }
 }
 
-/** Checks a parsed progress file and returns the same object, typed (not a copy). Throws an `Error` naming the first problem. */
+/**
+ * Checks a parsed progress file (version 1 or 2) and returns it typed. A version-2 file comes back
+ * as the same object; a version-1 file as a copy normalised to version 2 with no placement
+ * markers. Throws an `Error` naming the first problem.
+ */
 export function validateProgressFile(parsed: unknown): ProgressFile {
   if (!isObj(parsed)) throw new Error('The file is not a progress export');
   if (parsed.format !== FILE_FORMAT) throw new Error(`Wrong format: expected "${FILE_FORMAT}"`);
-  if (parsed.version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(parsed.version)}`);
+  if (parsed.version !== FILE_VERSION && parsed.version !== 1) throw new Error(`Unsupported version: ${String(parsed.version)}`);
   if (typeof parsed.exportedAt !== 'string' || !isEpochMs(Date.parse(parsed.exportedAt))) {
     throw new Error('exportedAt is not a date string');
   }
   if (!Array.isArray(parsed.progress)) throw new Error('progress is not an array');
   if (!Array.isArray(parsed.answers)) throw new Error('answers is not an array');
+  if (parsed.version === FILE_VERSION) {
+    const done = parsed.placementsDone;
+    if (!Array.isArray(done) || !done.every(isPlacementKey)) {
+      throw new Error('placementsDone is not an array of placement keys');
+    }
+    checkUnique(done as string[], 'placement markers');
+  }
   parsed.progress.forEach(checkProgress);
   parsed.answers.forEach(checkAnswer);
-  const file = parsed as unknown as ProgressFile;
+  const file = (
+    parsed.version === 1 ? { ...parsed, version: FILE_VERSION, placementsDone: [] } : parsed
+  ) as unknown as ProgressFile;
   checkUnique(
     file.progress.map((row) => row.itemId),
     'progress rows (itemId)',

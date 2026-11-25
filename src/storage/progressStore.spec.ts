@@ -223,3 +223,58 @@ describe('seedProgress', () => {
     await expect(store.seedProgress([createProgress('country:peru', NOW)])).rejects.toThrow('disk full');
   });
 });
+
+describe('settings, markers and reset through the store', () => {
+  it('reads the default limit, saves a valid one, rejects an invalid one without writing', async () => {
+    const store = createProgressStore(repo);
+    expect(await store.loadSettings()).toEqual({ dailyNewCap: 15 });
+    await store.saveDailyNewCap(20);
+    await expect(store.saveDailyNewCap(4)).rejects.toThrow();
+    expect(await store.loadSettings()).toEqual({ dailyNewCap: 20 });
+  });
+
+  it('finishPlacement writes seeds and the marker; a read started at once sees both', async () => {
+    const store = createProgressStore(repo);
+    const row = createProgress('country:peru', NOW);
+    const finished = store.finishPlacement('placement:countries', [row]);
+    const [tests, progress] = await Promise.all([store.loadFinishedTests(), store.loadProgress()]);
+    await finished;
+    expect(tests).toEqual(new Set(['placement:countries']));
+    expect(progress['country:peru']).toEqual(row);
+  });
+
+  it('a failed finishPlacement rejects and stores neither', async () => {
+    const store = createProgressStore({
+      ...repo,
+      finishPlacement: () => Promise.reject(new Error('disk full')),
+    });
+    await expect(store.finishPlacement('placement:countries', [])).rejects.toThrow('disk full');
+    expect(await repo.loadFinishedTests()).toEqual([]);
+  });
+
+  it('resetProgress clears progress and markers, keeps settings, drops unsaved answers', async () => {
+    const store = createProgressStore(flaky(Infinity));
+    await store.saveDailyNewCap(30);
+    await store.finishPlacement('placement:countries', []);
+    store.answers.push(entry('country:peru'));
+    await store.resetProgress();
+    expect(store.answers.getState()).toEqual({ unsaved: 0, failed: false });
+    expect(await store.loadProgress()).toEqual({});
+    expect(await store.loadFinishedTests()).toEqual(new Set());
+    expect(await store.loadSettings()).toEqual({ dailyNewCap: 30 });
+  });
+
+  it('a failed reset changes nothing, queued unsaved answers included', async () => {
+    const store = createProgressStore({
+      ...flaky(1),
+      resetProgress: () => Promise.reject(new Error('blocked')),
+    });
+    await store.finishPlacement('placement:countries', []);
+    const pushed = entry('country:peru');
+    store.answers.push(pushed);
+    await expect(store.resetProgress()).rejects.toThrow('blocked');
+    expect(store.answers.getState()).toEqual({ unsaved: 1, failed: true });
+    expect((await store.loadProgress())['country:peru']).toEqual(pushed.progress);
+    expect(await store.loadFinishedTests()).toEqual(new Set(['placement:countries']));
+  });
+});
