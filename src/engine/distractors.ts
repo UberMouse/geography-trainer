@@ -1,3 +1,4 @@
+import { PLACE_EASY_KM } from './config';
 import { countryItemId, placeItemId, regionItemId } from './curriculum';
 import type { Rng } from './rng';
 import type { Place } from './types';
@@ -89,10 +90,11 @@ export function regionCandidates(
 /**
  * A place's wrong options come from its region's other places; with fewer than `DISTRACTORS`
  * distinctly named ones (see `distinctCandidates`), from its country's, then from every place. A
- * place with no region starts at its country.
+ * place with no region starts at its country. A place within `PLACE_EASY_KM` of the target is never
+ * offered: a tap there grades Easy, so the dot could not tell it from the target.
  */
 export function placeCandidates(place: Place, places: Place[]): Candidate[] {
-  const others = places.filter((p) => p.id !== place.id);
+  const others = places.filter((p) => p.id !== place.id && distanceKm(place, p) >= PLACE_EASY_KM);
   const distinct = (pool: Place[]) =>
     distinctCandidates(
       pool.map((p) => ({ id: placeItemId(p.id), name: p.name, lat: p.lat, lng: p.lng })),

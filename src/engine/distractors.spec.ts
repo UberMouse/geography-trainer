@@ -160,6 +160,22 @@ describe('placeCandidates', () => {
     expect(ids(out)).toEqual(['place:p1', 'place:p2', 'place:p3', 'place:p4', 'place:p5']);
   });
 
+  it('drops places within PLACE_EASY_KM of the target before widening', () => {
+    // One degree of latitude is about 111 km: 0.09 degrees is 10 km, 0.27 degrees is 30 km.
+    const at = (id: string, lat: number, region: string | null = 'r1', country = 'c1'): Place => ({
+      ...place(id, country, region),
+      lat,
+      lng: 0,
+    });
+    const t = at('p0', 0);
+    const near = at('p1', 0.09);
+    const far = at('p2', 0.27);
+    const out = placeCandidates(t, [t, near, far, ...countryMates, ...elsewhere]);
+    expect(ids(out)).not.toContain('place:p1');
+    // The region keeps only one far-enough place, so it widens to the country (near stays out).
+    expect(ids(out)).toEqual(['place:p2', 'place:p4', 'place:p5']);
+  });
+
   it('dedupes a pool by name before testing its size', () => {
     const twins = ['p1', 'p2', 'p3'].map((id) => place(id, 'c1', 'r1', 'Twin'));
     const out = placeCandidates(target, [target, ...twins, ...countryMates, ...elsewhere]);
