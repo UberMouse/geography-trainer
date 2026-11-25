@@ -69,7 +69,7 @@ function Runner({ data }: { data: SessionData }) {
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   const progress = useRef(data.progress);
   const queue = progressStore.answers;
-  const { failed, unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
+  const { unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
   // Chosen once per visit, so the same item at the same position varies its options between visits.
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const question = run.queue[0];
@@ -79,17 +79,6 @@ function Runner({ data }: { data: SessionData }) {
     () => (question ? buildExerciseItem(question.itemId, { countries, places }) : null),
     [question, countries, places],
   );
-  const hasUnsaved = unsaved > 0;
-  // Closing or reloading while answers are unsaved would lose them: make the browser ask first.
-  useEffect(() => {
-    if (!hasUnsaved) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [hasUnsaved]);
   const questionRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
@@ -113,23 +102,9 @@ function Runner({ data }: { data: SessionData }) {
     );
   }
 
-  const them = unsaved === 1 ? 'it' : 'them';
-  const banner = failed && (
-    <div role="alert" className="session-banner">
-      <p>
-        Your last {unsaved === 1 ? 'answer' : `${unsaved} answers`} could not be saved. You can keep
-        going; closing or reloading the app before it is saved loses {them}.
-      </p>
-      <button type="button" onClick={() => void queue.retry()}>
-        Retry
-      </button>
-    </div>
-  );
-
   if (ended || !question || !item) {
     return (
       <div data-unsaved={unsaved}>
-        {banner}
         <h2 ref={summaryRef} tabIndex={-1} className="session-summary">
           Round done: {run.correctInRound} of {run.answeredInRound} right
         </h2>
@@ -170,7 +145,6 @@ function Runner({ data }: { data: SessionData }) {
 
   return (
     <div data-unsaved={unsaved}>
-      {banner}
       <div className="session-header">
         <span>{questionHeader(run)}</span>
         <Link to="/">Quit</Link>

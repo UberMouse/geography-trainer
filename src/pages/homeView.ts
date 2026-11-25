@@ -53,3 +53,7 @@ const countries = (n: number) => `${n} ${n === 1 ? 'country' : 'countries'}`;
 
 export const importConfirmText = (s: ImportSummary): string =>
   `This browser: ${countries(s.here)} started. File: ${countries(s.inFile)} started, exported ${s.exportedOn}.`;
+
+/** The warning after an export that left out `n` answers that could not be saved. */
+export const leftOutText = (n: number): string =>
+  `${n === 1 ? '1 answer' : `${n} answers`} could not be saved and ${n === 1 ? 'is' : 'are'} not in the file.`;

@@ -6,7 +6,7 @@ import { todayNumbers } from '../engine/today';
 import type { Place } from '../engine/types';
 import { loadCountries, loadPlaces, type CountriesData } from '../data/loaders';
 import { progressStore } from '../storage/progressStore';
-import { checkImportText, exportFilename, importConfirmText, type ImportSummary } from './homeView';
+import { checkImportText, exportFilename, importConfirmText, leftOutText, type ImportSummary } from './homeView';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
 
@@ -27,7 +27,7 @@ const loadHomeData = async (): Promise<HomeData> => {
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
 
-/** The current time, refreshed when the tab comes back to the foreground. */
+/** The current time, refreshed every minute and when the tab comes back to the foreground. */
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -36,7 +36,9 @@ function useNow(): Date {
     };
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 60_000);
     return () => {
+      clearInterval(timer);
       document.removeEventListener('visibilitychange', refresh);
       window.removeEventListener('focus', refresh);
     };
@@ -142,6 +144,7 @@ function ProgressFiles({
   setImported: (imported: boolean) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [leftOut, setLeftOut] = useState(0);
   const [pending, setPending] = useState<{ parsed: unknown; summary: ImportSummary } | null>(null);
   const [busy, setBusy] = useState(false);
   const latestPick = useRef(0);
@@ -156,6 +159,7 @@ function ProgressFiles({
 
   const exportFile = async () => {
     setError(null);
+    setLeftOut(0);
     setImported(false);
     try {
       const now = new Date();
@@ -171,6 +175,7 @@ function ProgressFiles({
       link.remove();
       // Some browsers fetch the blob after the click returns.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setLeftOut(progressStore.answers.getState().unsaved);
     } catch (e) {
       setError(`Could not export your progress: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -181,6 +186,7 @@ function ProgressFiles({
     const file = input.files?.[0];
     const pick = ++latestPick.current;
     setError(null);
+    setLeftOut(0);
     setImported(false);
     setPending(null);
     if (!file) return;
@@ -232,6 +238,7 @@ function ProgressFiles({
         </label>
       </p>
       {error && <p role="alert">{error}</p>}
+      {leftOut > 0 && <p role="alert">{leftOutText(leftOut)}</p>}
       {imported && (
         <p role="status" tabIndex={-1} ref={importedRef}>
           Progress imported.

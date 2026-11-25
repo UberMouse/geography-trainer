@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import { createRepo, type ProgressRepo } from '../storage/repo';
-import { checkImportText, exportFilename, importConfirmText } from './homeView';
+import { checkImportText, exportFilename, importConfirmText, leftOutText } from './homeView';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -56,5 +56,10 @@ describe('checkImportText', () => {
     expect(importConfirmText({ here: 0, inFile: 1, exportedOn: '2026-03-04' })).toBe(
       'This browser: 0 countries started. File: 1 country started, exported 2026-03-04.',
     );
+  });
+
+  it('words the answers an export left out', () => {
+    expect(leftOutText(1)).toBe('1 answer could not be saved and is not in the file.');
+    expect(leftOutText(3)).toBe('3 answers could not be saved and are not in the file.');
   });
 });
