@@ -6,6 +6,7 @@ import type { NewAnswer } from './db';
 import { startedByTier, validateProgressFile } from './progressFile';
 import { createRepo, type ProgressRepo } from './repo';
 import Dexie from 'dexie';
+import { GeographyDb } from './db';
 import { placementKey } from './placementKeys';
 
 const NOW = new Date('2026-03-04T10:00:00Z');
@@ -382,6 +383,19 @@ describe('resetProgress', () => {
     const file = await repo.exportProgress(NOW);
     expect(file).toMatchObject({ progress: [], answers: [], placementsDone: [] });
     expect(await repo.loadSettings()).toEqual({ dailyNewCap: 40 });
+  });
+});
+
+describe('a malformed marker row', () => {
+  it('is left out of the export and of loadFinishedTests, and the export re-imports', async () => {
+    await repo.finishPlacement(placementKey('countries'), []);
+    const raw = new GeographyDb(`test-${counter}`);
+    await raw.meta.put({ key: 'placement:place:paris', value: true });
+    raw.close();
+    const file = await repo.exportProgress(NOW);
+    expect(file.placementsDone).toEqual(['placement:countries']);
+    expect(await repo.loadFinishedTests()).toEqual(['placement:countries']);
+    await repo.importProgress(JSON.parse(JSON.stringify(file)));
   });
 });
 

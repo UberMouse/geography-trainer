@@ -48,16 +48,24 @@ export interface ProgressStore {
 
 export function createProgressStore(repository: ProgressRepo): ProgressStore {
   const answers = createSaveQueue<AnswerEntry>((entry) => repository.recordAnswer(entry));
-  // Seed writes in flight, from the call to settling; reads and the import wait for them.
+  // Writes in flight (seeds, markers, settings, reset, import), from the call to settling; reads
+  // and later writes wait for them.
   const seeding = new Set<Promise<void>>();
   const whenSeedsSettled = async () => {
     await Promise.allSettled([...seeding]);
   };
 
-  /** Runs the write after the queue settled, tracked so reads and the import wait for it. */
-  const trackedWrite = (write: () => Promise<void>) => {
+  /**
+   * Runs `write` after the queue settled and the writes already in flight did, and registers it
+   * from the call, so a read or write started later waits for it. Waiting only for the writes
+   * registered before it keeps two pending writes from waiting for each other.
+   */
+  const tracked = (write: () => Promise<void>, beforeWrite?: () => void) => {
+    const earlier = [...seeding];
     const running = (async () => {
       await answers.whenSettled();
+      await Promise.allSettled(earlier);
+      beforeWrite?.();
       await write();
     })();
     seeding.add(running);
@@ -66,19 +74,25 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
     return running;
   };
   /** Waits for everything pending, then drops the unsaved answers while `run` replaces the data. */
-  const replacingEverything = async (run: () => Promise<void>) => {
-    await answers.whenSettled();
-    await whenSeedsSettled();
-    // Nothing is running now; an emptied queue has nothing for a retry or push to write over it.
-    const dropped = answers.unsavedEntries();
-    const wasFailed = answers.getState().failed;
-    answers.discard();
-    try {
-      await run();
-    } catch (error) {
-      answers.restore(dropped, wasFailed);
-      throw error;
-    }
+  const replacingEverything = (run: () => Promise<void>) => {
+    let dropped: ReturnType<typeof answers.unsavedEntries> = [];
+    let wasFailed = false;
+    return tracked(
+      async () => {
+        // Nothing is running now; an emptied queue has nothing for a retry or push to write over it.
+        try {
+          await run();
+        } catch (error) {
+          answers.restore(dropped, wasFailed);
+          throw error;
+        }
+      },
+      () => {
+        dropped = answers.unsavedEntries();
+        wasFailed = answers.getState().failed;
+        answers.discard();
+      },
+    );
   };
 
   return {
@@ -92,19 +106,19 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
         progress[entry.progress.itemId] = entry.progress;
       return progress;
     },
-    seedProgress: (rows) => trackedWrite(() => repository.seedProgress(rows)),
+    seedProgress: (rows) => tracked(() => repository.seedProgress(rows)),
     async loadSettings() {
       await answers.whenSettled();
       await whenSeedsSettled();
       return repository.loadSettings();
     },
-    saveDailyNewCap: (value) => trackedWrite(() => repository.saveDailyNewCap(value)),
+    saveDailyNewCap: (value) => tracked(() => repository.saveDailyNewCap(value)),
     async loadFinishedTests() {
       await answers.whenSettled();
       await whenSeedsSettled();
       return new Set(await repository.loadFinishedTests());
     },
-    finishPlacement: (key, rows) => trackedWrite(() => repository.finishPlacement(key, rows)),
+    finishPlacement: (key, rows) => tracked(() => repository.finishPlacement(key, rows)),
     resetProgress: () => replacingEverything(() => repository.resetProgress()),
     async exportProgress(now) {
       if (answers.getState().failed) await answers.retry();

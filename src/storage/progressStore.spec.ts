@@ -264,6 +264,23 @@ describe('settings, markers and reset through the store', () => {
     expect(await store.loadSettings()).toEqual({ dailyNewCap: 30 });
   });
 
+  it('a marker finished right after a reset was started survives it', async () => {
+    const store = createProgressStore(repo);
+    await store.finishPlacement('placement:countries', []);
+    const reset = store.resetProgress();
+    const finished = store.finishPlacement('placement:region:us.tx', []);
+    await Promise.all([reset, finished]);
+    expect(await store.loadFinishedTests()).toEqual(new Set(['placement:region:us.tx']));
+  });
+
+  it('a read started right after a reset waits for it', async () => {
+    const store = createProgressStore(repo);
+    await store.finishPlacement('placement:countries', []);
+    const reset = store.resetProgress();
+    expect(await store.loadFinishedTests()).toEqual(new Set());
+    await reset;
+  });
+
   it('a failed reset changes nothing, queued unsaved answers included', async () => {
     const store = createProgressStore({
       ...flaky(1),

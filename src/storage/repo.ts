@@ -51,7 +51,9 @@ export function createRepo(name: string = DB_NAME): ProgressRepo {
     await db.progress.bulkAdd(rows.filter((_, i) => !stored[i]));
   }
 
-  const markerKeys = () => db.meta.where('key').startsWith(MARKER_PREFIX).primaryKeys();
+  // Only well-formed keys: import rejects a file holding any other, so a stray row must not be exported.
+  const markerKeys = async () =>
+    (await db.meta.where('key').startsWith(MARKER_PREFIX).primaryKeys()).filter(isPlacementKey);
 
   return {
     async loadProgress() {
