@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "d3-geo": "3.1.2",
+    "dexie": "4.4.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.7",
@@ -44,6 +45,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.8",
+    "fake-indexeddb": "6.2.8",
     "mapshaper": "^0.8.10",
     "prettier": "^3.10.1",
     "tsx": "^4.23.15",

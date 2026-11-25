@@ -123,5 +123,19 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Only src/storage touches IndexedDB (the engine has its own, stricter block above).
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/storage/**', 'src/engine/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'dexie', message: 'Only src/storage imports Dexie.' }],
+          patterns: [{ group: ['dexie/*'], message: 'Only src/storage imports Dexie.' }],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 ]);
