@@ -1,0 +1,229 @@
+/// <reference types="node" />
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { Rating } from 'ts-fsrs';
+import { buildCurriculum, newItems, unlockedItems, type Curriculum } from './curriculum';
+import { applyAnswer, createProgress, localDayKey, type ItemProgress } from './srs';
+import type { Country, Place, Region } from './types';
+
+const T0 = new Date('2026-03-01T00:00:00Z');
+const DAY = 86_400_000;
+
+/** An item that has passed L4 on two different days. */
+function mastered(itemId: string): ItemProgress {
+  let p = createProgress(itemId, T0);
+  for (let day = 0; day < 40 && p.l4PassDays.length < 2; day++) {
+    const now = new Date(T0.getTime() + day * DAY);
+    p = applyAnswer(p, p.rung, Rating.Good, now, localDayKey(now, 0));
+  }
+  expect(p.l4PassDays.length).toBeGreaterThanOrEqual(2);
+  return p;
+}
+
+const country = (id: string, places: number, hasRegions: boolean): Country => ({
+  id,
+  name: id,
+  places,
+  hasRegions,
+});
+const region = (id: string, c: string, places: number): Region => ({ id, name: id, country: c, places });
+const place = (id: string, c: string, r: string | null, level: number, type = 'city'): Place => ({
+  id,
+  name: id,
+  country: c,
+  region: r,
+  lat: 0,
+  lng: 0,
+  type,
+  level,
+});
+
+function fixture(): Curriculum {
+  return buildCurriculum(
+    [country('france', 3, true), country('germany', 2, true), country('tuvalu', 1, false)],
+    [
+      region('france.bretagne', 'france', 2),
+      region('france.crozet', 'france', 0),
+      region('france.corse', 'france', 1),
+      region('germany.bayern', 'germany', 2),
+    ],
+    [
+      place('rennes', 'france', 'france.bretagne', 2, 'city'),
+      place('brest', 'france', 'france.bretagne', 3, 'monument'),
+      place('ajaccio', 'france', 'france.corse', 4, 'capital'),
+      place('munich', 'germany', 'germany.bayern', 1, 'city'),
+      place('nuremberg', 'germany', 'germany.bayern', 2, 'city'),
+      place('funafuti', 'tuvalu', null, 3, 'capital'),
+    ],
+  );
+}
+
+const ids = (items: { id: string }[]) => items.map((i) => i.id);
+
+describe('buildCurriculum', () => {
+  it('namespaces ids and wires country -> region -> place, or country -> place', () => {
+    const c = fixture();
+    expect(c.items.get('country:france')!.children).toEqual([
+      'region:france.bretagne',
+      'region:france.crozet',
+      'region:france.corse',
+    ]);
+    expect(c.items.get('region:france.bretagne')!.children).toEqual(['place:rennes', 'place:brest']);
+    expect(c.items.get('country:tuvalu')!.children).toEqual(['place:funafuti']);
+    expect(c.items.get('place:funafuti')!.parent).toBe('country:tuvalu');
+    expect(c.items.get('place:rennes')!.parent).toBe('region:france.bretagne');
+    expect(c.items.get('country:france')!.parent).toBeNull();
+  });
+
+  it('keeps ids of different tiers from colliding', () => {
+    const c = buildCurriculum([country('x', 1, false)], [], [place('x', 'x', null, 1)]);
+    expect(c.items.size).toBe(2);
+  });
+
+  it('derives difficulty from the minimum place level and counts places per country', () => {
+    const c = fixture();
+    expect(c.items.get('place:brest')!.difficulty).toBe(3);
+    expect(c.items.get('region:france.bretagne')!.difficulty).toBe(2);
+    expect(c.items.get('country:france')!.difficulty).toBe(2);
+    expect(c.items.get('region:france.crozet')!.difficulty).toBe(Infinity);
+    expect(c.countryPlaceCount.get('country:france')).toBe(3);
+  });
+
+  it('throws on a place with an unknown country or a missing region', () => {
+    const cs = [country('france', 1, true)];
+    const rs = [region('france.a', 'france', 1)];
+    expect(() => buildCurriculum(cs, rs, [place('p', 'spain', null, 1)])).toThrow(/unknown country/);
+    expect(() => buildCurriculum(cs, rs, [place('p', 'france', null, 1)])).toThrow(/region/);
+    expect(() => buildCurriculum(cs, rs, [place('p', 'france', 'france.zzz', 1)])).toThrow(/region/);
+  });
+});
+
+describe('unlockedItems', () => {
+  it('unlocks every country and nothing else at the start', () => {
+    expect(ids(unlockedItems(fixture(), {}))).toEqual(['country:france', 'country:germany', 'country:tuvalu']);
+  });
+
+  it("mastering France unlocks its regions but not Germany's", () => {
+    const got = ids(unlockedItems(fixture(), { 'country:france': mastered('country:france') }));
+    expect(got).toContain('region:france.bretagne');
+    expect(got).toContain('region:france.crozet');
+    expect(got).not.toContain('region:germany.bayern');
+    expect(got).not.toContain('place:rennes');
+  });
+
+  it('does not unlock children of an item that is in progress but not mastered', () => {
+    const got = ids(unlockedItems(fixture(), { 'country:france': createProgress('country:france', T0) }));
+    expect(got).not.toContain('region:france.bretagne');
+  });
+
+  it('mastering a country with no regions tier unlocks its places', () => {
+    const got = ids(unlockedItems(fixture(), { 'country:tuvalu': mastered('country:tuvalu') }));
+    expect(got).toContain('place:funafuti');
+  });
+
+  it('mastering a region unlocks its places', () => {
+    const got = ids(
+      unlockedItems(fixture(), {
+        'country:france': mastered('country:france'),
+        'region:france.bretagne': mastered('region:france.bretagne'),
+      }),
+    );
+    expect(got).toContain('place:rennes');
+    expect(got).toContain('place:brest');
+    expect(got).not.toContain('place:ajaccio');
+  });
+
+  it('keeps children unlocked after a lapse on the mastered parent', () => {
+    let p = mastered('country:tuvalu');
+    p = applyAnswer(p, p.rung, Rating.Again, new Date(T0.getTime() + 50 * DAY), 'later');
+    expect(p.inL4Lapse).toBe(true);
+    expect(ids(unlockedItems(fixture(), { 'country:tuvalu': p }))).toContain('place:funafuti');
+  });
+
+  it('filters places by type but never countries or regions', () => {
+    const progress = {
+      'country:france': mastered('country:france'),
+      'region:france.bretagne': mastered('region:france.bretagne'),
+    };
+    const got = ids(unlockedItems(fixture(), progress, { placeTypes: new Set(['monument']) }));
+    expect(got).toContain('place:brest');
+    expect(got).not.toContain('place:rennes');
+    expect(got).toContain('country:germany');
+    expect(got).toContain('region:france.corse');
+    expect(ids(unlockedItems(fixture(), progress, { placeTypes: new Set() }))).not.toContain('place:brest');
+  });
+});
+
+describe('newItems', () => {
+  it('excludes items that already have progress', () => {
+    const progress = { 'country:france': createProgress('country:france', T0) };
+    expect(ids(newItems(fixture(), progress))).not.toContain('country:france');
+  });
+
+  it('orders by difficulty, then country place count descending, then id', () => {
+    const c = buildCurriculum(
+      [country('a', 1, false), country('b', 3, false), country('c', 3, false)],
+      [],
+      [
+        place('pa', 'a', null, 2),
+        place('pb1', 'b', null, 2),
+        place('pb2', 'b', null, 5),
+        place('pb3', 'b', null, 5),
+        place('pc1', 'c', null, 2),
+        place('pc2', 'c', null, 5),
+        place('pc3', 'c', null, 5),
+      ],
+    );
+    // All three countries have difficulty 2: b and c (3 places) before a (1), b before c by id.
+    expect(ids(newItems(c, {}))).toEqual(['country:b', 'country:c', 'country:a']);
+  });
+
+  it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
+    const progress = { 'country:france': mastered('country:france') };
+    const got = ids(newItems(fixture(), progress, { placeTypes: new Set() }));
+    // Difficulties: germany 1, bretagne 2, tuvalu 3, corse 4, crozet Infinity (france has progress).
+    expect(got).toEqual([
+      'country:germany',
+      'region:france.bretagne',
+      'country:tuvalu',
+      'region:france.corse',
+      'region:france.crozet',
+    ]);
+  });
+});
+
+describe('ordering on the real data', () => {
+  const dir = new URL('../../public/data/', import.meta.url);
+  const read = (f: string) => JSON.parse(readFileSync(new URL(f, dir), 'utf8'));
+  const places: Place[] = read('places.json');
+  const countryGeoms = read('countries.topo.json').objects.countries.geometries as {
+    id: string;
+    properties: { name: string; places: number; hasRegions: boolean };
+  }[];
+  const countries: Country[] = countryGeoms.map((g) => ({ id: g.id, ...g.properties }));
+  const regions: Region[] = countries
+    .filter((c) => c.hasRegions)
+    .flatMap((c) => {
+      const topo = read(`regions/${c.id}.topo.json`);
+      const obj = Object.values(topo.objects)[0] as {
+        geometries: { id: string; properties: { name: string; places: number } }[];
+      };
+      return obj.geometries.map((g) => ({ id: g.id, country: c.id, ...g.properties }));
+    });
+
+  it('builds, and puts London before Akron and the US before Tuvalu', () => {
+    const c = buildCurriculum(countries, regions, places);
+    expect(c.items.size).toBe(countries.length + regions.length + places.length);
+    const progress: Record<string, ItemProgress> = {};
+    for (const item of c.items.values()) {
+      if (item.tier !== 'place') progress[item.id] = mastered(item.id);
+    }
+    const order = ids(newItems(c, progress));
+    expect(order.indexOf('place:london')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('place:london')).toBeLessThan(order.indexOf('place:akron_ohio'));
+
+    const fresh = ids(newItems(c, {}));
+    expect(fresh.indexOf('country:united-states')).toBeGreaterThanOrEqual(0);
+    expect(fresh.indexOf('country:united-states')).toBeLessThan(fresh.indexOf('country:tuvalu'));
+  });
+});
