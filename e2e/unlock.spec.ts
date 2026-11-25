@@ -1,51 +1,17 @@
-import { writeFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { answer, current, next, question, summary, WAIT } from './sessionHelpers';
+import { answer, current, next, question, summary, WAIT, writeMasteredUnitedStates } from './sessionHelpers';
 
 // Sessions load the world's map data and draw maps: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
 
-const DAY = 24 * 60 * 60 * 1000;
-
-/** A progress file in which `country:united-states` is mastered (L4 passed on two different days). */
-async function writeMasteredUnitedStates(path: string) {
-  const now = Date.now();
-  const card = {
-    due: now + 30 * DAY,
-    stability: 30,
-    difficulty: 5,
-    scheduled_days: 30,
-    learning_steps: 0,
-    reps: 4,
-    lapses: 0,
-    state: 2,
-    last_review: now - 5 * DAY,
-  };
-  const progress = {
-    itemId: 'country:united-states',
-    rung: 4,
-    highestRung: 4,
-    cards: { 4: card },
-    l4PassDays: ['2026-01-10', '2026-01-20'],
-    inL4Lapse: false,
-    introducedAt: now - 60 * DAY,
-  };
-  const file = {
-    format: 'geography-trainer-progress',
-    version: 1,
-    exportedAt: new Date(now).toISOString(),
-    progress: [progress],
-    answers: [],
-  };
-  await writeFile(path, JSON.stringify(file));
-}
-
 async function importMastered(page: Page, path: string) {
-  await page.goto('/');
-  await expect(page.getByTestId('today-new')).toBeVisible(WAIT);
+  await page.goto('/settings');
+  await expect(page.getByLabel('New items per day')).toBeVisible(WAIT);
   await page.getByLabel('Import progress').setInputFiles(path);
   await page.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await expect(page.getByTestId('today-new')).toBeVisible(WAIT);
 }
 
 test("a mastered country's regions are asked in the next session", async ({ page, isMobile }, testInfo) => {

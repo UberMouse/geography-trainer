@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { expect, type Page } from '@playwright/test';
 
 // Shared by the Session and Home specs: answering questions the way a learner would.
@@ -47,3 +48,38 @@ export async function answer(page: Page, isMobile: boolean, q: { name: string; r
 }
 
 export const next = (page: Page) => page.getByRole('button', { name: 'Next' }).click();
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/** A progress file in which `country:united-states` is mastered (L4 passed on two different days). */
+export async function writeMasteredUnitedStates(path: string) {
+  const now = Date.now();
+  const card = {
+    due: now + 30 * DAY,
+    stability: 30,
+    difficulty: 5,
+    scheduled_days: 30,
+    learning_steps: 0,
+    reps: 4,
+    lapses: 0,
+    state: 2,
+    last_review: now - 5 * DAY,
+  };
+  const progress = {
+    itemId: 'country:united-states',
+    rung: 4,
+    highestRung: 4,
+    cards: { 4: card },
+    l4PassDays: ['2026-01-10', '2026-01-20'],
+    inL4Lapse: false,
+    introducedAt: now - 60 * DAY,
+  };
+  const file = {
+    format: 'geography-trainer-progress',
+    version: 1,
+    exportedAt: new Date(now).toISOString(),
+    progress: [progress],
+    answers: [],
+  };
+  await writeFile(path, JSON.stringify(file));
+}

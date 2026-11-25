@@ -62,6 +62,7 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
   const before = await numbers(page);
   expect(before.newToday).not.toBe('0 of 15 new today');
 
+  await page.getByRole('link', { name: 'Settings' }).click();
   const downloading = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export progress' }).click();
   const download = await downloading;
@@ -73,11 +74,13 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
     const fresh = await context.newPage();
     await fresh.goto('/');
     expect((await numbers(fresh)).newToday).toBe('0 of 15 new today');
+    await fresh.getByRole('link', { name: 'Settings' }).click();
     await fresh.getByLabel('Import progress').setInputFiles(path);
     await expect(fresh.getByText(/^This browser: nothing started\. File: \d+ countries started, exported /)).toBeVisible();
     await fresh.getByRole('button', { name: 'Replace' }).click();
     await expect(fresh.getByRole('status')).toHaveText('Progress imported.', WAIT);
     await expect(fresh.getByRole('status')).toBeFocused();
+    await fresh.getByRole('link', { name: 'Back to Home' }).click();
     await expect(newToday(fresh)).toHaveText(before.newToday, WAIT);
     expect(await numbers(fresh)).toEqual(before);
   } finally {
@@ -88,11 +91,13 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
 test('a file that is not JSON shows an alert and changes nothing', async ({ page }, testInfo) => {
   await page.goto('/');
   const before = await numbers(page);
+  await page.getByRole('link', { name: 'Settings' }).click();
   const bad = testInfo.outputPath('bad.json');
   await writeFile(bad, 'this is not json');
   await page.getByLabel('Import progress').setInputFiles(bad);
   await expect(page.getByRole('alert')).toContainText('not valid JSON');
   await expect(page.getByRole('button', { name: 'Replace' })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Back to Home' }).click();
   expect(await numbers(page)).toEqual(before);
 });
 

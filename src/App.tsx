@@ -7,6 +7,7 @@ import Progress from './pages/Progress';
 import ProgressDrill from './pages/ProgressDrill';
 import Playground from './pages/Playground';
 import Session from './pages/Session';
+import Settings from './pages/Settings';
 import TestOut from './pages/TestOut';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/placement/:country" element={<TestOut />} />
           <Route path="/placement/:country/:region" element={<TestOut />} />
           <Route path="/session" element={<Session />} />
+          <Route path="/settings" element={<Settings />} />
           {import.meta.env.DEV && <Route path="/playground" element={<Playground />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

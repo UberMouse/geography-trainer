@@ -25,6 +25,10 @@ describe('App', () => {
     expect(render('/progress')).toContain('<h1>Progress</h1>');
   });
 
+  it('renders the Settings page heading', () => {
+    expect(render('/settings')).toContain('<h1>Settings</h1>');
+  });
+
   it('renders the Placement page (loading first)', () => {
     expect(render('/placement')).toContain('Loading…');
   });

@@ -16,19 +16,29 @@ export interface WorldData {
   curriculum: Curriculum;
   /** Marker keys of the finished placement tests (see `placementKey`). */
   finishedTests: ReadonlySet<string>;
+  /** The learner's daily limit on new items (the stored setting). */
+  dailyNewCap: number;
 }
 
 export const loadWorldData = async (): Promise<WorldData> => {
-  const [countries, places, progress, finishedTests] = await Promise.all([
+  const [countries, places, progress, finishedTests, settings] = await Promise.all([
     loadCountries(),
     loadPlaces(),
     progressStore.loadProgress(),
     progressStore.loadFinishedTests(),
+    progressStore.loadSettings(),
   ]);
   const curriculum = buildCurriculum(
     countries.countries,
     regionsFromPlaces(countries.countries, places),
     places,
   );
-  return { countries, places, progress, curriculum, finishedTests };
+  return {
+    countries,
+    places,
+    progress,
+    curriculum,
+    finishedTests,
+    dailyNewCap: settings.dailyNewCap,
+  };
 };

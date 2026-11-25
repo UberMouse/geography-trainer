@@ -38,11 +38,12 @@ interface SessionData {
 }
 
 const loadSessionData = async (): Promise<SessionData> => {
-  const [countries, places, progress, finishedTests] = await Promise.all([
+  const [countries, places, progress, finishedTests, settings] = await Promise.all([
     loadCountries(),
     loadPlaces(),
     progressStore.loadProgress(),
     progressStore.loadFinishedTests(),
+    progressStore.loadSettings(),
   ]);
   const now = new Date();
   const curriculum = buildCurriculum(countries.countries, regionsFromPlaces(countries.countries, places), places);
@@ -50,6 +51,7 @@ const loadSessionData = async (): Promise<SessionData> => {
     curriculum,
     progress,
     now,
+    dailyCap: settings.dailyNewCap,
     introducedToday: introducedToday(curriculum, progress, now, -now.getTimezoneOffset()),
   });
   // Re-asks and later rounds only repeat these items, so these are all the regions a session needs.

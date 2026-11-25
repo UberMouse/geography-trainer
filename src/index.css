@@ -340,6 +340,35 @@ a {
   outline-offset: 2px;
 }
 
+.settings-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-form input {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 8px;
+  font: inherit;
+}
+
+.settings-number {
+  width: 8rem;
+}
+
+.settings-text {
+  width: 12rem;
+  max-width: 100%;
+}
+
 .home-confirm {
   margin: 12px 0;
 }
