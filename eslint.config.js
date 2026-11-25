@@ -30,17 +30,33 @@ export default defineConfig([
       'no-restricted-imports': [
         'error',
         {
-          paths: ['react', 'react-dom', 'react-router', 'dexie'].map((name) => ({
+          paths: [
+            'react',
+            'react-dom',
+            'react-router',
+            'react-router-dom',
+            'dexie',
+            'dexie-react-hooks',
+            'idb',
+          ].map((name) => ({
             name,
             message: 'src/engine must stay pure: no UI or storage imports.',
           })),
           patterns: [
             {
-              group: ['react/*', 'react-dom/*', 'react-router/*', 'dexie/*'],
+              group: [
+                'react/*',
+                'react-dom/*',
+                'react-router/*',
+                'react-router-dom/*',
+                'dexie/*',
+                'dexie-react-hooks/*',
+                'idb/*',
+              ],
               message: 'src/engine must stay pure: no UI or storage imports.',
             },
             {
-              regex: '(^|/)(storage|maps)(/|$)',
+              regex: '(^|/)(storage|maps)(/|\\.|$)',
               message: 'src/engine must not import from src/storage or src/maps.',
             },
           ],
