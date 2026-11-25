@@ -7,7 +7,7 @@ import {
   unlockedItems,
   type Curriculum,
 } from './curriculum';
-import { buildSession } from './session';
+import { buildSession, dueQuestions } from './session';
 import { createProgress, localDayKey, nextDue, seedFromPlacement, type ItemProgress } from './srs';
 import type { Place } from './types';
 
@@ -280,5 +280,31 @@ describe('buildSession', () => {
   it('keeps a single-rung queue intact when there is nothing to interleave with', () => {
     const q = buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday: 0, rng });
     expect(longestRun(q.map((x) => x.rung))).toBe(DAILY_NEW_CAP);
+  });
+});
+
+describe('dueQuestions', () => {
+  const cur = fixture(10);
+
+  it('lists due reviews only, most overdue first, ties by id, without new items', () => {
+    const progress = {
+      [cid(3)]: dueProgress(cid(3), 1, 1),
+      [cid(1)]: dueProgress(cid(1), 3, 5),
+      [cid(2)]: dueProgress(cid(2), 4, 1),
+      [cid(4)]: dueProgress(cid(4), 1, -2),
+    };
+    expect(dueQuestions({ curriculum: cur, progress, now: NOW })).toEqual([
+      { itemId: cid(1), rung: 3 },
+      { itemId: cid(2), rung: 4 },
+      { itemId: cid(3), rung: 1 },
+    ]);
+  });
+
+  it('is what buildSession puts first', () => {
+    const progress = { [cid(1)]: dueProgress(cid(1), 3, 5) };
+    const due = dueQuestions({ curriculum: cur, progress, now: NOW });
+    const session = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0 });
+    expect(session).toContainEqual(due[0]);
+    expect(session.length).toBeGreaterThan(due.length);
   });
 });

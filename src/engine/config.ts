@@ -40,6 +40,12 @@ export const PLACEMENT_SEED_STABILITY_DAYS = 2;
 export const DAILY_NEW_CAP = 15;
 /** A session never asks more than this many questions at the same rung in a row when the mix allows. */
 export const SESSION_MAX_RUN = 2;
+/** Questions answered per round of a session before its summary. */
+export const SESSION_ROUND_SIZE = 20;
+/** An item that climbed or lapsed comes back after this many other questions. */
+export const SESSION_REQUEUE_GAP = 3;
+/** An item is answered at most this many times in one session. */
+export const SESSION_MAX_ASKS_PER_ITEM = 6;
 
 // Placement staircase.
 export const PLACEMENT_MIN_LEVEL = 1;

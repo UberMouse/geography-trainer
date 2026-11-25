@@ -31,8 +31,7 @@ export interface SessionInput {
 }
 
 /**
- * Due reviews first: unlocked items that have been answered (`isIntroduced`) and are due at or
- * before `now`, at `dueRung`, most overdue first, ties by item id. Then new items (`newItems`: no
+ * Due reviews first (`dueQuestions`). Then new items (`newItems`: no
  * progress, or progress never answered, such as a placement seed) in curriculum order, at most
  * `dailyCap - introducedToday`; each is asked at `dueRung` when it has progress (a seed at L3) and
  * at L1 otherwise. No item appears twice. The result is then interleaved so no `SESSION_MAX_RUN + 1`
@@ -42,17 +41,10 @@ export interface SessionInput {
  * can precede overdue reviews.
  */
 export function buildSession(input: SessionInput): SessionQuestion[] {
-  const { curriculum, progress, now, introducedToday, placeTypes } = input;
+  const { curriculum, progress, introducedToday, placeTypes } = input;
   const dailyCap = input.dailyCap ?? DAILY_NEW_CAP;
-  const nowMs = now.getTime();
 
-  const due = unlockedItems(curriculum, progress, { placeTypes })
-    .flatMap((item) => {
-      const p = progress[item.id];
-      return p && isIntroduced(p) && nextDue(p) <= nowMs ? [{ p, at: nextDue(p) }] : [];
-    })
-    .sort((a, b) => a.at - b.at || (a.p.itemId < b.p.itemId ? -1 : a.p.itemId > b.p.itemId ? 1 : 0))
-    .map(({ p }): SessionQuestion => ({ itemId: p.itemId, rung: dueRung(p) }));
+  const due = dueQuestions(input);
 
   const slots = Math.max(0, dailyCap - introducedToday);
   const fresh = newItems(curriculum, progress, { placeTypes })
@@ -63,6 +55,24 @@ export function buildSession(input: SessionInput): SessionQuestion[] {
     });
 
   return interleave([...due, ...fresh]);
+}
+
+/**
+ * The due reviews `buildSession` puts first: unlocked items that have been answered
+ * (`isIntroduced`) and are due at or before `now`, at `dueRung`, most overdue first, ties by item id.
+ */
+export function dueQuestions(
+  input: Pick<SessionInput, 'curriculum' | 'progress' | 'now' | 'placeTypes'>,
+): SessionQuestion[] {
+  const { curriculum, progress, now, placeTypes } = input;
+  const nowMs = now.getTime();
+  return unlockedItems(curriculum, progress, { placeTypes })
+    .flatMap((item) => {
+      const p = progress[item.id];
+      return p && isIntroduced(p) && nextDue(p) <= nowMs ? [{ p, at: nextDue(p) }] : [];
+    })
+    .sort((a, b) => a.at - b.at || (a.p.itemId < b.p.itemId ? -1 : a.p.itemId > b.p.itemId ? 1 : 0))
+    .map(({ p }): SessionQuestion => ({ itemId: p.itemId, rung: dueRung(p) }));
 }
 
 /**
