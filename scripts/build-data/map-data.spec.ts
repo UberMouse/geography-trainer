@@ -40,8 +40,28 @@ describe('committed map data, as the loaders return it', () => {
       expect(all.length).toBeGreaterThan(2000);
       const inverted = all.filter(({ f }) => geoArea(f) >= 2 * Math.PI).map(({ id }) => id);
       expect(inverted).toEqual([]);
+      // Every feature has an area: the points and zero-area polygons in the data become discs.
+      const notAreal = all
+        .filter(
+          ({ f }) => !['Polygon', 'MultiPolygon'].includes(f.geometry.type) || !(geoArea(f) > 0),
+        )
+        .map(({ id }) => id);
+      expect(notAreal).toEqual([]);
     },
   );
+
+  it('gives the point and zero-area countries a tappable disc', async () => {
+    const { features } = await loadCountries();
+    const bonaire = features.find((f) => f.id === 'bonaire')!;
+    // The committed point, dequantized.
+    const point: LngLat = [-68.258, 12.2];
+    const m = measureTap({ feature: bonaire, answer: answerPoint(bonaire) }, point);
+    expect(m.inside).toBe(true);
+    expect(m.kmOutsideBorder).toBe(0);
+    expect(m.kmFromAnswer).toBeLessThan(0.5);
+    const vatican = features.find((f) => f.id === 'vatican-city')!;
+    expect(geoContains(vatican, answerPoint(vatican))).toBe(true);
+  });
 
   it('measures taps against France', async () => {
     const { features } = await loadCountries();

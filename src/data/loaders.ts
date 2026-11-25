@@ -2,6 +2,7 @@ import { feature } from 'topojson-client';
 import type { Feature, MultiPolygon, Polygon } from 'geojson';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import type { Country, Place, Region } from '../engine/types';
+import { ensureArea } from '../maps/geo';
 import { dataUrl, fetchJsonOnce, once } from './fetchJson';
 
 export type CountryProps = { name: string; places: number; hasRegions: boolean };
@@ -20,9 +21,10 @@ export interface RegionsData {
   regions: Region[];
 }
 
+/** The object's features, each with an area (`ensureArea`): a few tiny ones are stored as points. */
 function featuresOf<F>(topo: Topology, objectName: string): F[] {
   const object = topo.objects[objectName] as GeometryCollection;
-  return feature(topo, object).features as F[];
+  return feature(topo, object).features.map((f) => ensureArea(f)) as F[];
 }
 
 /** Every country's feature (id = maptap country id) and engine `Country`, from the countries topology. */

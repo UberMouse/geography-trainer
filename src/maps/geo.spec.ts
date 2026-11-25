@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { geoArea, geoCentroid } from 'd3-geo';
-import { answerPoint, mainPart, measureTap, type AreaFeature, type LngLat } from './geo';
+import { geoArea, geoCentroid, geoContains } from 'd3-geo';
+import {
+  POINT_FEATURE_RADIUS_KM,
+  answerPoint,
+  ensureArea,
+  mainPart,
+  measureTap,
+  type AreaFeature,
+  type LngLat,
+} from './geo';
 
 /** A polygon feature from rings (exterior clockwise, holes counter-clockwise, as d3-geo wants). */
 const poly = (...rings: LngLat[][]): AreaFeature => ({
@@ -207,5 +215,41 @@ describe('answerPoint', () => {
     expect(lng).toBeCloseTo(5, 6);
     expect(lat).toBeCloseTo(0, 6);
     expect(geoCentroid(f)[0]).toBeGreaterThan(5.1);
+  });
+});
+
+describe('ensureArea', () => {
+  const disc = Math.PI * (POINT_FEATURE_RADIUS_KM / 6371) ** 2; // steradians, near enough flat
+
+  it('turns a point into a small disc around it, keeping id and properties', () => {
+    const f = ensureArea({
+      type: 'Feature',
+      id: 'dot',
+      properties: { name: 'Dot' },
+      geometry: { type: 'Point', coordinates: [-68.26, 12.2] },
+    });
+    expect(f.id).toBe('dot');
+    expect(f.properties).toEqual({ name: 'Dot' });
+    expect(f.geometry.type).toBe('Polygon');
+    expect(geoArea(f)).toBeGreaterThan(0.9 * disc);
+    expect(geoArea(f)).toBeLessThan(1.1 * disc);
+    expect(geoContains(f, [-68.26, 12.2])).toBe(true);
+  });
+
+  it('turns a polygon with no area into a disc at its centre', () => {
+    const f = ensureArea(
+      poly([
+        [12.45, 41.9],
+        [12.46, 41.9],
+        [12.45, 41.9],
+      ]),
+    );
+    expect(geoArea(f)).toBeGreaterThan(0.9 * disc);
+    expect(geoArea(f)).toBeLessThan(1.1 * disc);
+    expect(geoContains(f, [12.455, 41.9])).toBe(true);
+  });
+
+  it('returns a feature with an area as it is', () => {
+    expect(ensureArea(square)).toBe(square);
   });
 });

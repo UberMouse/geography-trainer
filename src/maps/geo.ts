@@ -1,5 +1,5 @@
-import { geoArea, geoCentroid, geoContains, geoDistance } from 'd3-geo';
-import type { Feature, MultiPolygon, Polygon } from 'geojson';
+import { geoArea, geoCentroid, geoCircle, geoContains, geoDistance } from 'd3-geo';
+import type { Feature, Geometry, MultiPoint, MultiPolygon, Point, Polygon } from 'geojson';
 import type { TapInput } from '../engine/grading';
 
 /** [longitude, latitude] in degrees. */
@@ -10,6 +10,43 @@ export type AreaFeature = Feature<Polygon | MultiPolygon>;
 export const EARTH_RADIUS_KM = 6371;
 
 export type TapTarget = { feature: AreaFeature; answer: LngLat } | { point: LngLat };
+
+/**
+ * The radius in km of the disc `ensureArea` gives a feature with no area: small enough that the
+ * ring marker shows it, big enough to tap once zoomed in.
+ */
+export const POINT_FEATURE_RADIUS_KM = 2;
+
+/** Below this many steradians (about 40 m²) a polygon counts as having no area. */
+const MIN_AREA_SR = 1e-12;
+
+/**
+ * The feature with an area to draw, tap and measure: a Point or MultiPoint, or a (Multi)Polygon
+ * with no area (the data stores a few tiny countries that way), becomes a disc of
+ * `POINT_FEATURE_RADIUS_KM` around its centroid (else its first coordinate), with the same id and
+ * properties. Any other feature comes back as it is.
+ */
+export function ensureArea<P>(
+  feature: Feature<Geometry | null, P>,
+): Feature<Polygon | MultiPolygon, P> {
+  const g = feature.geometry;
+  const areal = g?.type === 'Polygon' || g?.type === 'MultiPolygon';
+  if (areal && geoArea(g) >= MIN_AREA_SR) return feature as Feature<Polygon | MultiPolygon, P>;
+  if (!g || !(areal || g.type === 'Point' || g.type === 'MultiPoint')) {
+    throw new Error(`Feature ${feature.id} has no area and no point (${g?.type ?? 'null'})`);
+  }
+  const centroid = geoCentroid(g);
+  const centre = centroid.every(Number.isFinite) ? centroid : firstCoordinate(g);
+  const disc = geoCircle()
+    .center(centre)
+    .radius((POINT_FEATURE_RADIUS_KM / EARTH_RADIUS_KM) * (180 / Math.PI))();
+  return { ...feature, geometry: disc };
+}
+
+function firstCoordinate(g: Point | MultiPoint | Polygon | MultiPolygon): LngLat {
+  const flat = [g.coordinates].flat(3) as number[];
+  return [flat[0]!, flat[1]!];
+}
 
 /** A tap target's point: a feature's answer point, or the place's point. */
 export const targetPoint = (t: TapTarget): LngLat => ('point' in t ? t.point : t.answer);
