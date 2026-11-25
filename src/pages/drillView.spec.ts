@@ -3,7 +3,7 @@ import { buildCurriculum, countryItemId, placeItemId, regionItemId } from '../en
 import type { ItemProgress } from '../engine/srs';
 import type { Country, Place } from '../engine/types';
 import type { AreaFeature } from '../maps/geo';
-import { childRows, resolveDrillRoute, splitByFrame } from './drillView';
+import { childRows, resolveDrillRoute, sortOffMap, splitByFrame } from './drillView';
 
 const countries: Country[] = [
   { id: 'fr', name: 'France', places: 2, hasRegions: true },
@@ -175,5 +175,17 @@ describe('splitByFrame', () => {
     const { onMap, off } = splitByFrame(square, items, (i) => i.at);
     expect(onMap.map((i) => i.id)).toEqual(['in']);
     expect(off.map((i) => i.id)).toEqual(['far']);
+  });
+});
+
+describe('sortOffMap', () => {
+  it('sorts regions and places together by name', () => {
+    const entries = [
+      { id: 'b', name: 'Navassa Island', isRegion: false },
+      { id: 'a', name: 'Alaska', isRegion: true },
+      { id: 'c', name: 'Gibraltar', isRegion: false },
+    ];
+    expect(sortOffMap(entries).map((e) => e.name)).toEqual(['Alaska', 'Gibraltar', 'Navassa Island']);
+    expect(entries[0]?.name).toBe('Navassa Island');
   });
 });

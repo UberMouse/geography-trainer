@@ -12,7 +12,7 @@ import {
 import type { ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
 import type { AreaFeature, LngLat } from '../maps/geo';
-import { inFlatFrame } from '../maps/view';
+import { fitFlat, MAP_SIZE } from '../maps/view';
 import { STATE_LABELS } from './progressView';
 
 export type DrillRoute =
@@ -100,11 +100,28 @@ export function splitByFrame<T>(
   items: readonly T[],
   at: (item: T) => LngLat,
 ): { onMap: T[]; off: T[] } {
+  const project = fitFlat([frame]);
   const onMap: T[] = [];
   const off: T[] = [];
-  for (const item of items) (inFlatFrame(frame, at(item)) ? onMap : off).push(item);
+  for (const item of items) {
+    const p = project(at(item));
+    const inside = !!p && p.every((v) => Number.isFinite(v) && v >= 0 && v <= MAP_SIZE);
+    (inside ? onMap : off).push(item);
+  }
   return { onMap, off };
 }
+
+/** An item named under the map because it is outside its frame. */
+export interface OffMapEntry {
+  id: string;
+  name: string;
+  /** A region (which may have a page) rather than a place (which has none). */
+  isRegion: boolean;
+}
+
+/** `entries` sorted alphabetically by name, for the "Not on this map" line. */
+export const sortOffMap = (entries: readonly OffMapEntry[]): OffMapEntry[] =>
+  [...entries].sort((a, b) => a.name.localeCompare(b.name));
 
 /** "No regions or places to learn here." for an item with no children. */
 export const NO_CHILDREN_TEXT = 'No regions or places to learn here.';

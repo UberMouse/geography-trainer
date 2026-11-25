@@ -173,6 +173,20 @@ test('a country without regions draws its places as dots', async ({ page }) => {
   await expect(page.getByTestId('drill-map').locator('circle[data-item-id]')).toHaveCount(expected);
 });
 
+test('outlying regions and places are named under the map', async ({ page }) => {
+  await page.goto('/progress/united-states');
+  const off = page.getByTestId('off-map');
+  await expect(off).toContainText('Not on this map', WAIT);
+  await expect(off.getByRole('link', { name: 'Hawaii' })).toBeVisible();
+  await off.getByRole('link', { name: 'Alaska' }).click();
+  await expect(page).toHaveURL(/\/progress\/united-states\/united-states\.alaska$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Alaska', WAIT);
+
+  await page.goto('/progress/united-kingdom');
+  await expect(page.getByTestId('off-map')).toContainText('Gibraltar', WAIT);
+  await expect(page.getByTestId('off-map').getByRole('link')).toHaveCount(0);
+});
+
 test('a country outline stays neutral when a place shares the country id', async ({ page }) => {
   await page.goto('/progress/cyprus');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Cyprus', WAIT);

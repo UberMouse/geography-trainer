@@ -9,8 +9,10 @@ import {
   NO_CHILDREN_TEXT,
   childRows,
   resolveDrillRoute,
+  sortOffMap,
   splitByFrame,
   type DrillRoute,
+  type OffMapEntry,
 } from './drillView';
 import Status from './LoadStatus';
 import { STATE_LABELS, itemLook } from './progressView';
@@ -121,7 +123,7 @@ function Drill({
         features: (regions?.features ?? []).filter((f) => f.id === regionId),
         dots: placeDots(countryPlaces.filter((p) => p.region === regionId)),
         fit: undefined,
-        offMap: [],
+        offMap: [] as OffMapEntry[],
       };
     }
     // The country page frames the main part of the country, as the exercises do: outlying
@@ -130,10 +132,12 @@ function Drill({
     const frame = mainPart(outline);
     if (regions) {
       const split = splitByFrame(frame, regions.features, answerPoint);
-      return { features: split.onMap, dots: [], fit: [frame], offMap: split.off };
+      const offMap = split.off.map((f) => ({ id: f.id, name: f.properties.name, isRegion: true }));
+      return { features: split.onMap, dots: [], fit: [frame], offMap };
     }
     const split = splitByFrame(frame, placeDots(countryPlaces), (d) => d.at);
-    return { features: [outline], dots: split.onMap, fit: [frame], offMap: [] };
+    const offMap = split.off.map((d) => ({ id: d.id, name: d.name, isRegion: false }));
+    return { features: [outline], dots: split.onMap, fit: [frame], offMap };
   }, [data.places, data.countries, regions, routeKind, regionId, countryId]);
 
   // A region with no places is not a curriculum item: drawn neutral, not a link.
@@ -182,18 +186,16 @@ function Drill({
       {offMap.length > 0 && (
         <p data-testid="off-map">
           Not on this map:{' '}
-          {[...offMap]
-            .sort((a, b) => a.properties.name.localeCompare(b.properties.name))
-            .map((f, i) => (
-              <Fragment key={f.id}>
-                {i > 0 && ', '}
-                {curriculum.items.has(regionItemId(f.id)) ? (
-                  <Link to={`${regionBase}/${f.id}`}>{f.properties.name}</Link>
-                ) : (
-                  f.properties.name
-                )}
-              </Fragment>
-            ))}
+          {sortOffMap(offMap).map((e, i) => (
+            <Fragment key={e.id}>
+              {i > 0 && ', '}
+              {e.isRegion && curriculum.items.has(regionItemId(e.id)) ? (
+                <Link to={`${regionBase}/${e.id}`}>{e.name}</Link>
+              ) : (
+                e.name
+              )}
+            </Fragment>
+          ))}
         </p>
       )}
       {rows.length === 0 ? (
