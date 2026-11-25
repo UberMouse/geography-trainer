@@ -15,7 +15,7 @@ const LOAD_FAILURE = 'Could not load the map data or your saved progress:';
 /** `/placement/:country` and `/placement/:country/:region` (a full `<country>.<region>` id). */
 export default function TestOut() {
   const { country = '', region } = useParams();
-  const [data, reload] = useLoaded('test-out-world', loadWorldData);
+  const [data, reload] = useLoaded(`test-out-world/${country}/${region ?? ''}`, loadWorldData);
   return (
     <Status state={data} retry={reload} failure={LOAD_FAILURE}>
       {(world) => <Resolved world={world} countryId={country} regionId={region} />}

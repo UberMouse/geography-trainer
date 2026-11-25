@@ -140,6 +140,26 @@ test('the United States page shows it mastered and its regions as new', async ({
   await expect(list.locator('li[data-state="new"]')).toHaveCount(await list.locator('li').count());
 });
 
+test('the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
+  const file = testInfo.outputPath('mastered-us.json');
+  await writeMasteredUnitedStates(file);
+  await importMastered(page, file);
+
+  await page.goto('/progress/united-states');
+  await page.getByRole('link', { name: "Test out of United States's regions" }).click();
+  await expect(page).toHaveURL(/\/placement\/united-states$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    "Test out of United States's regions",
+    WAIT,
+  );
+  await expect(page.getByTestId('placement-question')).toBeVisible(WAIT);
+
+  // A region that is not mastered offers no test-out.
+  await page.goto('/progress/united-states/united-states.texas');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Texas', WAIT);
+  await expect(page.getByRole('link', { name: /Test out of/ })).toHaveCount(0);
+});
+
 test('a country whose parent is not mastered lists its regions as locked', async ({ page }) => {
   await page.goto('/progress/germany');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);

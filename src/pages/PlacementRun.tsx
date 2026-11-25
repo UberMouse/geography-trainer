@@ -50,7 +50,10 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   const [saving, setSaving] = useState<{ status: 'saving' | 'saved' } | { status: 'failed'; error: string }>(
     { status: 'saving' },
   );
-  const [passSaveError, setPassSaveError] = useState<string | null>(null);
+  // The save error belongs to the question (by position) whose answer failed to save.
+  const [passSaveError, setPassSaveError] = useState<{ position: number; message: string } | null>(
+    null,
+  );
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const questionRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
@@ -153,7 +156,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
       () => undefined,
       (error: unknown) => {
         console.error('[placement] could not save answer', question.itemId, error);
-        setPassSaveError(messageOf(error));
+        setPassSaveError({ position: asking!.state.answers.length, message: messageOf(error) });
       },
     );
   };
@@ -162,7 +165,6 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
     if (!answered) return;
     const following = nextQuestion(answered, Math.random);
     setAnswered(null);
-    setPassSaveError(null);
     if (following) setAsking(following);
     else finish(answered);
   };
@@ -190,7 +192,9 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           onAnswer={onAnswer}
           onNext={onNext}
         />
-        {passSaveError && <p role="alert">This answer could not be saved: {passSaveError}</p>}
+        {answered && passSaveError?.position === position && (
+          <p role="alert">This answer could not be saved: {passSaveError.message}</p>
+        )}
       </div>
       {answeredCount > 0 && (
         <p>

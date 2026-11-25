@@ -179,6 +179,7 @@ function Runner({ data }: { data: SessionData }) {
   const onAnswer = (result: ExerciseResult) => {
     const now = new Date();
     let after;
+    let newlyMastered = false;
     try {
       const recorded = answerEntry(
         progress.current[question.itemId],
@@ -193,15 +194,22 @@ function Runner({ data }: { data: SessionData }) {
       progress.current = { ...progress.current, [question.itemId]: after };
       if (isMastered(after) && !(before && isMastered(before))) {
         setMastered((ids) => [...ids, question.itemId]);
-        if (canTestOut(curriculum, progress.current, question.itemId)) {
-          setTestable((ids) => [...ids, question.itemId]);
-        }
+        newlyMastered = true;
       }
     } catch (error) {
       console.error('[session] could not record answer', question.itemId, error);
       setRecordFailed(true);
       setAnsweredRun(skipCurrent(run));
       return;
+    }
+    if (newlyMastered) {
+      try {
+        if (canTestOut(curriculum, progress.current, question.itemId)) {
+          setTestable((ids) => [...ids, question.itemId]);
+        }
+      } catch (error) {
+        console.error('[session] could not check test-out', question.itemId, error);
+      }
     }
     setAnsweredRun(answerCurrent(run, { rating: result.rating, correct: result.correct, after }));
   };
