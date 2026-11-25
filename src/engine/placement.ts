@@ -80,8 +80,11 @@ function unaskedItems(state: PlacementState): PlacementItem[] {
 /** The next question with the state that now holds it as `pending`, or null when the test is
  * finished or no askable item is left. While a question is pending it returns that question and
  * the same state without calling `rng`, so repeated calls are safe. Otherwise, at the target
- * level it picks uniformly with `rng`; with none left there, it uses the nearest level that has
- * some (the easier one on a tie). Throws a RangeError when `rng` returns a value outside [0, 1). */
+ * level it picks uniformly with `rng`; with none left there, it keeps to the direction of travel:
+ * after a pass the nearest level above the target that has unasked items (else the nearest below),
+ * after a fail the nearest level below (else above), and before the first answer the nearest
+ * level, the easier one on a tie. So a run of passes climbs past a level with no items. Throws a
+ * RangeError when `rng` returns a value outside [0, 1). */
 export function nextQuestion(
   state: PlacementState,
   rng: () => number,
@@ -90,15 +93,17 @@ export function nextQuestion(
   if (isFinished(state)) return null;
   const pool = unaskedItems(state);
   if (pool.length === 0) return null;
-  let best = Infinity;
-  let bestLevel = 0;
-  for (const { level } of pool) {
-    const d = Math.abs(level - state.target);
-    if (d < best || (d === best && level < bestLevel)) {
-      best = d;
-      bestLevel = level;
-    }
-  }
+  const levels = [...new Set(pool.map((i) => i.level))];
+  const nearest = (candidates: number[]) =>
+    candidates.reduce((a, b) => {
+      const da = Math.abs(a - state.target);
+      const db = Math.abs(b - state.target);
+      return db < da || (db === da && b < a) ? b : a;
+    });
+  const harder = levels.filter((l) => l >= state.target);
+  const easier = levels.filter((l) => l <= state.target);
+  const ahead = state.direction === 1 ? harder : state.direction === -1 ? easier : levels;
+  const bestLevel = nearest(ahead.length > 0 ? ahead : levels);
   const atLevel = pool.filter((i) => i.level === bestLevel);
   const r = rng();
   if (!(r >= 0 && r < 1)) throw new RangeError(`rng() must return a value in [0, 1), got ${r}`);

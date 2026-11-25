@@ -162,6 +162,59 @@ describe('placement staircase', () => {
     });
   });
 
+  it('climbs past a level with no items instead of re-asking the level below it', () => {
+    const rng = mulberry32(9);
+    const counts: Record<number, number> = { 1: 3, 2: 4, 3: 4, 4: 5, 6: 1, 7: 2 };
+    const france = Object.entries(counts).flatMap(([level, n]) =>
+      Array.from({ length: n }, (_, i) => ({ itemId: `f${level}-${i}`, level: Number(level) })),
+    );
+    let s = startPlacement(france, rng);
+    const levels: number[] = [];
+    while (levels.filter((l) => l === 4).length < 1 || levels.at(-1) !== 4) {
+      const r = step(s, rng, Rating.Good);
+      s = r.state;
+      levels.push(r.level);
+    }
+    // After the first pass at 4 the target is 5 (empty): go up to 6, and reach 7 before a second 4.
+    const next = step(s, rng, Rating.Good);
+    expect(next.level).toBe(6);
+    s = next.state;
+    expect(step(s, rng, Rating.Good).level).toBe(7);
+  });
+
+  it('lets a learner who passes everything climb past a level with 30 items and none above it', () => {
+    const items: PlacementItem[] = [
+      ...Array.from({ length: 30 }, (_, i) => ({ itemId: `a${i}`, level: 4 })),
+      ...[6, 7, 8].flatMap((level) =>
+        Array.from({ length: 5 }, (_, i) => ({ itemId: `b${level}-${i}`, level })),
+      ),
+    ];
+    for (const seed of [1, 2, 3]) {
+      const { state, result } = run(items, seed, () => true);
+      // Level 4 is asked once to start; the other four questions at 4 come only after levels 6-8 are spent.
+      const firstSix = state.answers.findIndex((a) => a.level >= 6);
+      expect(firstSix, `seed=${seed}`).toBe(1);
+      expect(state.answers.slice(0, 16).filter((a) => a.level === 4).length, `seed=${seed}`).toBe(1);
+      expect(state.answers.some((a) => a.level === 8)).toBe(true);
+      expect(result.estimate, `seed=${seed}`).toBe(8);
+    }
+  });
+
+  it('moves a fail into the nearest easier level with items when the level below is empty', () => {
+    const rng = mulberry32(3);
+    const gap: PlacementItem[] = [
+      { itemId: 'x2', level: 2 },
+      { itemId: 'x4', level: 4 },
+      { itemId: 'x4b', level: 4 },
+    ];
+    // Target 4 has items; failing there targets 3 (empty), and the question comes from level 2, not 4.
+    let s = startPlacement(gap, rng);
+    const first = step(s, rng, Rating.Again);
+    expect(first.level).toBe(4);
+    s = first.state;
+    expect(step(s, rng, Rating.Again).level).toBe(2);
+  });
+
   it('never asks items with a non-finite level, and returns null when none are left', () => {
     const rng = mulberry32(5);
     const s = startPlacement([{ itemId: 'x', level: Infinity }], rng);
