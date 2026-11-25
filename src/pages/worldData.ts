@@ -14,18 +14,21 @@ export interface WorldData {
   places: Place[];
   progress: Record<string, ItemProgress>;
   curriculum: Curriculum;
+  /** Marker keys of the finished placement tests (see `placementKey`). */
+  finishedTests: ReadonlySet<string>;
 }
 
 export const loadWorldData = async (): Promise<WorldData> => {
-  const [countries, places, progress] = await Promise.all([
+  const [countries, places, progress, finishedTests] = await Promise.all([
     loadCountries(),
     loadPlaces(),
     progressStore.loadProgress(),
+    progressStore.loadFinishedTests(),
   ]);
   const curriculum = buildCurriculum(
     countries.countries,
     regionsFromPlaces(countries.countries, places),
     places,
   );
-  return { countries, places, progress, curriculum };
+  return { countries, places, progress, curriculum, finishedTests };
 };

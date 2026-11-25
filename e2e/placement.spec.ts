@@ -74,3 +74,24 @@ test('a test-out page for an item that is not mastered is not available', async 
   await expect(question(page, TEST_ID)).toHaveCount(0);
   if (isMobile) await noHorizontalScroll(page);
 });
+
+test('Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, isMobile }) => {
+  const offer = page.getByRole('link', { name: 'Take the placement test' });
+  await page.goto('/');
+  await expect(offer).toBeVisible(WAIT);
+
+  await offer.click();
+  await answerCurrent(page, isMobile);
+  await page.getByRole('link', { name: 'Quit' }).click();
+  await expect(page.getByRole('link', { name: /^Start/ })).toBeVisible(WAIT);
+  await expect(offer).toBeVisible();
+
+  await offer.click();
+  await answerCurrent(page, isMobile);
+  await page.getByRole('button', { name: 'Finish now' }).click();
+  await expect(done(page)).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible(WAIT);
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await expect(page.getByRole('link', { name: /^Start/ })).toBeVisible(WAIT);
+  await expect(offer).toHaveCount(0);
+});

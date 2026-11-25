@@ -2,9 +2,10 @@
 // unit-tested.
 
 import { countryItemId, regionItemId, unlockedBy, type Curriculum } from '../engine/curriculum';
-import { isStudied } from '../engine/placement';
+import { canTestOut, isStudied } from '../engine/placement';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
+import { placementKey } from '../storage/placementKeys';
 import type { PlacementTier } from './placementView';
 
 /** The tier of a test out's questions: the children of the item. */
@@ -77,3 +78,14 @@ export function testOutPath(itemId: string): string {
 
 /** "Test out of France's regions": the page heading and the drill page's link text. */
 export const testOutLabel = (name: string, tier: TestOutTier): string => `Test out of ${name}'s ${tier}`;
+
+/**
+ * Whether a "Test out" link to `itemId` shows: `canTestOut` holds and the item's test-out has no
+ * marker in `finishedTests` (the marker keys of the finished tests).
+ */
+export const showsTestOutLink = (
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  finishedTests: ReadonlySet<string>,
+  itemId: string,
+): boolean => !finishedTests.has(placementKey(itemId)) && canTestOut(curriculum, progress, itemId);

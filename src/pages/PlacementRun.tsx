@@ -15,6 +15,7 @@ import { isPass } from '../engine/grading';
 import { localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import Exercise from '../exercises/Exercise';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
+import { placementKey } from '../storage/placementKeys';
 import { progressStore } from '../storage/progressStore';
 import {
   emptyPoolText,
@@ -38,6 +39,8 @@ export interface PlacementRunProps {
   tier: PlacementTier;
   /** The page title, shown above the test. */
   heading: string;
+  /** The marker scope: `COUNTRIES_SCOPE`, or the item id being tested out of. */
+  scope: string;
   /** The country or region being tested out of; absent for the countries test. */
   scopeName?: string;
 }
@@ -46,7 +49,7 @@ const dayKeyOf = (now: Date) => localDayKey(now, -now.getTimezoneOffset());
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** One placement test over `pool`: the question loop, saving, and the result screen. */
-export default function PlacementRun({ pool, items, progress, tier, heading, scopeName }: PlacementRunProps) {
+export default function PlacementRun({ pool, items, progress, tier, heading, scope, scopeName }: PlacementRunProps) {
   // The state holding the pending question, and that question; null once nothing is left to ask.
   const [asking, setAsking] = useState<{ state: PlacementState; question: PlacementQuestion } | null>(
     () => nextQuestion(startPlacement(pool, Math.random), Math.random),
@@ -83,7 +86,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
     try {
       const now = new Date();
       const seeds = placementSeeds(result, progress, now, dayKeyOf(now));
-      if (seeds.length > 0) await progressStore.seedProgress(seeds);
+      await progressStore.finishPlacement(placementKey(scope), seeds);
       setSaving({ status: 'saved' });
     } catch (error) {
       console.error('[placement] could not save results', error);

@@ -83,6 +83,7 @@ function Loaded({ world, route }: { world: WorldData; route: Extract<TestOutRout
           items={loaded.items}
           progress={world.progress}
           tier={route.tier}
+          scope={itemId}
           heading={testOutLabel(loaded.name, route.tier)}
           scopeName={loaded.name}
         />

@@ -11,7 +11,6 @@ import {
   startRun,
   type SessionRun,
 } from '../engine/sessionRun';
-import { canTestOut } from '../engine/placement';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import { introducedToday } from '../engine/today';
 import { loadCountries, loadPlaces, loadRegions, type CountriesData, type RegionsData } from '../data/loaders';
@@ -21,12 +20,14 @@ import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { progressStore } from '../storage/progressStore';
 import Status from './LoadStatus';
 import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
-import { testOutPath } from './testOutView';
+import { showsTestOutLink, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 
 interface SessionData {
   countries: CountriesData;
   progress: Record<string, ItemProgress>;
+  /** Marker keys of the finished placement tests (see `placementKey`). */
+  finishedTests: ReadonlySet<string>;
   curriculum: Curriculum;
   /** The session's first round queue, built when the data loaded. */
   questions: SessionQuestion[];
@@ -37,10 +38,11 @@ interface SessionData {
 }
 
 const loadSessionData = async (): Promise<SessionData> => {
-  const [countries, places, progress] = await Promise.all([
+  const [countries, places, progress, finishedTests] = await Promise.all([
     loadCountries(),
     loadPlaces(),
     progressStore.loadProgress(),
+    progressStore.loadFinishedTests(),
   ]);
   const now = new Date();
   const curriculum = buildCurriculum(countries.countries, regionsFromPlaces(countries.countries, places), places);
@@ -62,7 +64,7 @@ const loadSessionData = async (): Promise<SessionData> => {
     const countryId = curriculum.items.get(itemId)!.countryId.replace(/^country:/, '');
     items.set(itemId, buildExerciseItem(itemId, { countries, places, regions: regions.get(countryId) }));
   }
-  return { countries, progress, curriculum, questions, regions, items };
+  return { countries, progress, finishedTests, curriculum, questions, regions, items };
 };
 
 /** Today's study session: countries, regions and places, in rounds, each answer saved as it is given. */
@@ -204,7 +206,7 @@ function Runner({ data }: { data: SessionData }) {
     }
     if (newlyMastered) {
       try {
-        if (canTestOut(curriculum, progress.current, question.itemId)) {
+        if (showsTestOutLink(curriculum, progress.current, data.finishedTests, question.itemId)) {
           setTestable((ids) => [...ids, question.itemId]);
         }
       } catch (error) {

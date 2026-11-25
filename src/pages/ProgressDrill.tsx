@@ -7,7 +7,6 @@ import {
   unlockedBy,
   type Curriculum,
 } from '../engine/curriculum';
-import { canTestOut } from '../engine/placement';
 import { loadRegions, type RegionsData } from '../data/loaders';
 import { answerPoint, mainPart } from '../maps/geo';
 import DrillMap, { type DrillDot } from '../maps/DrillMap';
@@ -23,7 +22,7 @@ import {
 } from './drillView';
 import Status from './LoadStatus';
 import { STATE_LABELS, itemLook } from './progressView';
-import { testOutLabel, testOutPath } from './testOutView';
+import { showsTestOutLink, testOutLabel, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
@@ -162,7 +161,7 @@ function Drill({
   const self = itemLook(curriculum, data.progress, itemId);
   const name = names.get(itemId) ?? itemId;
   const isRegion = route.kind === 'region';
-  const testOutTier = canTestOut(curriculum, data.progress, itemId)
+  const testOutTier = showsTestOutLink(curriculum, data.progress, data.finishedTests, itemId)
     ? (`${unlockedBy(curriculum, itemId)!.tier}s` as const)
     : null;
   const regionBase = `/progress/${countryId}`;

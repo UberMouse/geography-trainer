@@ -1,6 +1,7 @@
 import { placementPool, type PlacementItem } from '../engine/placement';
 import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem } from '../exercises/types';
+import { COUNTRIES_SCOPE } from '../storage/placementKeys';
 import Status from './LoadStatus';
 import PlacementRun from './PlacementRun';
 import { useLoaded } from './useLoaded';
@@ -36,6 +37,7 @@ export default function Placement() {
           items={loaded.items}
           progress={loaded.progress}
           tier="countries"
+          scope={COUNTRIES_SCOPE}
           heading="Placement test"
         />
       )}

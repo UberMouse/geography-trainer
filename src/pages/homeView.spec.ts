@@ -5,7 +5,7 @@ import { buildCurriculum } from '../engine/curriculum';
 import type { Country } from '../engine/types';
 import { createRepo, type ProgressRepo } from '../storage/repo';
 import type { TierCounts } from '../storage/progressFile';
-import { checkImportText, exportFilename, importConfirmText, leftOutText, offersPlacement } from './homeView';
+import { checkImportText, exportFilename, importConfirmText, leftOutText, offersPlacement, showsPlacementOffer } from './homeView';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -146,5 +146,28 @@ describe('offersPlacement', () => {
 
   it('stops offering once an item is answered in a session', () => {
     expect(offersPlacement(curriculum, { 'country:france': started('country:france') })).toBe(false);
+  });
+});
+
+describe('showsPlacementOffer', () => {
+  const countriesMarker = new Set(['placement:countries']);
+
+  it('offers while offersPlacement holds and no marker exists', () => {
+    expect(showsPlacementOffer(curriculum, {}, new Set())).toBe(true);
+  });
+
+  it('hides once the countries test has a marker, even if offersPlacement holds', () => {
+    expect(offersPlacement(curriculum, {})).toBe(true);
+    expect(showsPlacementOffer(curriculum, {}, countriesMarker)).toBe(false);
+  });
+
+  it('ignores the markers of test-outs', () => {
+    expect(showsPlacementOffer(curriculum, {}, new Set(['placement:country:france']))).toBe(true);
+  });
+
+  it('stays hidden when offersPlacement fails, marker or not', () => {
+    const progress = { 'country:france': started('country:france') };
+    expect(showsPlacementOffer(curriculum, progress, new Set())).toBe(false);
+    expect(showsPlacementOffer(curriculum, progress, countriesMarker)).toBe(false);
   });
 });

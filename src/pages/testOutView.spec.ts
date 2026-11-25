@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCurriculum } from '../engine/curriculum';
 import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import type { Country, Place, Region } from '../engine/types';
-import { resolveTestOutRoute, testOutLabel, testOutPath } from './testOutView';
+import { resolveTestOutRoute, showsTestOutLink, testOutLabel, testOutPath } from './testOutView';
 
 const T0 = new Date('2026-01-01T12:00:00Z');
 const DAY = 86_400_000;
@@ -148,5 +148,29 @@ describe('testOutLabel', () => {
   it('names the item and the tier of its children', () => {
     expect(testOutLabel('France', 'regions')).toBe("Test out of France's regions");
     expect(testOutLabel('Bretagne', 'places')).toBe("Test out of Bretagne's places");
+  });
+});
+
+describe('showsTestOutLink', () => {
+  const show = (progress: Record<string, ItemProgress>, finished: string[], id: string) =>
+    showsTestOutLink(curriculum, progress, new Set(finished), id);
+
+  it('shows for a testable item with no marker', () => {
+    expect(show(masteredFrance, [], 'country:france')).toBe(true);
+  });
+
+  it('hides once that item has a marker', () => {
+    expect(show(masteredFrance, ['placement:country:france'], 'country:france')).toBe(false);
+    const region = { 'region:france.bretagne': mastered('region:france.bretagne') };
+    expect(show(region, ['placement:region:france.bretagne'], 'region:france.bretagne')).toBe(false);
+  });
+
+  it('ignores other items and the countries marker', () => {
+    expect(show(masteredFrance, ['placement:country:germany', 'placement:countries'], 'country:france')).toBe(true);
+  });
+
+  it('stays hidden when canTestOut fails, marker or not', () => {
+    expect(show({}, [], 'country:france')).toBe(false);
+    expect(show({}, ['placement:country:france'], 'country:france')).toBe(false);
   });
 });

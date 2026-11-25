@@ -10,7 +10,7 @@ import {
   exportFilename,
   importConfirmText,
   leftOutText,
-  offersPlacement,
+  showsPlacementOffer,
   type ImportSummary,
 } from './homeView';
 import Status from './LoadStatus';
@@ -107,7 +107,7 @@ function HomeContent({ data, now, reload, imported, setImported }: HomeContentPr
           <dd data-testid="today-learned">{numbers.learned}</dd>
         </div>
       </dl>
-      {offersPlacement(data.curriculum, data.progress) && (
+      {showsPlacementOffer(data.curriculum, data.progress, data.finishedTests) && (
         <p>
           Already know some countries? <Link to="/placement">Take the placement test</Link> (about{' '}
           {PLACEMENT_MAX_QUESTIONS} questions)
