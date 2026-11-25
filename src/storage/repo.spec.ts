@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { Rating } from 'ts-fsrs';
+import { Rating, S_MIN } from 'ts-fsrs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import type { NewAnswer } from './db';
@@ -154,6 +154,15 @@ describe('import rejection leaves the database unchanged', () => {
       (f) => ((f.progress[0].rung = 1), (f.progress[0].highestRung = 1), (f.progress[0].l4PassDays = ['2026-01-01'])),
       /l4PassDays/,
     ],
+    ['an introducedAt of 1e20', (f) => (f.progress[0].introducedAt = 1e20), /introducedAt/],
+    ['a card due of 1e20', (f) => (f.progress[0].cards[1].due = 1e20), /due/],
+    ['a card last_review of 1e300', (f) => (f.progress[0].cards[1].last_review = 1e300), /last_review/],
+    ['an answer at of 1e20', (f) => (f.answers[0].at = 1e20), /answers\[0\]\.at/],
+    ['an answer at of 1.5', (f) => (f.answers[0].at = 1.5), /answers\[0\]\.at/],
+    ['an answer id past 2^53', (f) => (f.answers[0].id = 2 ** 53 + 2), /answers\[0\]\.id/],
+    ['a zero stability on a non-New card', (f) => (f.progress[0].cards[1].stability = 0), /memory state/],
+    ['a negative stability', (f) => (f.progress[0].cards[1].stability = -3), /memory state/],
+    ['a difficulty of -50', (f) => (f.progress[0].cards[1].difficulty = -50), /memory state/],
     ['a duplicate progress itemId', (f) => f.progress.push({ ...f.progress[0] }), /progress rows/],
     ['a duplicate answer id', (f) => f.answers.push({ ...f.answers[0] }), /answer rows/],
   ];
@@ -170,6 +179,27 @@ describe('import rejection leaves the database unchanged', () => {
 
   it('rejects a non-object file', async () => {
     await expect(repo.importProgress(null)).rejects.toThrow(/not a progress export/);
+  });
+});
+
+describe('validated boundary cards', () => {
+  it('a card at the scheduler bounds, and a New card, survive validation and applyAnswer', () => {
+    const base = answered('country:france');
+    const rung = base.rung;
+    const card = base.cards[rung]!;
+    const bounds = { ...base, cards: { [rung]: { ...card, stability: S_MIN, difficulty: 1 } } };
+    const fresh = createProgress('country:peru', NOW);
+    const file = {
+      format: 'geography-trainer-progress',
+      version: 1,
+      exportedAt: NOW.toISOString(),
+      progress: [bounds, fresh],
+      answers: [],
+    };
+    const { progress } = validateProgressFile(JSON.parse(JSON.stringify(file)));
+    for (const row of progress) {
+      expect(() => applyAnswer(row, row.rung, Rating.Good, new Date(NOW.getTime() + 1000), '2026-03-04')).not.toThrow();
+    }
   });
 });
 

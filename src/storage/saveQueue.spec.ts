@@ -170,6 +170,20 @@ describe('createSaveQueue', () => {
     expect(settled).toBe(true);
   });
 
+  it('whenSettled works when called detached', async () => {
+    const { write, settlers } = controlledWriter();
+    const queue = createSaveQueue(write);
+    const { whenSettled } = queue;
+    queue.push('a');
+    let settled = false;
+    void whenSettled().then(() => (settled = true));
+    await tick();
+    expect(settled).toBe(false);
+    settlers[0]?.resolve();
+    await tick();
+    expect(settled).toBe(true);
+  });
+
   it('whenSettled resolves at once when idle and resolves on a failure', async () => {
     const queue = createSaveQueue(async () => {
       throw new Error('x');

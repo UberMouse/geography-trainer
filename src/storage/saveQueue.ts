@@ -74,6 +74,10 @@ export function createSaveQueue<T>(write: (entry: T) => Promise<void>): SaveQueu
     return current;
   }
 
+  function settled(): Promise<void> {
+    return running ? current.then(settled) : Promise.resolve();
+  }
+
   return {
     push(entry) {
       pending.push(entry);
@@ -86,10 +90,7 @@ export function createSaveQueue<T>(write: (entry: T) => Promise<void>): SaveQueu
       return start();
     },
     getState: () => state,
-    whenSettled() {
-      if (!running) return Promise.resolve();
-      return current.then(() => this.whenSettled());
-    },
+    whenSettled: settled,
     unsavedEntries: () => [...pending],
     discard() {
       if (running) throw new Error('Cannot discard the save queue while a write is running');

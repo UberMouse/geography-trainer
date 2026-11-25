@@ -1,5 +1,6 @@
 // The export/import file format and the validation of a parsed file. Pure, no storage.
 
+import { S_MIN } from 'ts-fsrs';
 import { isIntroduced, type ItemProgress } from '../engine/srs';
 import type { AnswerRow } from './db';
 
@@ -22,6 +23,8 @@ function isObj(value: unknown): value is Obj {
 }
 
 const isNum = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+/** An epoch-ms instant `new Date` can format: `Date.getTime()` is always an integer, within +-8.64e15. */
+const isEpochMs = (value: unknown): value is number => Number.isSafeInteger(value) && Math.abs(value as number) <= 8.64e15;
 const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 4;
 
 const isCount = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 0;
@@ -33,21 +36,25 @@ function isDayKey(value: unknown): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-const CARD_NUMBERS = ['due', 'stability', 'difficulty'] as const;
 // Whole-number fields: ts-fsrs rounds scheduled_days, and `state` is its State enum (0 New .. 3 Relearning).
 const CARD_COUNTS = ['scheduled_days', 'learning_steps', 'reps', 'lapses'] as const;
 
 function checkCard(card: unknown, where: string) {
   if (!isObj(card)) throw new Error(`${where} is not an object`);
-  for (const key of CARD_NUMBERS) {
-    if (!isNum(card[key])) throw new Error(`${where}.${key} is not a number`);
-  }
+  if (!isEpochMs(card.due)) throw new Error(`${where}.due is not an epoch-ms number`);
+  if (!isNum(card.stability)) throw new Error(`${where}.stability is not a number`);
+  if (!isNum(card.difficulty)) throw new Error(`${where}.difficulty is not a number`);
   for (const key of CARD_COUNTS) {
     if (!isCount(card[key])) throw new Error(`${where}.${key} is not a non-negative integer`);
   }
   if (!isCount(card.state) || (card.state as number) > 3) throw new Error(`${where}.state is not an integer 0-3`);
-  if (card.last_review !== undefined && !isNum(card.last_review)) {
-    throw new Error(`${where}.last_review is not a number`);
+  if (card.last_review !== undefined && !isEpochMs(card.last_review)) {
+    throw new Error(`${where}.last_review is not an epoch-ms number`);
+  }
+  // ts-fsrs's `next` throws "Invalid memory state" below these bounds, except for the all-zero memory of a New card.
+  const isNewMemory = card.state === 0 && card.stability === 0 && card.difficulty === 0;
+  if (!isNewMemory && (card.stability < S_MIN || card.difficulty < 1)) {
+    throw new Error(`${where} has a memory state the scheduler cannot use (stability >= ${S_MIN}, difficulty >= 1)`);
   }
 }
 
@@ -77,21 +84,21 @@ function checkProgress(row: unknown, index: number) {
     throw new Error(`${where}.l4PassDays has days but highestRung is not 4`);
   }
   if (typeof row.inL4Lapse !== 'boolean') throw new Error(`${where}.inL4Lapse is not a boolean`);
-  if (row.introducedAt !== null && !isNum(row.introducedAt)) {
-    throw new Error(`${where}.introducedAt is not a number or null`);
+  if (row.introducedAt !== null && !isEpochMs(row.introducedAt)) {
+    throw new Error(`${where}.introducedAt is not an epoch-ms number or null`);
   }
 }
 
 function checkAnswer(row: unknown, index: number) {
   const where = `answers[${index}]`;
   if (!isObj(row)) throw new Error(`${where} is not an object`);
-  if (!isCount(row.id) || row.id === 0) throw new Error(`${where}.id is not a positive integer`);
+  if (!Number.isSafeInteger(row.id) || (row.id as number) < 1) throw new Error(`${where}.id is not a positive integer`);
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
   if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
   if (!isRung(row.rating)) throw new Error(`${where}.rating is not 1-4`);
   if (typeof row.correct !== 'boolean') throw new Error(`${where}.correct is not a boolean`);
   if (!isNum(row.timeMs)) throw new Error(`${where}.timeMs is not a number`);
-  if (!isNum(row.at)) throw new Error(`${where}.at is not a number`);
+  if (!isEpochMs(row.at)) throw new Error(`${where}.at is not an epoch-ms number`);
   if (!isDayKey(row.dayKey)) throw new Error(`${where}.dayKey is not a YYYY-MM-DD day`);
   for (const key of ['km', 'maptapScore']) {
     if (row[key] !== undefined && !isNum(row[key])) throw new Error(`${where}.${key} is not a number`);
