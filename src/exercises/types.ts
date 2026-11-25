@@ -30,7 +30,11 @@ export interface ExerciseItem {
    * its country's regions, or the country alone when it has no regions tier.
    */
   context: IdentifiedFeature[];
-  /** Every other same-tier item a wrong option may be drawn from (see `buildExerciseItem`). */
+  /**
+   * Every other same-tier item a wrong option may be drawn from (see `buildExerciseItem`). It may
+   * be empty: a region whose country has no other region with places has none, so a session
+   * should not ask such an item at a multiple-choice rung (L1, L2).
+   */
   candidates: Candidate[];
   /** What L1 outlines: the target, or a place's region (its country when it has no regions). */
   outline: AreaFeature;
