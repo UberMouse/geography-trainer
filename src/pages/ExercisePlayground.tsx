@@ -251,8 +251,9 @@ function Run({
     }
   }, [itemId, data]);
   const items = useMemo(() => itemsOf(tier, countryId, data), [tier, countryId, data]);
-  // Seed, item and round together, so each item shuffles its options differently yet reproducibly.
-  const exerciseSeed = seed ^ hashOf(itemId) ^ round;
+  // Seed, item and round hashed together (XOR collides), so each item shuffles its options
+  // differently yet reproducibly.
+  const exerciseSeed = hashOf(`${seed}:${itemId}:${round}`);
 
   const random = () => {
     const pick = items[Math.floor(mulberry32(seed)() * items.length)];
@@ -302,7 +303,7 @@ function Run({
         {item.onGlobe && ' · on the globe'}
       </p>
       <Exercise
-        key={round}
+        key={`${seed}:${round}`}
         item={item}
         rung={rung}
         seed={exerciseSeed}

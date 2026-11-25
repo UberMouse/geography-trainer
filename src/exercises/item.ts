@@ -1,7 +1,7 @@
 import { countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
 import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
-import { answerPoint, mainPart, type AreaFeature, type LngLat } from '../maps/geo';
+import { answerPoint, mainPart, nearPoint, type AreaFeature, type LngLat } from '../maps/geo';
 import type { IdentifiedFeature } from '../maps/HighlightMap';
 import { inFlatFrame } from '../maps/view';
 import type { Candidate, ExerciseItem } from './types';
@@ -77,7 +77,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       context: features,
       candidates: features
         .filter((f) => f !== country)
-        .map((f) => pointCandidate(countryItemId(f.id), f.properties.name, answerPoint(f))),
+        .map((f) => pointCandidate(countryItemId(f.id), f.properties.name, nearPoint(f))),
       outline: country,
       frame: mainPart(country),
       world: features,
@@ -104,7 +104,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       context: regions.features,
       candidates: regions.features
         .filter((f) => f !== region && f.properties.places > 0)
-        .map((f) => pointCandidate(regionItemId(f.id), f.properties.name, answerPoint(f))),
+        .map((f) => pointCandidate(regionItemId(f.id), f.properties.name, nearPoint(f))),
       outline: region,
       frame,
       world: worldWith(country, regions.features),

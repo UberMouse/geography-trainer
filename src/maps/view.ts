@@ -34,15 +34,21 @@ export const GLOBE_FILL = 0.95;
 export const globeRadius = (width: number, height: number, zoom: number) =>
   (Math.min(width, height) / 2) * GLOBE_FILL * zoom;
 
+/** The smallest cos(lat) a drag divides by: bounds the longitude step near the poles. */
+const MIN_COS_LAT = 0.1;
+
 /**
  * The view after dragging by `dx`, `dy` px on a globe of `radiusPx`: the surface follows the
- * pointer near the centre. Latitude is clamped to ±90°, longitude wrapped.
+ * pointer near the centre at any latitude (a parallel is shorter by cos(lat), so a pixel is more
+ * longitude the nearer a pole: capped at 1 / `MIN_COS_LAT`, to stay bounded there). Latitude is
+ * clamped to ±90°, longitude wrapped.
  */
 export function rotateGlobe(view: GlobeView, dx: number, dy: number, radiusPx: number): GlobeView {
   const degPerPx = 180 / (Math.PI * radiusPx);
+  const cosLat = Math.max(MIN_COS_LAT, Math.cos((view.lat * Math.PI) / 180));
   return {
     ...view,
-    lng: wrapLng(view.lng - dx * degPerPx),
+    lng: wrapLng(view.lng - (dx * degPerPx) / cosLat),
     lat: clamp(view.lat + dy * degPerPx, -90, 90),
   };
 }

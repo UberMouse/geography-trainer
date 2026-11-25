@@ -229,58 +229,115 @@ export function clusterAt<F extends AreaFeature>(feature: F, point: LngLat): F {
 }
 
 const answerPoints = new WeakMap<AreaFeature, LngLat>();
+const nearPoints = new WeakMap<AreaFeature, LngLat>();
 
 /** Grid cells per side of the coarse and of each refining search for an interior point. */
 const INTERIOR_GRID = 20;
 const INTERIOR_REFINES = 3;
 /** The boundary is measured against about this many vertices: the search only needs it roughly. */
-const INTERIOR_BOUNDARY_VERTICES = 600;
+const INTERIOR_BOUNDARY_VERTICES = 250;
+
+/** A ring as flat x, y pairs (longitude unwrapped) with its bounding box. */
+interface PlanarRing {
+  xy: Float64Array;
+  box: [number, number, number, number];
+}
+
+/**
+ * Whether the planar point (x, y) is inside the rings, by ray casting in lng/lat (even-odd over
+ * every ring, so holes are respected). Cheap, and only as right as lng/lat are planar: callers
+ * confirm with `geoContains`.
+ */
+function planarContains(planar: PlanarRing[], x: number, y: number) {
+  let inside = false;
+  for (const { xy, box } of planar) {
+    // Outside the ring's box the ray crosses it an even number of times: skip it.
+    if (y < box[1] || y > box[3] || x < box[0] || x > box[2]) continue;
+    let px = xy[xy.length - 2]!;
+    let py = xy[xy.length - 1]!;
+    for (let i = 0; i < xy.length; i += 2) {
+      const qx = xy[i]!;
+      const qy = xy[i + 1]!;
+      if (py > y !== qy > y && x < ((qx - px) * (y - py)) / (qy - py) + px) inside = !inside;
+      px = qx;
+      py = qy;
+    }
+  }
+  return inside;
+}
 
 /**
  * An approximate pole of inaccessibility of an areal feature: a point inside it, roughly the
- * farthest from its boundary. A grid over its bounds is scored by distance to a thinned copy of
- * the boundary, then a finer grid around the best point repeats that. Every candidate is checked
- * with `geoContains`, so the result is inside whatever the scoring says. When no candidate is
- * (islands smaller than a grid cell), the search moves to the feature's biggest polygon, and
- * failing that the centroid comes back.
+ * farthest from its boundary. A grid over its bounds is tested with a cheap planar point in
+ * polygon and scored by distance to a thinned copy of the boundary, then a finer grid around the
+ * best point repeats that. The best-scoring candidate that `geoContains` confirms is returned, so
+ * the result is inside whatever the planar test says. When no candidate is (islands smaller than a
+ * grid cell), the search moves to the feature's biggest polygon, and failing that the centroid
+ * comes back.
  */
 function interiorPoint(feature: AreaFeature): LngLat {
   const [[w, s], [e0, n]] = geoBounds(feature);
-  const e = e0 < w ? e0 + 360 : e0; // bounds that cross the antimeridian
+  const crosses = e0 < w; // bounds that cross the antimeridian
+  const e = crosses ? e0 + 360 : e0;
+  const unwrap = (lng: number) => (crosses && lng < 0 ? lng + 360 : lng);
   const all = rings(feature);
+  const planar = all.map((ring): PlanarRing => {
+    const xy = new Float64Array(ring.length * 2);
+    ring.forEach(([lng, lat], i) => ([xy[2 * i], xy[2 * i + 1]] = [unwrap(lng!), lat!]));
+    const xs = ring.map(([lng]) => unwrap(lng!));
+    const ys = ring.map(([, lat]) => lat!);
+    return { xy, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
+  });
   const total = all.reduce((sum, r) => sum + r.length, 0);
   const step = Math.max(1, Math.ceil(total / INTERIOR_BOUNDARY_VERTICES));
-  const edges: [Vec, Vec][] = [];
+  // The boundary in unwrapped lng/lat, thinned: distance to it is measured in a flat approximation
+  // (longitude scaled by the candidate's cos(lat)), which ranks interior points well enough.
+  const edges: [number, number, number, number][] = [];
   for (const ring of all) {
-    const vs = ring.filter((_, i) => i % step === 0 || i === ring.length - 1).map(toVec);
-    for (let i = 0; i + 1 < vs.length; i++) edges.push([vs[i]!, vs[i + 1]!]);
+    const vs = ring.filter((_, i) => i % step === 0 || i === ring.length - 1);
+    for (let i = 0; i + 1 < vs.length; i++) {
+      edges.push([unwrap(vs[i]![0]!), vs[i]![1]!, unwrap(vs[i + 1]![0]!), vs[i + 1]![1]!]);
+    }
   }
-  const score = (at: LngLat) => {
-    const p = toVec(at);
+  const score = ([x, y]: LngLat) => {
+    const k = Math.cos(rad(y));
     let best = Infinity;
-    for (const [a, b] of edges) best = Math.min(best, angleToArc(p, a, b));
+    for (const [ax, ay, bx, by] of edges) {
+      const [ex, ey] = [(bx - ax) * k, by - ay];
+      const [fx, fy] = [(x - ax) * k, y - ay];
+      const len2 = ex * ex + ey * ey;
+      const t = len2 > 0 ? Math.max(0, Math.min(1, (fx * ex + fy * ey) / len2)) : 0;
+      best = Math.min(best, (fx - t * ex) ** 2 + (fy - t * ey) ** 2);
+    }
     return best;
   };
-  let best: LngLat | undefined;
-  let bestScore = -1;
+  const found: { at: LngLat; score: number }[] = [];
   let [x0, x1, y0, y1] = [w, e, s, n];
   for (let pass = 0; pass <= INTERIOR_REFINES; pass++) {
     const dx = (x1 - x0) / INTERIOR_GRID;
     const dy = (y1 - y0) / INTERIOR_GRID;
+    let best: { at: LngLat; score: number; x: number } | undefined;
     for (let i = 0; i <= INTERIOR_GRID; i++) {
       for (let j = 0; j <= INTERIOR_GRID; j++) {
         const lng = x0 + i * dx;
         const at: LngLat = [lng > 180 ? lng - 360 : lng, y0 + j * dy];
-        if (!geoContains(feature, at)) continue;
-        const sc = score(at);
-        if (sc > bestScore) [best, bestScore] = [at, sc];
+        if (!planarContains(planar, lng, at[1])) continue;
+        const sc = score([lng, at[1]]);
+        found.push({ at, score: sc });
+        if (!best || sc > best.score) best = { at, score: sc, x: lng };
       }
     }
     if (!best) break;
-    const cx = best[0] < x0 ? best[0] + 360 : best[0];
-    [x0, x1, y0, y1] = [cx - dx, cx + dx, Math.max(-90, best[1] - dy), Math.min(90, best[1] + dy)];
+    [x0, x1, y0, y1] = [
+      best.x - dx,
+      best.x + dx,
+      Math.max(-90, best.at[1] - dy),
+      Math.min(90, best.at[1] + dy),
+    ];
   }
-  if (best) return best;
+  found.sort((a, b) => b.score - a.score);
+  const sure = found.find((c) => geoContains(feature, c.at));
+  if (sure) return sure.at;
   const g = feature.geometry;
   if (g.type === 'MultiPolygon' && g.coordinates.length > 1) {
     const polygons = g.coordinates.map(
@@ -294,6 +351,18 @@ function interiorPoint(feature: AreaFeature): LngLat {
     return geoContains(biggest, centroid) ? centroid : interiorPoint(biggest);
   }
   return geoCentroid(feature);
+}
+
+/**
+ * A point to rank features by distance from, not to tap: the centroid of the feature's main part,
+ * which may lie outside it. Much cheaper than `answerPoint`. Cached per feature object.
+ */
+export function nearPoint(feature: AreaFeature): LngLat {
+  const cached = nearPoints.get(feature);
+  if (cached) return cached;
+  const point = geoCentroid(mainPart(feature));
+  nearPoints.set(feature, point);
+  return point;
 }
 
 /**

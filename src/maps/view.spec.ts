@@ -52,10 +52,19 @@ describe('globe view', () => {
 
   it('drags the surface with the pointer: right moves the centre west, down moves it north', () => {
     const radius = 180 / Math.PI; // 1 degree per px
-    const v = rotateGlobe(NEUTRAL_VIEW, 10, 5, radius);
+    const v = rotateGlobe({ ...NEUTRAL_VIEW, lat: 0 }, 10, 5, radius);
     expect(v.lng).toBeCloseTo(-10);
-    expect(v.lat).toBeCloseTo(25);
+    expect(v.lat).toBeCloseTo(5);
     expect(v.zoom).toBe(1);
+  });
+
+  it('turns longitude by 1 / cos(lat) as much, so the surface follows the pointer at any latitude', () => {
+    const radius = 180 / Math.PI;
+    const at = (lat: number) => rotateGlobe({ ...NEUTRAL_VIEW, lat }, 10, 0, radius).lng;
+    expect(at(60)).toBeCloseTo(-20);
+    expect(at(0)).toBeCloseTo(-10);
+    // Capped near the poles.
+    expect(at(90)).toBeCloseTo(-100);
   });
 
   it('clamps latitude to ±90', () => {
