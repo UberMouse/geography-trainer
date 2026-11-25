@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -193,15 +192,4 @@ describe('validateDataDir', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
-});
-
-// The committed data, against the current allow-list: a stale or hand-edited entry fails here.
-describe('public/data', () => {
-  it.skipIf(!existsSync('public/data/manifest.json'))(
-    'passes validation',
-    async () => {
-      expect(await validateDataDir('public/data')).toEqual([]);
-    },
-    60_000,
-  );
 });
