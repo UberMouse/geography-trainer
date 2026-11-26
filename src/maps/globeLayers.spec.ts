@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import realCountries from '../../public/data/countries.topo.json';
 import type { CountryFeature, RegionFeature } from '../data/loaders';
 import type { Place } from '../engine/types';
-import type { LngLat } from './geo';
+import { ensureArea, type LngLat } from './geo';
 import {
   EOX_ATTRIBUTION,
   EOX_TILES,
@@ -250,6 +250,11 @@ describe('greatCircle', () => {
   it('is just its two ends when they coincide', () => {
     expect(greatCircle([10, 10], [10, 10])).toHaveLength(2);
   });
+
+  it('stays finite between exact antipodes', () => {
+    const path = greatCircle([10, 20], [-170, -20]);
+    expect(path.flat().every(Number.isFinite)).toBe(true);
+  });
 });
 
 describe('featureBounds', () => {
@@ -275,6 +280,20 @@ describe('featureBounds', () => {
     expect(w).toBeLessThan(30);
     expect(e).toBeGreaterThan(185);
     expect(e).toBeLessThan(195);
+  });
+
+  it("frames a point-only country's disc", () => {
+    // As `loadCountries` makes it: Saba is stored as a point and drawn as a disc.
+    const saba = ensureArea(country('saba'));
+    expect(saba.geometry.type).toBe('Polygon');
+    const [[w, s], [e, n]] = featureBounds(saba);
+    for (const v of [w, s, e, n]) expect(Number.isFinite(v)).toBe(true);
+    // Around its point (-63.24, 17.63), a few km across.
+    expect(w).toBeLessThan(-63.24);
+    expect(e).toBeGreaterThan(-63.24);
+    expect(e - w).toBeLessThan(0.2);
+    expect(s).toBeLessThan(17.63);
+    expect(n).toBeGreaterThan(17.63);
   });
 });
 

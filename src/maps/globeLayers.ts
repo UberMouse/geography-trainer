@@ -235,6 +235,8 @@ export function revealLayers(reveal: Reveal): LayerSet {
  */
 export function greatCircle(a: LngLat, b: LngLat): LngLat[] {
   const steps = Math.max(1, Math.ceil((geoDistance(a, b) * 180) / Math.PI));
+  // Between exact antipodes every great circle joins them, so geoInterpolate's points are rounding
+  // noise: finite, but with no one direction (the path zigzags).
   const at = geoInterpolate(a, b);
   const points: LngLat[] = [];
   for (let i = 0; i <= steps; i++) {
