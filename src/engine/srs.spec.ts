@@ -89,6 +89,21 @@ describe('ladder', () => {
     expect(p).toMatchObject({ rung: 3, highestRung: 3 });
   });
 
+  it('skips a rung on Easy: L1 Easy goes straight to L3 with a new L3 card and no L2 card', () => {
+    const p = answer(createProgress('a', T0), 1, Rating.Easy, 2);
+    expect(p).toMatchObject({ rung: 3, highestRung: 3, inL3Lapse: false });
+    expect(p.cards[2]).toBeUndefined();
+    expect(p.cards[3]).toMatchObject({ state: State.New, due: at(2).getTime() });
+    expect(dueRung(p)).toBe(3);
+  });
+
+  it('a skipped L2 is created fresh when an L3 lapse first needs it', () => {
+    let p = answer(createProgress('a', T0), 1, Rating.Easy);
+    p = answer(p, 3, Rating.Again, 1);
+    expect(p).toMatchObject({ rung: 2, inL3Lapse: true });
+    expect(p.cards[2]).toMatchObject({ state: State.New, due: at(1).getTime() });
+  });
+
   it('climbs on Hard at L1, a slow but correct multiple-choice answer', () => {
     const p = answer(createProgress('a', T0), 1, Rating.Hard);
     expect(p).toMatchObject({ rung: 2, highestRung: 2 });
@@ -157,8 +172,8 @@ describe('ladder', () => {
   });
 
   it('a lapse at L3 is due again at once at L2, keeping the old L2 card otherwise', () => {
-    let p = createProgress('a', T0);
-    for (const r of [1, 2] as const) p = answer(p, r, Rating.Easy);
+    let p = answer(createProgress('a', T0), 1, Rating.Good);
+    p = answer(p, 2, Rating.Easy);
     const oldL2 = p.cards[2];
     expect(oldL2?.due).toBeGreaterThan(at(1).getTime());
     p = applyAnswer(p, 3, Rating.Again, at(0.0007), '2026-03-01');
@@ -168,8 +183,9 @@ describe('ladder', () => {
   });
 
   it('every step down brings the lower rung due now (L2 to L1 during a lapse)', () => {
-    let p = createProgress('a', T0);
-    for (const r of [1, 2] as const) p = answer(p, r, Rating.Easy);
+    let p = answer(createProgress('a', T0), 1, Rating.Easy);
+    p = answer(p, 3, Rating.Again, 1);
+    p = answer(p, 2, Rating.Good, 1);
     p = answer(p, 3, Rating.Again, 1);
     const oldL1 = p.cards[1];
     expect(oldL1?.due).toBeGreaterThan(at(2).getTime());

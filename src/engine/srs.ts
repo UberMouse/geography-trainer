@@ -1,5 +1,6 @@
 // Spaced repetition: one FSRS card per (item, rung), and the L1 -> L3 exercise ladder: L1
 // highlighted -> name (multiple choice), L2 name -> tap with borders, L3 name -> tap with no borders.
+// A pass climbs one rung, an Easy two (so L1 Easy goes straight to L3).
 // Progress is plain JSON-serialisable data; every function returns new data and never mutates.
 
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
@@ -122,7 +123,8 @@ export function applyAnswer(
   let { rung: current, highestRung, inL3Lapse } = progress;
   if (rung === current) {
     if (climbs && current < 3) {
-      current = (current + 1) as Rung;
+      // Easy skips a rung: a country answered fast at L1 goes straight to L3.
+      current = Math.min(3, current + (rating === Rating.Easy ? 2 : 1)) as Rung;
       if (current === 3) inL3Lapse = false;
     } else if (rating === Rating.Again && current > 1) {
       if (current === 3) inL3Lapse = true;

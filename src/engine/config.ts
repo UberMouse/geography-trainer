@@ -71,7 +71,7 @@ export const PLACEMENT_MAX_QUESTIONS = 20;
 export const PLACEMENT_STOP_SD = 0.45;
 /** A miss this close still shows the learner roughly knows where it is: half credit. Countries
  * and regions measure outside the border, places from the point. */
-export const PLACEMENT_CLOSE_KM = { country: 400, region: 150, place: 200 } as const;
+export const PLACEMENT_CLOSE_KM = { country: 600, region: 150, place: 200 } as const;
 /** An untested item the learner knows with at least this probability is sent to L3 review to confirm. */
 export const PLACEMENT_LIKELY_KNOWN = 0.85;
 /** ...and with at least this probability (below the one above) it starts at L2. */
