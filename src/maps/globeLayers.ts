@@ -392,10 +392,10 @@ export function featureAt(features: IdentifiedFeature[], at: LngLat): string | u
 /** The map's zoom-in limit; `setMinZoom` throws above it. */
 export const MAX_ZOOM = 14;
 /** The lowest zoom MapLibre accepts for `minZoom`; `setMinZoom` throws below it. */
-const LOWEST_ZOOM = -2;
+export const LOWEST_ZOOM = -2;
 
 /** MapLibre's default vertical field of view, in degrees. */
-const FOV_DEG = (Math.atan(0.75) * 180) / Math.PI;
+export const FOV_DEG = (Math.atan(0.75) * 180) / Math.PI;
 
 /**
  * The zoom (at the equator) at which the whole sphere fits a `width` × `height` container with a

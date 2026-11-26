@@ -24,9 +24,9 @@ export type CameraMove =
   | { kind: 'stay' };
 
 /** MapLibre's world is this many CSS px around at zoom 0. */
-const TILE_PX = 512;
+export const TILE_PX = 512;
 /** Below this cos(lat) (about 89.4°) the span is measured as if at that latitude. */
-const MIN_COS_LAT = 0.01;
+export const MIN_COS_LAT = 0.01;
 
 /**
  * The zoom at which MapLibre's globe shows about `km` of ground across `sizePx` CSS px, centred at

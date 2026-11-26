@@ -36,7 +36,7 @@ export type TapTarget =
 export const POINT_FEATURE_RADIUS_KM = 2;
 
 /** Below this many steradians (about 40 m²) a polygon counts as having no area. */
-const MIN_AREA_SR = 1e-12;
+export const MIN_AREA_SR = 1e-12;
 
 /**
  * The feature with an area to draw, tap and measure: a Point or MultiPoint, or a (Multi)Polygon
@@ -235,8 +235,8 @@ export function mainPart<F extends AreaFeature>(feature: F): F {
 }
 
 /** The square, and its padding, that `frameTest` fits a frame into. */
-const FRAME_SIZE = 480;
-const FRAME_PADDING = 16;
+export const FRAME_SIZE = 480;
+export const FRAME_PADDING = 16;
 
 /**
  * A test of whether a point lies within `frame`'s padded extent: inside the square that an
@@ -269,10 +269,10 @@ const answerPoints = new WeakMap<AreaFeature, LngLat>();
 const nearPoints = new WeakMap<AreaFeature, LngLat>();
 
 /** Grid cells per side of the coarse and of each refining search for an interior point. */
-const INTERIOR_GRID = 20;
-const INTERIOR_REFINES = 3;
+export const INTERIOR_GRID = 20;
+export const INTERIOR_REFINES = 3;
 /** The boundary is measured against about this many vertices: the search only needs it roughly. */
-const INTERIOR_BOUNDARY_VERTICES = 250;
+export const INTERIOR_BOUNDARY_VERTICES = 250;
 
 /** A ring as flat x, y pairs (longitude unwrapped) with its bounding box. */
 interface PlanarRing {
@@ -397,7 +397,7 @@ function interiorPoint(feature: AreaFeature): LngLat {
 }
 
 /** The most triangles `nearBoundaryPoint` tests per ring, to bound its cost on a big boundary. */
-const NEAR_BOUNDARY_TRIES = 100;
+export const NEAR_BOUNDARY_TRIES = 100;
 
 /**
  * A point just inside `feature`'s biggest polygon, found without a grid: the centroid of each

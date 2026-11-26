@@ -10,11 +10,8 @@ import {
   featureAt,
   featureBounds,
   fittedZoom,
-  imageryStyle,
-  MAX_ZOOM,
   modeLayers,
   OUR_PREFIX,
-  PROGRESS_DOT_RADIUS,
   PROGRESS_DOTS_LAYER,
   revealLayers,
   SPACE_COLOUR,
@@ -23,6 +20,22 @@ import {
   type ProgressDot,
   type Reveal,
 } from './globeLayers';
+import {
+  DOT_DRAWN_PX,
+  DOT_SLACK_PX,
+  FIT_PADDING,
+  FITTED_EPSILON,
+  latAllowance,
+  mapOptions,
+  MAX_PIXEL_RATIO,
+  NAME_MARKER_OFFSET,
+  OFF_GLOBE_PX,
+  REVEAL_ANSWER_PIN,
+  REVEAL_PADDING,
+  REVEAL_TAP_PIN,
+  START,
+  WIDE_SCREEN,
+} from './globeOptions';
 
 export interface GlobeHandle {
   /** Fly to frame the feature's main part. */
@@ -91,28 +104,6 @@ export interface GlobeProps {
 // MapLibre looks for its worker next to its own module, which Vite's bundling moves: point it at
 // the worker file as Vite serves (and, in a build, emits) it.
 maplibregl.setWorkerUrl(workerUrl);
-
-const START: LngLat = [0, 20];
-/** A tap whose point, unprojected and projected back, moves more than this is off the globe. */
-const OFF_GLOBE_PX = 2;
-const FIT_PADDING = 40;
-/** The reveal's margin: wider, so a pin and the name beside it clear the globe's edges. */
-const REVEAL_PADDING = 72;
-/** How far from a progress dot's centre, in CSS px, a tap is on the dot as drawn. */
-const DOT_DRAWN_PX = PROGRESS_DOT_RADIUS + 2;
-/** How far from a progress dot's centre, in CSS px, a tap inside no feature still lands on it. */
-const DOT_SLACK_PX = PROGRESS_DOT_RADIUS + 8;
-/** Zoom slack when telling a view at the fitted zoom from one the user zoomed in. */
-const FITTED_EPSILON = 0.01;
-
-/** MapLibre's globe lets the zoom go this far below minZoom at `lat` (see the opening jump). */
-const latAllowance = (lat: number) => Math.log2(Math.cos((lat * Math.PI) / 180));
-
-/**
- * Wide screens, as `GlobeLayout.module.css` has them (Mantine's `sm`, 768px): the attribution is
- * written out in full there, and compact (the ⓘ button) at phone width.
- */
-const WIDE_SCREEN = '(min-width: 48em)';
 
 /** Map instances created so far, for the test hook's `instanceId`. */
 let instancesCreated = 0;
@@ -197,21 +188,9 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
+        ...mapOptions(mountZoom),
         container,
-        style: imageryStyle(),
-        center: START,
-        zoom: mountZoom,
-        minZoom: mountZoom,
-        maxZoom: MAX_ZOOM,
-        maxPitch: 0,
-        dragRotate: false,
-        pitchWithRotate: false,
-        touchPitch: false,
-        // A tap is an answer, so two quick taps are two answers, not a zoom (mouse and touch).
-        doubleClickZoom: false,
-        pixelRatio: Math.min(window.devicePixelRatio, 2),
-        // Added below, compact or not by screen width.
-        attributionControl: false,
+        pixelRatio: Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO),
       });
     } catch (error) {
       console.error(error);
@@ -258,7 +237,7 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       ratioQuery.addEventListener('change', onRatioChange, { once: true });
     };
     const onRatioChange = () => {
-      map.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      map.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
       watchRatio();
     };
     watchRatio();
@@ -410,8 +389,8 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     const shown = shownMarkers.current;
     const added = [
       // Hidden, not faded, on the far side: a faint pin there looks like it is on the near side.
-      new maplibregl.Marker({ color: '#fa5252', opacityWhenCovered: '0' }).setLngLat(reveal.tap.at).addTo(map),
-      new maplibregl.Marker({ color: '#40c057', opacityWhenCovered: '0' }).setLngLat(reveal.tap.answer).addTo(map),
+      new maplibregl.Marker({ color: REVEAL_TAP_PIN, opacityWhenCovered: '0' }).setLngLat(reveal.tap.at).addTo(map),
+      new maplibregl.Marker({ color: REVEAL_ANSWER_PIN, opacityWhenCovered: '0' }).setLngLat(reveal.tap.answer).addTo(map),
     ];
     for (const m of added) shown.set(m, { kind: 'reveal', text: '' });
     return () =>
@@ -437,7 +416,7 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
         const element = document.createElement('div');
         element.className = classes.name!;
         element.textContent = m.text;
-        marker = new maplibregl.Marker({ element, anchor: 'top', offset: [0, 6] });
+        marker = new maplibregl.Marker({ element, anchor: 'top', offset: NAME_MARKER_OFFSET });
         shown.set(marker, { kind: 'name', text: m.text });
       }
       return marker.setLngLat(m.at).addTo(map);
