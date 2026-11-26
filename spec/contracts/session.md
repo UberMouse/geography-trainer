@@ -145,9 +145,11 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
   progress, now) holds an item not in `run.asks`. With no queued question left to check against,
   these notice that a new item's answer could not be recorded (SES-15), that a review has come due
   since, and most resets and imports in another tab: the session is then rebuilt from the progress
-  as it is. The round's own items do not count, since their learning steps come due within minutes
-  of the round, and nor do new items, including those the round unlocked, so the summary keeps its
-  unlock lines. `dueQuestions` is only consulted when the queue is empty.
+  as it is. Items the session asked, in any of its rounds (the keys of `run.asks`), do not count,
+  since their learning steps come due within minutes; so a review whose answer was lost in a reload
+  before it was saved is not noticed here, and a later session asks it again. Nor do new items
+  count, including those the round unlocked, so the summary keeps its unlock lines. `dueQuestions`
+  is only consulted when the queue is empty.
 - `loadSessionRun`, `saveSessionRun` and `clearSessionRun` swallow storage errors: a load that
   throws is null, a save or clear that throws does nothing.
 
