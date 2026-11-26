@@ -1,6 +1,6 @@
 import { geoContains } from 'd3-geo';
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useHref, useSearchParams } from 'react-router';
 import {
   loadCountries,
   loadRegions,
@@ -43,62 +43,70 @@ export default function Playground() {
   const initialView = useMemo(() => parseView(view), [view]);
   const [countries, retry] = useLoaded('countries', loadCountries);
   const [countryId, setCountryId] = useState(DEFAULT_COUNTRY);
-  const globe = params.get('mode') === 'globe';
-  const exercises =
-    !globe && (params.get('mode') === 'exercises' || params.has('item') || params.has('rung'));
-  const current = (on: boolean) => (on ? 'page' : undefined);
+  const mode = params.get('mode');
+  const tab: 'maps' | 'exercises' | 'globe' =
+    mode === 'globe'
+      ? 'globe'
+      : mode === 'exercises' || params.has('item') || params.has('rung')
+        ? 'exercises'
+        : 'maps';
+  const current = (on: typeof tab) => (tab === on ? 'page' : undefined);
+  // A full page load, so the Globe tab is always its own document: Mantine's global styles, once
+  // loaded, never reach the other tabs, even through Back and Forward.
+  const globeHref = useHref('/playground?mode=globe');
+
+  if (tab === 'globe') {
+    // The Globe tab covers the whole page, and its panel carries its own links to the others.
+    return (
+      <Suspense fallback={<p>Loading…</p>}>
+        <GlobePlayground />
+      </Suspense>
+    );
+  }
 
   return (
     <>
       <h1>Map playground</h1>
       <nav className="playground-controls" aria-label="Playground">
-        <Link to="/playground" aria-current={current(!exercises && !globe)}>
+        <Link to="/playground" aria-current={current('maps')}>
           Maps
         </Link>
-        <Link to="/playground?mode=exercises" aria-current={current(exercises)}>
+        <Link to="/playground?mode=exercises" aria-current={current('exercises')}>
           Exercises
         </Link>
-        <Link to="/playground?mode=globe" aria-current={current(globe)}>
-          Globe
-        </Link>
+        <a href={globeHref}>Globe</a>
       </nav>
-      {globe ? (
-        // The Globe tab covers the whole page, this heading and nav included.
-        <Suspense fallback={<p>Loading…</p>}>
-          <GlobePlayground />
-        </Suspense>
-      ) : (
-        <Status state={countries} retry={retry}>
-          {(data) => {
-            if (exercises) return <ExercisePlayground countries={data} initialView={initialView} />;
-            const { features } = data;
-            const country = features.find((f) => f.id === countryId) ?? features[0]!;
-            const sorted = [...features].sort((a, b) =>
-              a.properties.name.localeCompare(b.properties.name),
-            );
-            return (
-              <>
-                <label className="playground-picker">
-                  Country{' '}
-                  <select value={country.id} onChange={(e) => setCountryId(e.target.value)}>
-                    {sorted.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.properties.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <CountryMaps
-                  key={country.id}
-                  world={features}
-                  country={country}
-                  initialView={initialView}
-                />
-              </>
-            );
-          }}
-        </Status>
-      )}
+      <Status state={countries} retry={retry}>
+        {(data) => {
+          if (tab === 'exercises')
+            return <ExercisePlayground countries={data} initialView={initialView} />;
+          const { features } = data;
+          const country = features.find((f) => f.id === countryId) ?? features[0]!;
+          const sorted = [...features].sort((a, b) =>
+            a.properties.name.localeCompare(b.properties.name),
+          );
+          return (
+            <>
+              <label className="playground-picker">
+                Country{' '}
+                <select value={country.id} onChange={(e) => setCountryId(e.target.value)}>
+                  {sorted.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.properties.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <CountryMaps
+                key={country.id}
+                world={features}
+                country={country}
+                initialView={initialView}
+              />
+            </>
+          );
+        }}
+      </Status>
     </>
   );
 }

@@ -1,6 +1,4 @@
 import '@mantine/core/styles.css';
-// The globe's CSS loads here, with the lazily loaded tab, so no other page carries it.
-import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   Anchor,
   Box,

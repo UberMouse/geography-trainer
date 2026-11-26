@@ -76,7 +76,7 @@ test('phone width puts the globe above the panel, all inside the viewport', asyn
   }
 });
 
-/** A tab's link in the playground's own nav, which the Globe tab covers. */
+/** A tab's link in the playground's own nav, which the Maps and Exercises tabs show. */
 const playgroundTab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Playground', exact: true }).getByRole('link', { name });
 
@@ -94,11 +94,32 @@ test('the panel links back to the Maps and Exercises tabs', async ({ page }) => 
   }
 });
 
-test('the playground nav opens the Globe tab', async ({ page }) => {
+test('the playground nav opens the Globe tab, without the page heading and nav', async ({
+  page,
+}) => {
   await page.goto('/playground');
   await playgroundTab(page, 'Globe').click();
   await expect(page.getByTestId('globe-slot')).toBeVisible();
-  await expect(playgroundTab(page, 'Globe')).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Map playground' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Playground', exact: true })).toHaveCount(0);
+});
+
+test('Back from the Globe tab shows the Maps tab without Mantine', async ({ page }) => {
+  await page.goto('/playground');
+  await playgroundTab(page, 'Globe').click();
+  await expect(page.getByTestId('globe-slot')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
+  await page.goBack();
+  await expect(playgroundTab(page, 'Maps')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('html')).not.toHaveAttribute('data-mantine-color-scheme');
+  // Mantine's global stylesheet defines its --mantine-* custom properties on :root.
+  const mantineVar = await page.locator('html').evaluate((el) => {
+    const { getComputedStyle } = globalThis as unknown as {
+      getComputedStyle(el: unknown): { getPropertyValue(name: string): string };
+    };
+    return getComputedStyle(el).getPropertyValue('--mantine-z-index-app');
+  });
+  expect(mantineVar).toBe('');
 });
 
 type LngLat = [number, number];
