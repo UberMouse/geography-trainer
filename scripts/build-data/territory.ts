@@ -18,7 +18,7 @@ export interface TerritoryMove {
 }
 
 /** A clipped piece smaller than this share of its row is a boundary sliver, not territory. */
-const SLIVER_SHARE = 0.01;
+export const SLIVER_SHARE = 0.01;
 
 /**
  * A clipping result the build reports. `in-territory`: a sliver that stayed with the losing

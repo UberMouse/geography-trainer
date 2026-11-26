@@ -4,8 +4,8 @@
 import { fetchWithin } from './http';
 
 export const MAPTAP_URL = 'https://maptap.gg/data/master_locations_v2.js';
-const FETCH_TIMEOUT_MS = 60_000;
-const MARKER = 'const masterLocationsV2 = ';
+export const FETCH_TIMEOUT_MS = 60_000;
+export const MARKER = 'const masterLocationsV2 = ';
 
 export interface MaptapEntry {
   id: string;

@@ -7,7 +7,7 @@ import { fetchWithin } from './http';
 
 export const NE_VERSION = 'v5.1.2';
 /** The admin-1 file is about 40 MB. */
-const DOWNLOAD_TIMEOUT_MS = 120_000;
+export const DOWNLOAD_TIMEOUT_MS = 120_000;
 export const NE_FILES = {
   mapUnits: 'ne_10m_admin_0_map_units',
   mapSubunits: 'ne_10m_admin_0_map_subunits',
