@@ -126,13 +126,14 @@ Scenario Outline: the legend on each page
     | the Progress page | locked, new, learning, mastered     |
 ```
 
-### SCR-08 Home links to Progress and Settings
-Up: PRD-07, PRD-11
+### SCR-08 Home reaches Progress and Settings through the app bar
+Up: PRD-07, PRD-11, PRD-17
 
 ```gherkin
 Scenario: the links
   When the learner opens Home
-  Then Home links to the Progress page and to Settings
+  Then the app bar links to the Progress page and to Settings, with Home marked as the current page
+    And Home's own column has no second link to either
 ```
 
 ## Progress: the world
@@ -494,7 +495,7 @@ Up: PRD-13
 Scenario: the Credits page
   Given any page
   When the learner follows the footer's Credits link
-  Then the Credits page opens, with a link back to Home
+  Then the Credits page opens, and the app bar leads back to Home
     And it credits MapTap.gg for the place list, with a link to maptap.gg
     And it credits Natural Earth for the boundaries, public domain, with a link
     And it gives EOX's Sentinel-2 cloudless attribution line in full, with its s2maps.eu link

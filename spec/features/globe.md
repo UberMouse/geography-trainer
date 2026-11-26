@@ -488,6 +488,74 @@ Scenario: the footer
     And it links to the Credits page
 ```
 
+### GLB-36 Every page's column starts with the app bar
+Up: PRD-17, PRD-09
+
+*Why:* each page made its own way out, and some had none back to Home: Progress, its drill-down
+pages and every failed load. The bar gives every page the same three ways on.
+
+```gherkin
+Scenario: the bar
+  When any page is shown, while it loads, after its load fails, and during a session or a test
+  Then the top of its column shows the app's name, linking to Home, and links to Progress and to Settings
+    And the link to the page shown is marked as the current page, Progress's also on its drill-down pages
+    And the bar stays in view at the top of the column while the column scrolls
+
+Scenario: pages do not repeat the bar
+  When a page is shown
+  Then it has no links of its own to Home, Progress or Settings
+    But a session or a test keeps its own way out, which says where it leads: its Quit link
+      while it runs, and a link back on its summary, its result or its nothing-to-ask message
+
+Scenario: phone width
+  Given a phone-width screen
+  When any page is shown
+  Then the bar fits on one line inside the 16px gutters, and nothing scrolls sideways
+
+Scenario: leaving a session or a test by the bar
+  Given a session or a test is in progress
+  When the learner follows a link in the bar
+  Then it is the same as quitting it: a session ends (SES-27), and a test keeps the answers
+    already saved and stores no finished-test marker (PLC-19)
+    And no pin or reveal is left on the globe
+```
+
+### GLB-37 A new page starts at its top, with focus on it
+Up: PRD-17
+
+*Why:* the link that had focus unmounts with the old page, so focus fell back to the document
+and a screen reader announced nothing.
+
+```gherkin
+Scenario: following a link to another page
+  Given the column was scrolled down and a link in it had focus
+  When the learner follows a link to another page
+  Then the column shows the new page from its top
+    And focus moves to the new page's main heading, or to the column when the page has none
+
+Scenario: the same page
+  When the learner follows the bar's link to the page already shown
+  Then nothing moves: the page keeps its scroll and its state
+```
+
+### GLB-38 The tab title names the page
+Up: PRD-17
+
+```gherkin
+Scenario Outline: the browser tab's title
+  When <page> is shown
+  Then the tab's title is <title>
+  Examples:
+    | page                         | title                                     |
+    | Home                         | the app's name alone                      |
+    | Progress                     | Progress, then the app's name             |
+    | a country's or region's page | its name, then the app's name             |
+    | a session                    | Study, then the app's name                |
+    | the placement test           | Placement test, then the app's name       |
+    | a test-out                   | the test-out's heading, then the app's name |
+    | Settings, Credits            | the page's name, then the app's name      |
+```
+
 ### GLB-35 The site works from a sub-path
 Up: PRD-14
 Verified: manual — the e2e server serves the app at `/`; the sub-path build (`npm run build:pages`) is checked on the deployed GitHub Pages site, including a reload of a deep link

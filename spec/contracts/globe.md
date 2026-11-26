@@ -245,3 +245,40 @@ Up: GLB-29, GLB-30, GLB-31, GLB-35
 
 The router's basename is `import.meta.env.BASE_URL` without its trailing slash (`/` stays `/`),
 in `src/main.tsx`.
+
+### GLB-C17 The app bar
+Up: GLB-36, GLB-37
+
+`src/components/AppBar.tsx`, rendered by `src/App.tsx` at the top of the column, above `<main>`
+and outside `<Routes>`, so every route gets it and it never remounts.
+
+| Link | Text | Path | Current (`aria-current="page"`) when the path is |
+|---|---|---|---|
+| Home | `Geography Trainer` | `/` | `/` |
+| Progress | `Progress` | `/progress` | `/progress`, or anything under `/progress/` |
+| Settings | `Settings` | `/settings` | `/settings` |
+
+The bar is a `<nav>` with `aria-label="Main"`. Following the current page's own link does not
+navigate (GLB-37's same page). It keeps to the column's 16px gutter and sticks to the top of the
+column as it scrolls, on the column's background.
+
+On a pathname change (not a search or hash change) the column's `scrollTop` goes to 0, and focus
+moves to the page's first `h1`, made focusable with `tabIndex={-1}`, or else to the column.
+
+### GLB-C18 Tab titles
+Up: GLB-38
+
+`APP_NAME` is `Geography Trainer`. A page sets `document.title` to `<page> · ${APP_NAME}`, Home to
+`APP_NAME` alone, through one hook (`usePageTitle`), so a page that sets none falls back to
+`APP_NAME`.
+
+| Page | `<page>` |
+|---|---|
+| Progress | `Progress` |
+| a drill-down page | the country's or region's name; `Not found` for a not-found address |
+| a session | `Study` |
+| the placement test | `Placement test` |
+| a test-out | its heading (PLC-18), or `Test out` while unavailable |
+| Settings | `Settings` |
+| Credits | `Credits` |
+| the playground | `Playground` |

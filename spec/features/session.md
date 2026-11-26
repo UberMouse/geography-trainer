@@ -356,7 +356,7 @@ Up: PRD-09
 Scenario: an L1 question at phone width
   Given a phone-width screen
   When an L1 question shows
-  Then all 4 choices are visible within the panel without scrolling
+  Then all 4 choices are visible within the panel without scrolling, below the app bar (GLB-36)
     And nothing scrolls sideways
 ```
 
@@ -520,4 +520,19 @@ Scenario: quitting and coming back
   Given the learner answered a question and then left the session
   When they open the session again
   Then a fresh session is built from their progress, starting at question 1
+```
+
+### SES-28 A running session has a Quit link to Home
+Up: PRD-06, PRD-17
+
+*Why:* the link was built with the session, but no scenario promised a way out of one.
+
+```gherkin
+Scenario: the Quit link
+  Given a session is showing a question, or the reveal of an answer
+  Then beside the counter a link says it quits to Home
+  When the learner follows it
+  Then Home opens
+    And no pin or reveal is left on the globe, and taps on Home's globe drop no pin
+    And the session has ended (SES-27)
 ```

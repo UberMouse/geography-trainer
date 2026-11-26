@@ -386,19 +386,29 @@ Scenario: nothing earned credit
 ## Running a test
 
 ### PLC-18 The question screen
-Up: PRD-05, PRD-09
+Up: PRD-05, PRD-09, PRD-17
 
 ```gherkin
 Scenario: the first question
   Given a test with items to ask
   When it opens
   Then it shows its heading, a counter of the question being asked out of at most 20
-    (fewer when fewer items can be asked), and a Quit link to Home
+    (fewer when fewer items can be asked), and a Quit link back to where the test began
     And there is no way to finish early yet
 
 Scenario: after the first answer
   Given the learner has answered a question
   Then a button to finish now shows
+
+Scenario Outline: where a test leads back to
+  Given <test>
+  Then its Quit link, its result's link back and its nothing-to-test message's link go to <page>
+    And each link names that page
+  Examples:
+    | test                              | page                     |
+    | the countries test                | Home                     |
+    | a country's test-out              | the country's page       |
+    | a region's test-out               | the region's page        |
 
 Scenario: phone width
   Given a phone-width screen
@@ -424,9 +434,9 @@ Scenario: quitting keeps what was shown
 
 Scenario: quitting during a question leaves the globe clean
   Given the learner has dropped a pin but not confirmed it
-  When they quit to Home
+  When they quit
   Then no pin or reveal is left on the globe
-    And taps on Home's globe drop no pin
+    And taps on the next page's globe drop no pin
 
 Scenario: an answer that fails to save
   Given one or more passes or close misses failed to save
@@ -447,7 +457,7 @@ Scenario: the test ends
       days, the very likely known come back over the next few weeks, the close or probably known
       start at tapping on a bordered map, and the rest start from the beginning
     And each line counts its items in the tier's noun, singular for one
-    And a link back to Home
+    And a link back to where the test began (PLC-18)
 
 Scenario: nothing placed
   Given the estimate is 0 and no item was placed
@@ -475,6 +485,7 @@ Scenario: a test-out
   Given all of an item's children are already placed or being studied
   When its test-out opens
   Then it says there is nothing left to test in that item, naming it and its children's tier
+    And links back to the item's page
 ```
 
 ## Finished tests

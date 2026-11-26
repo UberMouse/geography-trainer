@@ -85,3 +85,9 @@ apart unnoticed.
 ## PRD-16 Developers can see the globe and exercises in isolation
 A development-only playground shows the globe's layer modes and each exercise type with sample
 data, for checking changes by eye.
+
+## PRD-17 The learner can always find their way
+Every page offers Home, Progress and Settings in one step, from the same place, including while a
+session or a test is running and when a page fails to load. Leaving an activity goes back to where
+it began: a session and the placement test to Home, a test-out to the page of the country or region
+it tests.
