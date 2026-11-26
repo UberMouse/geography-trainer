@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { startRun } from '../engine/sessionRun';
+import { answerCurrent, startRun } from '../engine/sessionRun';
 import { createProgress } from '../engine/srs';
 import { Rating } from 'ts-fsrs';
 import type { ExerciseResult } from '../exercises/types';
@@ -20,12 +20,19 @@ describe('questionHeader', () => {
   const questions = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ itemId: `country:c${i}`, rung: 1 as const }));
 
-  it('counts within a full round', () => {
-    expect(questionHeader(startRun(questions(50)))).toBe('Question 1 of 20');
+  it('counts the question in its round and the items done out of those started', () => {
+    expect(questionHeader(startRun(questions(50)))).toBe('Question 1 · 0 of 50 done');
+    expect(questionHeader(startRun(questions(7)))).toBe('Question 1 · 0 of 7 done');
   });
 
-  it('uses the remaining count when fewer than a round remain', () => {
-    expect(questionHeader(startRun(questions(7)))).toBe('Question 1 of 7');
+  it('keeps its total when an item comes back at a higher rung, and counts it done when it leaves', () => {
+    const NOW = new Date('2026-03-01T00:00:00Z');
+    const climbed = { rating: Rating.Good, correct: true, after: { ...createProgress('country:c0', NOW), rung: 2 as const } };
+    const stays = { rating: Rating.Good, correct: true, after: createProgress('country:c1', NOW) };
+    let run = answerCurrent(startRun(questions(3)), climbed);
+    expect(questionHeader(run)).toBe('Question 2 · 0 of 3 done');
+    run = answerCurrent(run, stays);
+    expect(questionHeader(run)).toBe('Question 3 · 1 of 3 done');
   });
 });
 

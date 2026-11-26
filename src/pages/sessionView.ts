@@ -1,7 +1,7 @@
 // Plain helpers for the Session page, kept out of the component so they can be unit-tested.
 
 import { unlockedBy, type Curriculum } from '../engine/curriculum';
-import type { SessionRun } from '../engine/sessionRun';
+import { itemsDone, type SessionRun } from '../engine/sessionRun';
 import type { SessionQuestion } from '../engine/session';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
 import type { ExerciseResult } from '../exercises/types';
@@ -64,9 +64,13 @@ export function answerEntry(
   };
 }
 
-/** "Question 3 of 20": the current question's number within its round. */
+/**
+ * "Question 3 · 4 of 15 done": the current question's number within its round, and the session's
+ * items finished out of those it started with. A count of questions would grow as items come back
+ * at a higher rung; the items never do.
+ */
 export function questionHeader(run: SessionRun): string {
-  return `Question ${run.answeredInRound + 1} of ${run.roundTotal}`;
+  return `Question ${run.answeredInRound + 1} · ${itemsDone(run)} of ${run.itemTotal} done`;
 }
 
 /**

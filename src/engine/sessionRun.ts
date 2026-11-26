@@ -17,8 +17,16 @@ export interface SessionRun {
   readonly correctInRound: number;
   /** Answers given so far this session, per item id. */
   readonly asks: Readonly<Record<string, number>>;
-  /** The round's displayed total ("of N"): min(SESSION_ROUND_SIZE, answeredInRound + queue.length). */
+  /** The round's most questions: min(SESSION_ROUND_SIZE, answeredInRound + queue.length). It can
+   * grow as items are re-queued, so the header counts items instead (`itemsDone`). */
   readonly roundTotal: number;
+  /** How many distinct items the session started with; re-asks never add to it. */
+  readonly itemTotal: number;
+}
+
+/** Items the session has finished with: started items no longer in the queue. Never goes down. */
+export function itemsDone(run: SessionRun): number {
+  return run.itemTotal - new Set(run.queue.map((q) => q.itemId)).size;
 }
 
 export interface RunAnswer {
@@ -39,6 +47,7 @@ export function startRun(questions: readonly SessionQuestion[]): SessionRun {
     correctInRound: 0,
     asks: {},
     roundTotal: roundTotalOf(0, questions.length),
+    itemTotal: new Set(questions.map((q) => q.itemId)).size,
   };
 }
 
@@ -79,6 +88,7 @@ export function answerCurrent(run: SessionRun, answer: RunAnswer): SessionRun {
     correctInRound: run.correctInRound + (answer.correct ? 1 : 0),
     asks: { ...run.asks, [current.itemId]: asked },
     roundTotal: roundTotalOf(answeredInRound, queue.length),
+    itemTotal: run.itemTotal,
   };
 }
 
@@ -98,6 +108,7 @@ export function skipCurrent(run: SessionRun): SessionRun {
     correctInRound: run.correctInRound,
     asks: { ...run.asks, [current.itemId]: (run.asks[current.itemId] ?? 0) + 1 },
     roundTotal: roundTotalOf(run.answeredInRound, queue.length),
+    itemTotal: run.itemTotal,
   };
 }
 

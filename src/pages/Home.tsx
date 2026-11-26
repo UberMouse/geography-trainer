@@ -1,7 +1,7 @@
 import { Anchor, Button, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { PLACEMENT_MAX_QUESTIONS } from '../engine/config';
+import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
 import { newTodayText, showsPlacementOffer } from './homeView';
 import Status from './LoadStatus';
@@ -100,12 +100,12 @@ function HomeContent({ data, now }: HomeContentProps) {
           <Anchor component={Link} to="/placement">
             Take the placement test
           </Anchor>{' '}
-          (about {PLACEMENT_MAX_QUESTIONS} questions)
+          ({PLACEMENT_MIN_QUESTIONS}–{PLACEMENT_MAX_QUESTIONS} questions)
         </Text>
       )}
       {numbers.sessionLength > 0 ? (
         <Button component={Link} to="/session" size="md">
-          Start ({numbers.sessionLength} {numbers.sessionLength === 1 ? 'question' : 'questions'})
+          Start ({numbers.sessionLength} to study)
         </Button>
       ) : (
         <Text>There is nothing to study right now.</Text>
