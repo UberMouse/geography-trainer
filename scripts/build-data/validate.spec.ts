@@ -141,6 +141,12 @@ describe('[DAT-25] validateData', () => {
     ]);
   });
 
+  it('[DAT-C11] limits countries to 1 500 000 bytes and each region file to 600 000, places not at all', () => {
+    expect(MAX_COUNTRIES_BYTES).toBe(1_500_000);
+    expect(MAX_REGION_FILE_BYTES).toBe(600_000);
+    expect(problemsAfter((f) => (f.sizes['places.json'] = 1e9))).toEqual([]);
+  });
+
   it('[DAT-C11] fails when a file is over its size bound', () => {
     expect(problemsAfter((f) => (f.sizes['countries.topo.json'] = MAX_COUNTRIES_BYTES))).toEqual(
       [],

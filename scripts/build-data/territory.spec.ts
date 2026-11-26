@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { admin1Rows, buildRegions } from './assign-regions';
 import { admin1, polygonCountry } from './fixtures/geometry';
 import { type Area, areaContains, bboxOf } from './geo';
-import { applyTerritoryMoves } from './territory';
+import { SLIVER_SHARE, applyTerritoryMoves } from './territory';
 
 // aaa spans lng 0..2 with rows AAA-1 (0..1) and AAA-2 (1..2); bbb spans 2..3 with row BBB-1.
 const countries = () => [polygonCountry('aaa', [0, 0], 2), polygonCountry('bbb', [2, 0])];
@@ -134,5 +134,65 @@ describe('applyTerritoryMoves', () => {
         { from: 'aaa', to: 'bbb', territory: { admin1: ['AAA-9'] } },
       ]),
     ).toThrow('move aaa → bbb: no admin-1 row AAA-9');
+  });
+
+  it('[DAT-12] reports a sliver of the gaining row overlapping the moved pieces, and keeps the row', () => {
+    const moved = applyTerritoryMoves(
+      countries(),
+      rows,
+      disputed(rect(1.5, -0.5, 2.005, 1.5)),
+      MOVE_D1,
+    );
+    expect(moved.slivers.map((s) => [s.row, s.part, Number(s.share.toFixed(3))])).toEqual([
+      ['BBB-1 Home', 'gaining-overlap', 0.005],
+    ]);
+    expect(moved.admin1.find((r) => r.code === 'BBB-1')!.geometry).toBe(rows[2]!.geometry);
+  });
+
+  it('[DAT-11] applies the moves in order, each to the result of the last', () => {
+    const moved = applyTerritoryMoves(countries(), rows, new Map(), [
+      { from: 'aaa', to: 'bbb', territory: { admin1: ['AAA-2'] }, region: 'Moved' },
+      { from: 'bbb', to: 'aaa', territory: { admin1: ['AAA-2'] }, region: 'Back' },
+    ]);
+    const [a, b] = moved.countries;
+    expect([inside(a!.area, 1.5), inside(b!.area, 1.5)]).toEqual([true, false]);
+    const regionNames = (i: number) =>
+      admin1Rows(moved.countries[i]!, moved.admin1, moved.countries).rows.map((r) => r.name);
+    expect(regionNames(0).sort()).toEqual(['Back', 'West']);
+    expect(regionNames(1)).toEqual(['Home']);
+  });
+
+  const BROKEN: Array<[string, Parameters<typeof applyTerritoryMoves>[3][number], string]> = [
+    [
+      'the disputed area it names does not exist',
+      { from: 'aaa', to: 'bbb', territory: { disputedArea: 'D9' } },
+      'move aaa → bbb: no disputed area D9',
+    ],
+    [
+      'a country has no polygon',
+      { from: 'aaa', to: 'nowhere', territory: { admin1: ['AAA-2'] } },
+      'move aaa → nowhere: both must be polygon countries',
+    ],
+    [
+      'the territory covers all of the losing country',
+      { from: 'bbb', to: 'aaa', territory: { admin1: ['BBB-1'] } },
+      'move bbb → aaa: the territory covers all of bbb',
+    ],
+    [
+      'no row of the losing country lies in it',
+      { from: 'aaa', to: 'bbb', territory: { disputedArea: 'D1' } },
+      'move aaa → bbb: no admin-1 row of aaa lies in it',
+    ],
+  ];
+  it.each(BROKEN)('[DAT-13] fails when %s', (_case, move, message) => {
+    expect(() =>
+      applyTerritoryMoves(countries(), rows, disputed(rect(5, 5, 6, 6)), [move]),
+    ).toThrow(message);
+  });
+});
+
+describe('[DAT-C06] sliver share', () => {
+  it('treats a piece under 1% of its row as a sliver', () => {
+    expect(SLIVER_SHARE).toBe(0.01);
   });
 });

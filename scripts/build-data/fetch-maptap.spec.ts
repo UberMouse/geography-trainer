@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { parseMaptap, sliceArrayLiteral } from './fetch-maptap';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  FETCH_TIMEOUT_MS,
+  MAPTAP_URL,
+  MARKER,
+  fetchMaptap,
+  parseMaptap,
+  sliceArrayLiteral,
+} from './fetch-maptap';
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -93,5 +100,51 @@ describe('parseMaptap', () => {
       .filter((line) => !line.trimStart().startsWith('//'))
       .join('\n');
     expect(code).not.toMatch(/\beval\s*\(|new Function|node:vm|\brequire\s*\(|\bimport\s*\(/);
+  });
+});
+
+describe('[DAT-C01] maptap source', () => {
+  it('reads the V2 list after its masterLocationsV2 marker, within 60 s', () => {
+    expect(MAPTAP_URL).toBe('https://maptap.gg/data/master_locations_v2.js');
+    expect(MARKER).toBe('const masterLocationsV2 = ');
+    expect(FETCH_TIMEOUT_MS).toBe(60_000);
+  });
+});
+
+describe('[DAT-03] a malformed maptap file', () => {
+  it('throws when no [ follows the marker', () => {
+    expect(() => parseMaptap('const masterLocationsV2 = {};')).toThrow(
+      'maptap file: no "[" right after "const masterLocationsV2 ="',
+    );
+  });
+});
+
+describe('[DAT-04] fetchMaptap', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches the list with a deadline and parses it', async () => {
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(new Response(FIXTURE)),
+    );
+    vi.stubGlobal('fetch', fetch);
+    expect((await fetchMaptap()).active.map((e) => e.id)).toEqual(['bracket', 'kept']);
+    expect(fetch.mock.calls[0]![0]).toBe(MAPTAP_URL);
+    expect(fetch.mock.calls[0]![1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('fails naming the URL and the status on a non-2xx answer', async () => {
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 503 })));
+    await expect(fetchMaptap()).rejects.toThrow(`fetching ${MAPTAP_URL}: HTTP 503`);
+  });
+
+  it('fails naming the URL and the time limit when no complete response comes', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.reject(new DOMException('The operation timed out.', 'TimeoutError')),
+    );
+    await expect(fetchMaptap()).rejects.toThrow(
+      `fetching ${MAPTAP_URL}: no complete response within 60 s`,
+    );
   });
 });

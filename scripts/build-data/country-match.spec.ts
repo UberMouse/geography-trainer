@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { type Override, matchCountries, resolveBorderCountry } from './country-match';
 import { polygonCountry, unit } from './fixtures/geometry';
-import { normalizeName, slugify } from './normalize';
+import { compareStrings, normalizeName, slugify } from './normalize';
 
 const UNITS = [
   unit('CIV', "Côte d'Ivoire", [0, 0], { NAME_LONG: "Republic of Cote d'Ivoire" }),
@@ -25,6 +25,13 @@ const match = (names: string[], overrides: Record<string, Override> = {}) =>
   matchCountries(names, UNITS, SUBUNITS, overrides);
 
 describe('[DAT-C03] normalizeName and slugify', () => {
+  it('transliterate the letters NFD keeps, and order strings by code unit', () => {
+    expect(normalizeName('Øłđðþßæœı')).toBe('olddthssaeoei');
+    expect(compareStrings('B', 'a')).toBeLessThan(0);
+    expect(compareStrings('a', 'a')).toBe(0);
+    expect(['b', 'É', 'a', 'Z'].sort(compareStrings)).toEqual(['Z', 'a', 'b', 'É']);
+  });
+
   it('ignore case, diacritics, & versus and, and punctuation', () => {
     expect(normalizeName("Côte d'Ivoire")).toBe('cote d ivoire');
     expect(normalizeName('Turks & Caicos')).toBe(normalizeName('turks and caicos'));
@@ -108,6 +115,29 @@ describe('matchCountries', () => {
   it('[DAT-09] fails on an override naming an unknown unit', () => {
     expect(() => match(['X'], { X: { kind: 'units', codes: ['NOPE'] } })).toThrow(
       /no NE unit NOPE/,
+    );
+  });
+});
+
+describe('[DAT-07] a specific name beats an admin-name match', () => {
+  it('leaves Tokelau to Tokelau, though its admin name is New Zealand', () => {
+    const units = [
+      unit('NZL', 'New Zealand', [30, 0]),
+      unit('TKL', 'Tokelau', [32, 0], { ADMIN: 'New Zealand', adm0: 'NZL' }),
+    ];
+    const { countries } = matchCountries(['New Zealand', 'Tokelau'], units, [], {});
+    expect(countries.map((c) => [c.id, c.ne])).toEqual([
+      ['new-zealand', ['NZL']],
+      ['tokelau', ['TKL']],
+    ]);
+  });
+});
+
+describe('[DAT-09] ambiguous country ids', () => {
+  it('fails when two maptap names slug to the same id', () => {
+    const dot = { kind: 'point', lng: 0, lat: 0, radiusKm: 1 } as const;
+    expect(() => match(['Saba', 'saba'], { Saba: dot, saba: dot })).toThrow(
+      '"Saba" and "saba" both slug to id "saba"',
     );
   });
 });

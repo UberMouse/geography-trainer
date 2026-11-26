@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { REGIONS_TIER_MIN_PLACES, REGIONS_TIER_MIN_REGIONS } from '../../src/engine/config';
 import {
+  DISSOLVE_BY_REGION,
   adminDisagrees,
   applyRegionNameOverrides,
   assertNoDissolvedOverrides,
@@ -46,6 +47,29 @@ describe('buildRegions', () => {
     expect(buildRegions('x', rows, false).map((r) => r.id)).toEqual([
       'x.limburg-aaa-1',
       'x.limburg-aaa-2',
+    ]);
+  });
+});
+
+describe('[DAT-17] region ids without a slug', () => {
+  it('keeps the NE code when a name gives no slug', () => {
+    expect(buildRegions('x', [admin1('AAA-1', '東京', [0, 0])], false).map((r) => r.id)).toEqual([
+      'x.aaa-1',
+    ]);
+  });
+});
+
+describe('[DAT-C07] the dissolve list', () => {
+  it('dissolves France, the UK nations, Italy, Spain and the Philippines by NE region', () => {
+    expect([...DISSOLVE_BY_REGION].sort()).toEqual([
+      'england',
+      'france',
+      'italy',
+      'northern-ireland',
+      'philippines',
+      'scotland',
+      'spain',
+      'wales',
     ]);
   });
 });
