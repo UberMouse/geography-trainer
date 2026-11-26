@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './test';
-import { hook, type LngLat } from './globeHook';
+import { globeReady, hook, type LngLat } from './globeHook';
 import {
   answer,
   current,
@@ -100,24 +100,57 @@ for (const path of ['/', '/progress']) {
   });
 }
 
-test("a tap on a point-only country's dot, beside its few-km disc, goes to its page", async ({
-  page,
-  isMobile,
-}) => {
-  await page.goto('/progress');
-  const { dots } = await progressShowing(page, 'germany');
-  const dot = dots[0]!;
-  // Zoomed out, the country's own disc is under a pixel across: a tap 6 px off lands on the dot only.
-  await hook.jumpTo(page, dot.at, 4);
-  // Two frames, so the dot has been drawn where the camera now is (the tap is hit-tested on it).
-  await page.evaluate(() => {
+/** Two frames, so the globe has drawn its dots where the camera now is (taps are hit-tested on them). */
+const twoFrames = (page: Page) =>
+  page.evaluate(() => {
     const frame = (globalThis as unknown as { requestAnimationFrame(cb: () => void): void })
       .requestAnimationFrame;
     return new Promise<void>((done) => frame(() => frame(done)));
   });
-  const { x, y } = await hook.project(page, dot.at);
-  await tap(page, isMobile, x + 6, y);
-  await expect(page).toHaveURL(new RegExp(`/progress/${dot.id}$`), WAIT);
+
+// Bonaire, in open sea: 6 px off is on the dot as drawn; 11 px off is beside it, in no country.
+for (const px of [6, 11]) {
+  test(`a tap ${px}px off a point-only country's dot, beside its few-km disc, goes to its page`, async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/progress');
+    const { dots } = await progressShowing(page, 'germany');
+    const dot = dots.find((d) => d.id === 'bonaire')!;
+    // Zoomed out, the country's own disc is under a pixel across: the tap lands on the dot only.
+    await hook.jumpTo(page, dot.at, 4);
+    await twoFrames(page);
+    const { x, y } = await hook.project(page, dot.at);
+    await tap(page, isMobile, x + px, y);
+    await expect(page).toHaveURL(new RegExp(`/progress/${dot.id}$`), WAIT);
+  });
+}
+
+test("a tap on Italy beside Vatican City's dot, at the world view, goes to Italy's page", async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/');
+  const { dots } = await progressShowing(page, 'italy');
+  await globeReady(page);
+  const vatican = dots.find((d) => d.id === 'vatican-city')!;
+  const at = await hook.project(page, vatican.at);
+  const px = (p: { x: number; y: number }, q: { x: number; y: number }) =>
+    Math.hypot(p.x - q.x, p.y - q.y);
+  // Along an inland line from Rome to Basilicata, the first point 10 px from the dot: off the
+  // dot as drawn (6 px), but within the 14 px slack a tap in no country gets.
+  const [lng, lat] = vatican.at;
+  const [toLng, toLat] = [16.3, 40.45];
+  let aim: { x: number; y: number } | undefined;
+  for (let t = 0.02; t <= 1 && !aim; t += 0.02) {
+    const p = await hook.project(page, [lng + (toLng - lng) * t, lat + (toLat - lat) * t]);
+    if (px(p, at) >= 10) aim = p;
+  }
+  expect(aim, 'a point 10 px from the dot').toBeDefined();
+  expect(px(aim!, at)).toBeLessThan(14);
+  for (const d of dots) expect(px(aim!, await hook.project(page, d.at))).toBeGreaterThan(8);
+  await tap(page, isMobile, aim!.x, aim!.y);
+  await expect(page).toHaveURL(/\/progress\/italy$/, WAIT);
 });
 
 test("a tap where a dot on the far side projects to does not open the dot's country", async ({
@@ -131,11 +164,7 @@ test("a tap where a dot on the far side projects to does not open the dot's coun
   // `project` still puts it inside the disc, mirrored onto the near side.
   const [lng, lat] = dot.at;
   await hook.jumpTo(page, [lng > 0 ? lng - 120 : lng + 120, lat], 0);
-  await page.evaluate(() => {
-    const frame = (globalThis as unknown as { requestAnimationFrame(cb: () => void): void })
-      .requestAnimationFrame;
-    return new Promise<void>((done) => frame(() => frame(done)));
-  });
+  await twoFrames(page);
   const { x, y } = await hook.project(page, dot.at);
   const slot = (await page.getByTestId('globe-slot').boundingBox())!;
   expect(x > slot.x && x < slot.x + slot.width && y > slot.y && y < slot.y + slot.height).toBe(true);
@@ -303,6 +332,32 @@ test("Home's globe shows progress by country, and Home links to Progress", async
   await expect.poll(() => hook.layerIds(page)).toContain('gt-progress-fill');
   await page.getByRole('link', { name: 'See your progress' }).click();
   await expect(page).toHaveURL(/\/progress$/);
+});
+
+test('a world view whose globe shrinks mid-flight lands with the whole sphere in view', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await progressShowing(page, 'germany');
+  await globeReady(page);
+  await hook.jumpTo(page, GERMANY, 5);
+  // Progress flies to the world view on entry; the globe shrinks while it flies.
+  await page.getByRole('link', { name: 'See your progress' }).click();
+  const size = page.viewportSize()!;
+  await page.setViewportSize({ width: size.width, height: size.height - 200 });
+  // Settled: the camera reads the same twice, 300 ms apart.
+  const camera = () => Promise.all([hook.zoom(page), hook.center(page)]).then(String);
+  await expect
+    .poll(async () => {
+      const before = await camera();
+      await page.waitForTimeout(300);
+      return before === (await camera());
+    }, WAIT)
+    .toBe(true);
+  // At the fit (minZoom is the fit at the equator; MapLibre allows log2 cos lat below it).
+  const lat = (await hook.center(page))[1];
+  const fit = (await hook.minZoom(page)) + Math.log2(Math.cos((lat * Math.PI) / 180));
+  expect(await hook.zoom(page)).toBeCloseTo(fit, 2);
 });
 
 test('Home and Progress do not scroll sideways', async ({ page }) => {

@@ -54,6 +54,8 @@ export interface GlobeTestHook {
   project(at: LngLat): { x: number; y: number };
   center(): LngLat;
   zoom(): number;
+  /** The zoom-out limit: the zoom (at the equator) that fits the whole sphere in the container. */
+  minZoom(): number;
   /** Move the camera at once, stopping any flight: to bring a target into view before a tap. */
   jumpTo(at: LngLat, zoom: number): void;
   /** Our layers now in the style, bottom to top (the imagery's excluded). */
@@ -93,8 +95,10 @@ const START: LngLat = [0, 20];
 /** A tap whose point, unprojected and projected back, moves more than this is off the globe. */
 const OFF_GLOBE_PX = 2;
 const FIT_PADDING = 40;
-/** How far from a progress dot's centre, in CSS px, a tap still lands on it: a fingertip's slack. */
-const DOT_HIT_PX = PROGRESS_DOT_RADIUS + 8;
+/** How far from a progress dot's centre, in CSS px, a tap is on the dot as drawn. */
+const DOT_DRAWN_PX = PROGRESS_DOT_RADIUS + 2;
+/** How far from a progress dot's centre, in CSS px, a tap inside no feature still lands on it. */
+const DOT_SLACK_PX = PROGRESS_DOT_RADIUS + 8;
 /** Zoom slack when telling a view at the fitted zoom from one the user zoomed in. */
 const FITTED_EPSILON = 0.01;
 
@@ -114,10 +118,9 @@ export const NO_WEBGL = "This browser can't draw the globe: WebGL is off or unsu
 
 const EMPTY: LayerSet = { sources: {}, layers: [] };
 
-/** The id of the progress dot drawn nearest `point` and within `DOT_HIT_PX` of it, if any. */
-function dotAt(map: maplibregl.Map, point: maplibregl.Point): string | undefined {
+/** The id of the progress dot drawn nearest `point` and within `r` CSS px of it, if any. */
+function dotAt(map: maplibregl.Map, point: maplibregl.Point, r: number): string | undefined {
   if (!map.getLayer(PROGRESS_DOTS_LAYER)) return undefined;
-  const r = DOT_HIT_PX;
   let nearest: { id: string; px: number } | undefined;
   const hits = map.queryRenderedFeatures(
     [
@@ -277,8 +280,12 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       const { lng, lat } = e.lngLat.wrap();
       const { mode: current, onTap: tap, onSelect: select } = latest.current;
       if (current.kind === 'progress') {
-        // A dot sits over the features, so a tap on it is the dot's.
-        const id = dotAt(map, e.point) ?? featureAt(current.features, [lng, lat]);
+        // A tap on a dot as drawn is the dot's, as it sits over the features. A tap beside it is
+        // the feature's it lands in; only a tap in no feature gets a fingertip's slack to a dot.
+        const id =
+          dotAt(map, e.point, DOT_DRAWN_PX) ??
+          featureAt(current.features, [lng, lat]) ??
+          dotAt(map, e.point, DOT_SLACK_PX);
         if (id !== undefined) select?.(id);
       } else {
         tap?.([lng, lat]);
@@ -287,22 +294,34 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     // MapLibre watches the container's size and fires `resize`: refit the zoom-out limit to it.
     // A view the user had not zoomed in follows the new fit, so a shrunk container still shows
     // the whole sphere; a zoomed-in view keeps its zoom, unless it is now past the limit, when
-    // MapLibre pulls it in to it. The centre stays. A camera flight is left to finish: `jumpTo`
+    // MapLibre pulls it in to it. The centre stays. A camera movement is left to finish: `jumpTo`
     // would stop it (a page's column often changes height just as its first question flies).
+    // When it ends at the fit from before the resize (a `worldView` flight aims at the minZoom
+    // of when it started), it follows the new fit then.
     let fitted = mountZoom;
+    // The fit before the first resize during the movement in progress, if one came.
+    let fittedBeforeMove: number | null = null;
+    const atFit = (zoom: number) =>
+      map.getZoom() <= zoom + latAllowance(map.getCenter().lat) + FITTED_EPSILON;
+    const followFit = () => map.jumpTo({ zoom: fitted + latAllowance(map.getCenter().lat) });
     map.on('resize', () => {
       // Hidden (a page hides the globe at phone width): nothing to fit until it shows again.
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
       const zoom = fit();
       if (!Number.isFinite(zoom)) return;
-      const allowance = latAllowance(map.getCenter().lat);
-      const atFit =
-        camera.current.opened &&
-        !map.isMoving() &&
-        map.getZoom() <= fitted + allowance + FITTED_EPSILON;
+      const moving = map.isMoving();
+      if (moving) fittedBeforeMove ??= fitted;
+      const follows = camera.current.opened && !moving && atFit(fitted);
       fitted = zoom;
       map.setMinZoom(zoom);
-      if (atFit) map.jumpTo({ zoom: zoom + allowance });
+      if (follows) followFit();
+    });
+    map.on('moveend', () => {
+      // `setMinZoom` fires one mid-flight when it pulls the zoom in: wait for the flight's own.
+      if (fittedBeforeMove === null || map.isMoving()) return;
+      const before = fittedBeforeMove;
+      fittedBeforeMove = null;
+      if (camera.current.opened && atFit(before)) followFit();
     });
     // The style, not `load`, which also waits for the first imagery tiles.
     map.once('style.load', () => {
@@ -334,6 +353,7 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
           },
           center: () => map.getCenter().toArray() as LngLat,
           zoom: () => map.getZoom(),
+          minZoom: () => map.getMinZoom(),
           jumpTo: (at, zoom) => map.jumpTo({ center: at, zoom }),
           layerIds: () =>
             map
