@@ -84,11 +84,18 @@ traced. A refactor changes no file under `spec/`. The run keeps durable state in
 (`.claude/skills/durable-state/`); the `idle-compact` mod (`.claude/skills/idle-compact/`)
 auto-compacts an idle conductor while its subagents work.
 
+Worktrees are made by the `WorktreeCreate` hook (`.claude/hooks/worktree-create.sh`), which
+replaces Claude Code's own `git worktree add`: same path, branch and `worktree.baseRef`
+handling, then `npm ci` and a check that the Playwright browsers match. A fresh worktree is
+ready to run `npm run verify`. Its `WorktreeRemove` partner only removes a clean worktree
+and deletes the branch only once it is merged. Their log lines match `\[worktree-setup\]`.
+
 Selftests for that tooling:
 
 ```bash
 python3 -I .claude/skills/durable-state/scripts/state_selftest.py
 bash .claude/hooks/durable-state-resume.selftest.sh
+bash .claude/hooks/worktree-hooks.selftest.sh
 claude plugin test .claude/skills/idle-compact
 ```
 
