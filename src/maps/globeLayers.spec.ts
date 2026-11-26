@@ -1,12 +1,15 @@
 import { geoDistance } from 'd3-geo';
+import type { Feature, MultiLineString, Position } from 'geojson';
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import realCountries from '../../public/data/countries.topo.json';
+import realRussianRegions from '../../public/data/regions/russia.topo.json';
 import type { CountryFeature, RegionFeature } from '../data/loaders';
 import type { Place } from '../engine/types';
 import { ensureArea, type LngLat } from './geo';
 import {
+  borderLines,
   EOX_ATTRIBUTION,
   EOX_TILES,
   featureAt,
@@ -24,6 +27,11 @@ const topo = realCountries as unknown as Topology;
 const countries = feature(topo, topo.objects.countries as GeometryCollection)
   .features as CountryFeature[];
 const country = (id: string) => countries.find((c) => c.id === id)!;
+const russianRegionsTopo = realRussianRegions as unknown as Topology;
+const chukotka = feature(
+  russianRegionsTopo,
+  russianRegionsTopo.objects.regions as GeometryCollection,
+).features.find((r) => r.id === 'russia.chukchi-autonomous-okrug') as RegionFeature;
 
 /** A square region feature, clockwise as d3-geo wants. */
 const square = (id: string, [x, y]: LngLat, size = 2): RegionFeature => ({
@@ -107,8 +115,8 @@ describe('modeLayers', () => {
   it("regionBorders draws the country's regions and its outline, nothing else", () => {
     const set = modeLayers({ kind: 'regionBorders', country: france, regions: frRegions });
     expect(layerIds(set)).toEqual(['gt-region-borders', 'gt-country-outline']);
-    expect(dataOf(set, sourceOf(set, 'gt-region-borders')!)).toEqual(frRegions);
-    expect(dataOf(set, sourceOf(set, 'gt-country-outline')!)).toEqual([france]);
+    expect(dataOf(set, sourceOf(set, 'gt-region-borders')!)).toEqual(borderLines(frRegions));
+    expect(dataOf(set, sourceOf(set, 'gt-country-outline')!)).toEqual(borderLines([france]));
   });
 
   it('regionBorders of a country without a regions tier draws its outline only', () => {
@@ -123,7 +131,8 @@ describe('modeLayers', () => {
       target: { kind: 'country', feature: france, countries },
     });
     expect(layerIds(set)).toEqual(['gt-country-borders', 'gt-highlight-fill', 'gt-highlight-line']);
-    expect(dataOf(set, 'gt-highlight')).toEqual([france]);
+    expect(dataOf(set, sourceOf(set, 'gt-highlight-fill')!)).toEqual([france]);
+    expect(dataOf(set, sourceOf(set, 'gt-highlight-line')!)).toEqual(borderLines([france]));
   });
 
   it("highlight of a region shades it over its country's region borders", () => {
@@ -174,6 +183,7 @@ describe('modeLayers', () => {
     const data = dataOf(set, 'gt-progress');
     expect(data.map((f) => f.properties?.fill)).toEqual(['#ff0000', undefined]);
     expect(data.map((f) => f.id)).toEqual(['france.a', 'france.b']);
+    expect(dataOf(set, sourceOf(set, 'gt-progress-borders')!)).toEqual(borderLines(frRegions));
   });
 
   it('every layer of every mode uses only its own sources', () => {
@@ -208,6 +218,49 @@ describe('modeLayers', () => {
   });
 });
 
+describe('borderLines', () => {
+  const segments = (f: Feature<MultiLineString>) =>
+    f.geometry.coordinates.flatMap((l) => l.slice(1).map((b, i) => [l[i]!, b] as const));
+  const onAntimeridian = ([a, b]: readonly [Position, Position]) =>
+    Math.abs(a[0]!) === 180 && Math.abs(b[0]!) === 180;
+
+  it('drops the edge of a square cut at 180, and only that edge', () => {
+    const [cut] = borderLines([square('cut', [178, 10])]);
+    // The square's ring runs (178,10) (178,12) (180,12) (180,10) (178,10): the edge along 180 goes.
+    expect(cut!.geometry.coordinates).toEqual([
+      [
+        [178, 10],
+        [178, 12],
+        [180, 12],
+      ],
+      [
+        [180, 10],
+        [178, 10],
+      ],
+    ]);
+  });
+
+  it('keeps every edge of a ring with no cut, and the id', () => {
+    const [kept] = borderLines([frRegions[0]!]);
+    expect(kept!.id).toBe('france.a');
+    expect(kept!.geometry.coordinates).toEqual(frRegions[0]!.geometry.coordinates);
+  });
+
+  it('leaves Russia, Fiji, Antarctica and Chukotka no segment along 180 or the pole', () => {
+    for (const area of [country('russia'), country('fiji'), country('antarctica'), chukotka]) {
+      const [lines] = borderLines([area]);
+      const all = segments(lines!);
+      expect(all.length).toBeGreaterThan(0);
+      expect(all.filter(onAntimeridian)).toEqual([]);
+      expect(all.filter(([a, b]) => a[1] === -90 && b[1] === -90)).toEqual([]);
+    }
+  });
+
+  it('gives the same array for the same features', () => {
+    expect(borderLines(countries)).toBe(borderLines(countries));
+  });
+});
+
 describe('revealLayers', () => {
   it('outlines an area target and draws the path from tap to answer', () => {
     const set = revealLayers({
@@ -216,7 +269,7 @@ describe('revealLayers', () => {
       answer: [2.5, 46.5],
     });
     expect(layerIds(set)).toEqual(['gt-reveal-target-line', 'gt-reveal-path']);
-    expect(dataOf(set, 'gt-reveal-target')).toEqual([france]);
+    expect(dataOf(set, 'gt-reveal-target')).toEqual(borderLines([france]));
     const path = dataOf(set, 'gt-reveal-path')[0]!.geometry;
     expect(path.type).toBe('LineString');
   });

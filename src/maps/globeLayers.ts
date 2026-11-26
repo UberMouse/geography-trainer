@@ -1,7 +1,14 @@
 // The globe's style and each mode's sources and layers, as plain data. Only types come from
 // MapLibre, so this runs (and is tested) without a browser.
 import { geoBounds, geoContains, geoDistance, geoInterpolate } from 'd3-geo';
-import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
+import type {
+  Feature,
+  FeatureCollection,
+  LineString,
+  MultiLineString,
+  Point,
+  Position,
+} from 'geojson';
 import type { AddLayerObject, CustomLayerInterface, MapOptions } from 'maplibre-gl';
 import type { CountryFeature, RegionFeature } from '../data/loaders';
 import type { Place } from '../engine/types';
@@ -99,6 +106,58 @@ function collection(features: Feature[]): GeoJsonSource {
   return source;
 }
 
+/**
+ * Whether a ring's edge from `a` to `b` is a cut in the data, not a coast or border: both ends on
+ * the antimeridian (the data splits Chukotka, Fiji and Antarctica there) or both on the south pole
+ * (where Antarctica's ring closes). The data holds these coordinates exactly.
+ */
+const isCut = (a: Position, b: Position) =>
+  (Math.abs(a[0]!) === 180 && Math.abs(b[0]!) === 180) || (a[1] === -90 && b[1] === -90);
+
+/** A ring as the lines between its cut edges. */
+function ringLines(ring: Position[]): Position[][] {
+  const lines: Position[][] = [];
+  let current: Position[] = [];
+  for (let i = 1; i < ring.length; i++) {
+    const a = ring[i - 1]!;
+    const b = ring[i]!;
+    if (isCut(a, b)) {
+      if (current.length) lines.push(current);
+      current = [];
+    } else {
+      if (!current.length) current.push(a);
+      current.push(b);
+    }
+  }
+  if (current.length) lines.push(current);
+  return lines;
+}
+
+const borderLineSets = new WeakMap<AreaFeature[], Feature<MultiLineString>[]>();
+
+/**
+ * Each feature's border as lines, for the line layers: its rings without their cut edges (see
+ * `isCut`), which a stroked polygon would draw as false borders. Fills keep the polygons. The same
+ * array for the same `features`, so `collection` gives the same source.
+ */
+export function borderLines(features: AreaFeature[]): Feature<MultiLineString>[] {
+  let lines = borderLineSets.get(features);
+  if (!lines) {
+    lines = features.map((f) => {
+      const polygons =
+        f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+      return {
+        type: 'Feature',
+        id: f.id,
+        properties: f.properties,
+        geometry: { type: 'MultiLineString', coordinates: polygons.flat().flatMap(ringLines) },
+      };
+    });
+    borderLineSets.set(features, lines);
+  }
+  return lines;
+}
+
 const line = (id: string, source: string, colour: string, width: number): GlobeLayer => ({
   id,
   type: 'line',
@@ -125,19 +184,19 @@ const point = (at: LngLat): Feature<Point> => ({
 });
 
 const countryBorders = (countries: CountryFeature[]): LayerSet => ({
-  sources: { 'gt-countries': collection(countries) },
+  sources: { 'gt-countries': collection(borderLines(countries)) },
   layers: [line('gt-country-borders', 'gt-countries', BORDER, 1)],
 });
 
 /** A country's region borders (when it has them) and its outline. */
 function regionBorders(country: CountryFeature, regions?: RegionFeature[]): LayerSet {
   const outline: LayerSet = {
-    sources: { 'gt-country-outline': collection([country]) },
+    sources: { 'gt-country-outline': collection(borderLines([country])) },
     layers: [line('gt-country-outline', 'gt-country-outline', BORDER, 1.5)],
   };
   if (!regions) return outline;
   return {
-    sources: { 'gt-regions': collection(regions), ...outline.sources },
+    sources: { 'gt-regions': collection(borderLines(regions)), ...outline.sources },
     layers: [line('gt-region-borders', 'gt-regions', REGION_BORDER, 1), ...outline.layers],
   };
 }
@@ -154,7 +213,10 @@ function highlight(target: HighlightTarget): LayerSet {
           layers: [dot('gt-highlight-dot', 'gt-highlight', PLACE_DOT)],
         }
       : {
-          sources: { 'gt-highlight': collection([target.feature]) },
+          sources: {
+            'gt-highlight': collection([target.feature]),
+            'gt-highlight-border': collection(borderLines([target.feature])),
+          },
           layers: [
             {
               id: 'gt-highlight-fill',
@@ -162,7 +224,7 @@ function highlight(target: HighlightTarget): LayerSet {
               source: 'gt-highlight',
               paint: { 'fill-color': HIGHLIGHT, 'fill-opacity': 0.35 },
             },
-            line('gt-highlight-line', 'gt-highlight', HIGHLIGHT, 2),
+            line('gt-highlight-line', 'gt-highlight-border', HIGHLIGHT, 2),
           ],
         };
   return {
@@ -178,7 +240,10 @@ function progress(features: IdentifiedFeature[], fills: Record<string, string>):
     return { ...f, properties: fill ? { ...f.properties, fill } : f.properties };
   });
   return {
-    sources: { 'gt-progress': collection(coloured) },
+    sources: {
+      'gt-progress': collection(coloured),
+      'gt-progress-borders': collection(borderLines(features)),
+    },
     layers: [
       {
         id: 'gt-progress-fill',
@@ -187,7 +252,7 @@ function progress(features: IdentifiedFeature[], fills: Record<string, string>):
         filter: ['has', 'fill'],
         paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.55 },
       },
-      line('gt-progress-borders', 'gt-progress', BORDER, 1),
+      line('gt-progress-borders', 'gt-progress-borders', BORDER, 1),
     ],
   };
 }
@@ -218,7 +283,9 @@ export function revealLayers(reveal: Reveal): LayerSet {
   };
   return {
     sources: {
-      'gt-reveal-target': collection([target.kind === 'area' ? target.feature : point(target.at)]),
+      'gt-reveal-target': collection(
+        target.kind === 'area' ? borderLines([target.feature]) : [point(target.at)],
+      ),
       'gt-reveal-path': collection([path]),
     },
     layers: [

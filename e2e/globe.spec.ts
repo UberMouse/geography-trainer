@@ -264,6 +264,22 @@ test('a two-finger pinch zooms the globe in', async ({ page, isMobile }) => {
   await expect(lastTap).toHaveText('none');
 });
 
+test('a double click or double tap is two taps, not a zoom', async ({ page, isMobile }) => {
+  const { lastTap } = await readyGlobe(page);
+  const before = await hook.zoom(page);
+  const { x, y } = await hook.project(page, [2.35, 48.85]);
+  if (isMobile) {
+    await page.touchscreen.tap(x, y);
+    await page.touchscreen.tap(x, y);
+  } else {
+    await page.mouse.dblclick(x, y);
+  }
+  await expect(lastTap).not.toHaveText('none');
+  // A double-click zoom would have started easing by now.
+  await page.waitForTimeout(500);
+  expect(await hook.zoom(page)).toBe(before);
+});
+
 test('each mode draws its own layers', async ({ page }) => {
   await readyGlobe(page);
   const map = page.locator('[data-mode]');

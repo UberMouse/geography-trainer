@@ -123,6 +123,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
         dragRotate: false,
         pitchWithRotate: false,
         touchPitch: false,
+        // A tap is an answer, so two quick taps are two answers, not a zoom (mouse and touch).
+        doubleClickZoom: false,
         pixelRatio: Math.min(window.devicePixelRatio, 2),
         attributionControl: { compact: false },
       });
@@ -135,6 +137,19 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     mapRef.current = map;
+
+    // Follow the screen's pixel ratio when it changes (another monitor, browser zoom). A media
+    // query matches one ratio, so each change re-arms it for the new one.
+    let ratioQuery: MediaQueryList;
+    const watchRatio = () => {
+      ratioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      ratioQuery.addEventListener('change', onRatioChange, { once: true });
+    };
+    const onRatioChange = () => {
+      map.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      watchRatio();
+    };
+    watchRatio();
 
     // MapLibre restores the style once the context comes back.
     map.on('webglcontextlost', () => setFailed(true));
@@ -193,6 +208,7 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     });
 
     return () => {
+      ratioQuery.removeEventListener('change', onRatioChange);
       if (import.meta.env.DEV) delete window.__globe;
       map.remove();
       mapRef.current = null;

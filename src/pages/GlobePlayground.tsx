@@ -23,6 +23,7 @@ import {
   type CountryFeature,
   type RegionFeature,
 } from '../data/loaders';
+import { maptapScore } from '../engine/grading';
 import type { Place } from '../engine/types';
 import { answerPoint, measureTap, type IdentifiedFeature, type LngLat } from '../maps/geo';
 import Globe, { type GlobeHandle } from '../maps/Globe';
@@ -283,7 +284,8 @@ function GlobeTab({
           {measured ? (
             <Text size="sm">
               {measured.inside ? 'Inside' : 'Outside'} {country.properties.name},{' '}
-              {Math.round(measured.kmFromAnswer)} km from its answer point
+              {Math.round(measured.kmFromAnswer)} km from its answer point, maptap score{' '}
+              {maptapScore(measured.kmFromAnswer, measured.inside)}
             </Text>
           ) : null}
           {modeKind === 'progress' ? (
