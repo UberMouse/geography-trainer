@@ -174,6 +174,25 @@ test('a tap on Paris puts Paris in the last-tap readout', async ({ page, isMobil
   expect(Math.abs(lat! - 48.85)).toBeLessThan(0.5);
 });
 
+test('with EOX never answering, the borders still draw and a tap still registers', async ({
+  page,
+  isMobile,
+}) => {
+  await page.unroute('https://tiles.maps.eox.at/**');
+  // Left hanging: the imagery never arrives.
+  await page.route('https://tiles.maps.eox.at/**', () => {});
+  await globeTab(page);
+  const layerIds = () =>
+    page.evaluate(
+      () => (globalThis as unknown as { __globe?: GlobeHook }).__globe?.layerIds() ?? [],
+    );
+  await expect.poll(layerIds).toContain('gt-country-borders');
+  const lastTap = page.getByTestId('globe-last-tap');
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
+  await expect(lastTap).not.toHaveText('none');
+  await expect(page.locator('[data-ready="true"]')).toHaveCount(0);
+});
+
 test('a drag spins the globe and is not a tap', async ({ page, isMobile }) => {
   const { box, lastTap } = await readyGlobe(page);
   const before = await hook.center(page);

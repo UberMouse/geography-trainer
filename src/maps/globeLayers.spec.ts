@@ -197,6 +197,15 @@ describe('modeLayers', () => {
     for (const id of Object.keys(before.sources)) expect(after.sources).not.toHaveProperty(id);
     expect(modeLayers({ kind: 'bare' }).layers).toEqual([]);
   });
+
+  it('gives the same data object for the same features in another mode, so it is not re-sent', () => {
+    const borders = modeLayers({ kind: 'countryBorders', countries });
+    const highlighted = modeLayers({
+      kind: 'highlight',
+      target: { kind: 'country', feature: france, countries },
+    });
+    expect(highlighted.sources['gt-countries']!.data).toBe(borders.sources['gt-countries']!.data);
+  });
 });
 
 describe('revealLayers', () => {

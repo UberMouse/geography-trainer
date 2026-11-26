@@ -87,10 +87,17 @@ export interface Reveal {
   answer: LngLat;
 }
 
-const collection = (features: Feature[]): GeoJsonSource => ({
-  type: 'geojson',
-  data: { type: 'FeatureCollection', features },
-});
+const collections = new WeakMap<Feature[], GeoJsonSource>();
+
+/** A source of `features`: the same object for the same array, so the globe can skip `setData`. */
+function collection(features: Feature[]): GeoJsonSource {
+  let source = collections.get(features);
+  if (!source) {
+    source = { type: 'geojson', data: { type: 'FeatureCollection', features } };
+    collections.set(features, source);
+  }
+  return source;
+}
 
 const line = (id: string, source: string, colour: string, width: number): GlobeLayer => ({
   id,
