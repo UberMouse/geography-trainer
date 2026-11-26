@@ -4,13 +4,17 @@ import { Link } from 'react-router';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
 import { newTodayText, showsPlacementOffer } from './homeView';
+import type { ItemState } from '../engine/curriculum';
 import Status from './LoadStatus';
+import ProgressLegend from './ProgressLegend';
 import { countryLooks } from './progressView';
 import { useCountriesGlobe } from './useCountriesGlobe';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
+/** Home's globe shows countries only, and a country is never locked. */
+const HOME_LEGEND: ItemState[] = ['new', 'learning', 'mastered'];
 
 /** The current time, refreshed every minute and when the tab comes back to the foreground. */
 function useNow(): Date {
@@ -110,6 +114,7 @@ function HomeContent({ data, now }: HomeContentProps) {
       ) : (
         <Text>There is nothing to study right now.</Text>
       )}
+      <ProgressLegend states={HOME_LEGEND} />
       <Anchor component={Link} to="/progress">
         See your progress
       </Anchor>

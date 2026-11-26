@@ -1,7 +1,6 @@
 import {
   Anchor,
   Button,
-  ColorSwatch,
   Group,
   List,
   NativeSelect,
@@ -13,8 +12,8 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { tierCounts, type ItemState, type Tier } from '../engine/curriculum';
 import Status from './LoadStatus';
+import ProgressLegend from './ProgressLegend';
 import {
-  PROGRESS_COLOURS,
   STATE_LABELS,
   countryLooks,
   countryOptions,
@@ -28,15 +27,6 @@ import { loadWorldData, type WorldData } from './worldData';
 const TIERS: Tier[] = ['country', 'region', 'place'];
 const LEGEND: ItemState[] = ['locked', 'new', 'learning', 'mastered'];
 
-/** A legend entry: its colour's swatch and what it means. */
-function LegendEntry({ colour, children }: { colour: string; children: string }) {
-  return (
-    <Group component="li" gap={6} wrap="nowrap" align="flex-start">
-      <ColorSwatch color={colour} size={14} radius={0} withShadow={false} mt={4} />
-      <Text size="sm">{children}</Text>
-    </Group>
-  );
-}
 
 /** The per-tier counts, the legend, a way to any country and the started countries, beside the globe. */
 export default function Progress() {
@@ -83,16 +73,7 @@ function ProgressContent({ data }: { data: WorldData }) {
           </List.Item>
         ))}
       </List>
-      <Stack component="ul" gap={4} m={0} p={0} aria-label="Legend" style={{ listStyle: 'none' }}>
-        {LEGEND.map((state) => (
-          <LegendEntry key={state} colour={PROGRESS_COLOURS[state]}>
-            {state === 'mastered'
-              ? `${STATE_LABELS[state]} (deeper as its regions and places are mastered)`
-              : STATE_LABELS[state]}
-          </LegendEntry>
-        ))}
-        <LegendEntry colour={PROGRESS_COLOURS.complete}>Everything below it mastered</LegendEntry>
-      </Stack>
+      <ProgressLegend states={LEGEND} />
       <form onSubmit={go}>
         <Group align="flex-end" gap="xs" wrap="nowrap">
           <NativeSelect

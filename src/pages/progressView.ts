@@ -28,7 +28,8 @@ export const STATE_LABELS: Record<ItemState, string> = {
  */
 export const PROGRESS_COLOURS: Record<ItemState | 'complete', string> = {
   locked: '#404040',
-  new: '#a16207',
+  // Cool and muted: most of the world is new, so it should read as untouched, not as a warning.
+  new: '#7d8fbf',
   learning: '#ea580c',
   mastered: '#4d8f63',
   complete: '#4ade80',

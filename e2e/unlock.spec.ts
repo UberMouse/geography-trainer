@@ -14,7 +14,7 @@ import {
 } from './sessionHelpers';
 
 /** The progress colours (`PROGRESS_COLOURS` in `src/pages/progressView.ts`). */
-const NEW = '#a16207';
+const NEW = '#7d8fbf';
 const MASTERED = '#4d8f63';
 /** A place dot's colour when the place is not in the curriculum (`NEUTRAL_DOT`). */
 const NEUTRAL_DOT = '#3b3a35';
