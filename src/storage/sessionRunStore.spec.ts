@@ -1,7 +1,7 @@
 import { Rating } from 'ts-fsrs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { answerCurrent, startRun, type SessionRun } from '../engine/sessionRun';
-import { applyAnswer, createProgress } from '../engine/srs';
+import { applyAnswer, createProgress, type ItemProgress } from '../engine/srs';
 import { clearSessionRun, loadSessionRun, parseSavedRun, saveSessionRun } from './sessionRunStore';
 
 const NOW = new Date('2026-03-01T09:00:00Z');
@@ -20,6 +20,9 @@ function midRun(): { run: SessionRun; progress: Record<string, ReturnType<typeof
   );
   return { run, progress: { 'country:france': france } };
 }
+
+/** Progress that `isMastered` accepts. */
+const masteredRow = (p: ItemProgress): ItemProgress => ({ ...p, l3PassDays: ['2026-02-27', '2026-02-28'] });
 
 const saved = (dayKey: string, run: unknown, lists: object = {}) => JSON.stringify({ dayKey, run, ...lists });
 
@@ -52,19 +55,24 @@ describe('parseSavedRun', () => {
     const { run, progress } = midRun();
     const done = { ...run, queue: [] };
     const lists = { mastered: ['country:france'], testable: ['country:france'] };
-    expect(parseSavedRun(saved(DAY, done, lists), DAY, progress, known)).toEqual({ run: done, ...lists });
+    const backed = { 'country:france': masteredRow(progress['country:france']!), 'country:peru': createProgress('country:peru', NOW) };
+    expect(parseSavedRun(saved(DAY, done, lists), DAY, backed, known)).toEqual({ run: done, ...lists });
   });
 
   it('[SES-25, SES-C05] reads mastered and testable as saved, and a missing list as empty', () => {
     const { run, progress } = midRun();
     const lists = { mastered: ['country:france', 'country:peru'], testable: ['country:peru'] };
-    expect(parseSavedRun(saved(DAY, run, lists), DAY, progress, known)).toEqual({ run, ...lists });
-    expect(parseSavedRun(saved(DAY, run, { mastered: ['country:peru'] }), DAY, progress, known)).toEqual({
+    const backed = {
+      'country:france': masteredRow(progress['country:france']!),
+      'country:peru': masteredRow(createProgress('country:peru', NOW)),
+    };
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, backed, known)).toEqual({ run, ...lists });
+    expect(parseSavedRun(saved(DAY, run, { mastered: ['country:peru'] }), DAY, backed, known)).toEqual({
       run,
       mastered: ['country:peru'],
       testable: [],
     });
-    expect(parseSavedRun(saved(DAY, run, { testable: [] }), DAY, progress, known)?.mastered).toEqual([]);
+    expect(parseSavedRun(saved(DAY, run, { testable: [] }), DAY, backed, known)?.mastered).toEqual([]);
   });
 
   it('[SES-26, SES-C05] starts afresh for a mastered or testable list that is not valid', () => {
@@ -77,6 +85,26 @@ describe('parseSavedRun', () => {
     expect(parse({ mastered: ['country:france'], testable: [7] })).toBeNull();
     expect(parse({ mastered: ['country:france'], testable: ['country:peru'] })).toBeNull();
     expect(parse({ testable: ['country:peru'] })).toBeNull();
+  });
+
+  it('[SES-26, SES-C05] starts afresh when an item the round mastered is no longer mastered', () => {
+    const { run, progress } = midRun();
+    const lists = { mastered: ['country:france'], testable: [] };
+    // Mastered in the saved round; progress was since reset (no row) or imported (not mastered).
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, progress, known)).toBeNull();
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, {}, known)).toBeNull();
+    const backed = { ...progress, 'country:france': masteredRow(progress['country:france']!) };
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, backed, known)).toEqual({ run, ...lists });
+  });
+
+  it('[SES-26, SES-C05] starts afresh when nothing is left to ask and an item asked has no progress', () => {
+    const { run, progress } = midRun();
+    const done = { ...run, queue: [], asks: { ...run.asks, 'country:peru': 1 } };
+    // Peru was asked but has no row: reset since, or its answer was never recorded.
+    expect(parseSavedRun(saved(DAY, done), DAY, progress, known)).toBeNull();
+    expect(parseSavedRun(saved(DAY, done), DAY, {}, known)).toBeNull();
+    const backed = { ...progress, 'country:peru': createProgress('country:peru', NOW) };
+    expect(parseSavedRun(saved(DAY, done), DAY, backed, known)).toEqual({ run: done, mastered: [], testable: [] });
   });
 
   it('[SES-26] starts afresh when the progress can no longer answer a queued question', () => {
@@ -110,7 +138,8 @@ describe('[SES-C05] the saved run in sessionStorage', () => {
   it('saves { dayKey, run, mastered, testable } as JSON under its key, loads it back, and clears it', () => {
     const storage = memoryStorage();
     vi.stubGlobal('sessionStorage', storage);
-    const { run, progress } = midRun();
+    const { run, progress: mid } = midRun();
+    const progress = { 'country:france': masteredRow(mid['country:france']!) };
     const lists = { mastered: ['country:france'], testable: ['country:france'] };
     saveSessionRun(DAY, run, lists.mastered, lists.testable);
     expect([...storage.items.keys()]).toEqual([KEY]);

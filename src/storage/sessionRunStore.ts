@@ -5,7 +5,7 @@
 
 import type { SessionQuestion } from '../engine/session';
 import type { SessionRun } from '../engine/sessionRun';
-import type { ItemProgress } from '../engine/srs';
+import { isMastered, type ItemProgress } from '../engine/srs';
 
 const KEY = 'geography-trainer:session-run';
 
@@ -50,8 +50,10 @@ function isRun(r: unknown): r is SessionRun {
  * The session saved as `text` for `dayKey`, or null: for another day, malformed, with nothing left
  * to ask and nothing answered, or with a question the progress can no longer answer (an item
  * `isKnown` rejects, or a rung with no card: progress was reset or imported since). An item with no
- * progress row can only be asked at L1. An empty queue after answers is the day's last summary and
- * is returned. A missing `mastered` or `testable` reads as empty.
+ * progress row can only be asked at L1. A `mastered` id whose progress is missing or not mastered
+ * is dropped too, and so is an empty queue (the day's last summary) when an id in `run.asks` has no
+ * progress: progress was reset or imported since, or an answer was never recorded. Otherwise an
+ * empty queue after answers is returned. A missing `mastered` or `testable` reads as empty.
  */
 export function parseSavedRun(
   text: string | null,
@@ -72,6 +74,8 @@ export function parseSavedRun(
   if (run.queue.length === 0 && run.answered === 0) return null;
   if (!isIdList(mastered) || !isIdList(testable)) return null;
   if (!mastered.every(isKnown) || !testable.every((id) => mastered.includes(id))) return null;
+  if (!mastered.every((id) => progress[id] !== undefined && isMastered(progress[id]))) return null;
+  if (run.queue.length === 0 && !Object.keys(run.asks).every((id) => progress[id] !== undefined)) return null;
   const answerable = run.queue.every(({ itemId, rung }) => {
     if (!isKnown(itemId)) return false;
     const p = progress[itemId];
