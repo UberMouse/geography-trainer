@@ -142,9 +142,10 @@ export function applyAnswer(
 }
 
 /**
- * True once the item has been answered at least once (some stored card has `reps > 0`). A
- * "not introduced" item (fresh, or seeded by placement without a pass) is still new: the session
- * caps how many arrive per day and asks them at `dueRung`.
+ * True once some stored card has `reps > 0`: the item was answered, or placement seeded it at L3
+ * (a passed or likely-known seed is built with one rep). A "not introduced" item (fresh, or a
+ * placement seed that starts at L2 with no rep) is still new: the session caps how many arrive per
+ * day and asks them at `dueRung`.
  */
 export function isIntroduced(progress: ItemProgress): boolean {
   return Object.values(progress.cards).some((card) => card.reps > 0);

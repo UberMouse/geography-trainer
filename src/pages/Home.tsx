@@ -13,7 +13,11 @@ import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
 const tzOffset = (now: Date) => -now.getTimezoneOffset();
-/** Home's globe shows countries only, and a country is never locked. */
+/**
+ * Home's globe shows countries only, and a curriculum country is never locked, so the legend leaves
+ * locked out. A feature with no look (not in the curriculum) still falls back to the locked colour
+ * (`lookOrLocked`).
+ */
 const HOME_LEGEND: ItemState[] = ['new', 'learning', 'mastered'];
 
 /** The current time, refreshed every minute and when the tab comes back to the foreground. */
