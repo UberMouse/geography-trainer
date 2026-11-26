@@ -79,9 +79,6 @@ export default function GlobePlayground() {
           places={places}
           nav={
             <Group component="nav" aria-label="Playground tabs">
-              <Anchor component={Link} to="/playground">
-                Maps
-              </Anchor>
               <Anchor component={Link} to="/playground?mode=exercises">
                 Exercises
               </Anchor>

@@ -55,26 +55,18 @@ test('phone width puts the globe above the panel, all inside the viewport', asyn
   }
 });
 
-/** A tab's link in the playground's own nav, which the Maps and Exercises tabs show. */
+/** A tab's link in the playground's own nav, which the Exercises tab shows. */
 const playgroundTab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Playground', exact: true }).getByRole('link', { name });
 
-test('the column links back to the Maps and Exercises tabs', async ({ page }) => {
-  // The Maps tab's d3 canvas maps draw in one long render, which a busy machine stretches.
-  test.slow();
-  for (const [name, url] of [
-    ['Maps', /\/playground$/],
-    ['Exercises', /\/playground\?mode=exercises$/],
-  ] as const) {
-    await globeTab(page);
-    const panelNav = page.getByRole('navigation', { name: 'Playground tabs' });
-    await panelNav.getByRole('link', { name, exact: true }).click();
-    await expect(page).toHaveURL(url);
-    await expect(page.getByRole('heading', { name: 'Globe playground' })).toHaveCount(0, {
-      timeout: 15_000,
-    });
-    await expect(playgroundTab(page, name)).toHaveAttribute('aria-current', 'page');
-  }
+test('the column links back to the Exercises tab', async ({ page }) => {
+  await globeTab(page);
+  const panelNav = page.getByRole('navigation', { name: 'Playground tabs' });
+  await expect(panelNav.getByRole('link')).toHaveText(['Exercises']);
+  await panelNav.getByRole('link', { name: 'Exercises', exact: true }).click();
+  await expect(page).toHaveURL(/\/playground\?mode=exercises$/);
+  await expect(page.getByRole('heading', { name: 'Globe playground' })).toHaveCount(0);
+  await expect(playgroundTab(page, 'Exercises')).toHaveAttribute('aria-current', 'page');
 });
 
 test('the playground nav opens the Globe tab, without the page heading and nav', async ({
@@ -87,8 +79,9 @@ test('the playground nav opens the Globe tab, without the page heading and nav',
   await expect(page.getByRole('navigation', { name: 'Playground', exact: true })).toHaveCount(0);
 });
 
-test('Back from the Globe tab shows the Maps tab on the same globe, its settings gone', async ({
+test('Back from the Globe tab shows the Exercises tab on the same globe, its reveal gone', async ({
   page,
+  isMobile,
 }) => {
   await page.goto('/playground');
   await globeReady(page);
@@ -96,12 +89,14 @@ test('Back from the Globe tab shows the Maps tab on the same globe, its settings
   await playgroundTab(page, 'Globe').click();
   await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'countryBorders');
   await expect.poll(() => hook.layerIds(page)).toContain('gt-country-borders');
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
   await page.getByRole('switch', { name: 'Show reveal' }).check();
+  await expect.poll(async () => (await hook.markers(page)).length).toBeGreaterThan(0);
   await page.goBack();
-  await expect(playgroundTab(page, 'Maps')).toHaveAttribute('aria-current', 'page');
-  // The Maps tab sets nothing: the bare globe, no markers, still Mantine's dark scheme.
-  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'bare');
-  await expect.poll(() => hook.layerIds(page)).toEqual([]);
+  await expect(playgroundTab(page, 'Exercises')).toHaveAttribute('aria-current', 'page');
+  // The Exercises tab's L1 question owns the globe again: its highlight, no markers.
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'highlight');
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-highlight-fill');
   expect(await hook.markers(page)).toEqual([]);
   await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
   expect(await hook.instanceId(page)).toBe(instance);
