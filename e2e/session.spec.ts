@@ -217,3 +217,74 @@ test('[SES-20] without WebGL an L1 question can still be answered', async ({ pag
   await expect(question(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+const counter = (page: Page) => page.getByText(/^Question \d+ · \d+ of \d+ done$/);
+
+test('[SES-18, SES-27] Next moves focus to the new question, and leaving the session ends it', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  await expect(question(page)).toBeFocused();
+  await expect(counter(page)).toHaveText(/^Question 2 · /, WAIT);
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.getByRole('link', { name: 'Quit' }).click();
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await expect(counter(page)).toHaveText(/^Question 1 · 0 of /, WAIT);
+});
+
+test('[SES-25] a reload after answering, before Next, carries on at the next question', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/session');
+  const first = await current(page);
+  await answer(page, isMobile, first);
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.reload();
+  await expect(counter(page)).toHaveText(/^Question 2 · /, WAIT);
+  expect((await current(page)).itemId).not.toBe(first.itemId);
+});
+
+test('[SES-21, SES-22, SES-23] the last round waits for the next session, then nothing is left to study', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-one-pass-from-mastery.json');
+  await writeUnitedStatesOnePassFromMastery(file);
+  await importProgress(page, file);
+
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  await expect(summary(page)).toHaveText('Round done: 1 of 1 right', WAIT);
+  // The round mastered the United States, which unlocks its regions for a later session.
+  await expect(page.getByText(/^Unlocked: United States's regions/)).toBeVisible();
+  await expect(page.getByText(/next session/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep going' })).toHaveCount(0);
+  await expect(page.getByText(/everything for today/)).toBeVisible();
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  // Today's new items are used up by the imported countries, and nothing else is due.
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await page.goto('/session');
+  await expect(page.getByText(/nothing to study right now/)).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible();
+  await expect(question(page)).toHaveCount(0);
+});
+
+test('[SES-21] a session whose data fails to load offers Retry, which starts it', async ({ page }) => {
+  const route = '**/data/places.json';
+  await page.route(route, (r) => r.fulfill({ status: 500, body: '' }));
+  await page.goto('/session');
+  const alert = page.getByRole('alert').filter({ hasText: /Could not load/ });
+  await expect(alert).toBeVisible(WAIT);
+  await page.unroute(route);
+  await alert.getByRole('button', { name: 'Retry' }).click();
+  await expect(question(page)).toBeVisible(WAIT);
+});
