@@ -73,9 +73,10 @@ The globe is MapLibre GL JS in globe projection (WebGL). The first globe was d3 
 - **New-item order:** within the unlocked pool, lowest `difficultyLevel` first, ties broken by how often maptap asks about that country (its place count). Example: London comes before Akron, and the US comes before Tuvalu.
 - **Placement test** runs on first launch (countries), and again whenever a tier unlocks, as an optional "test out".
   - It asks L3 (no borders) questions only.
-  - It's an adaptive staircase over difficulty levels 1–8: pass → harder, fail → easier. It stops at about 20 questions or when the estimate settles.
-  - Items passed are seeded as L3 review cards with a short initial stability, so they come back within days to confirm, never skipped outright.
-  - Items above the estimated level start at L1. Untested items at or below the estimate start at L2.
+  - **Difficulty (redesigned 2026-11-26).** A country's difficulty is its band (1–8) when all countries are ranked by `-ln(place count) + 0.4 · mean place level` and cut into 8 equal bands; a region's is its band among its country's regions. (It used to be the easiest place's level, which put 120 of 243 countries at level 1.)
+  - **Ability estimate (redesigned 2026-11-26).** A posterior over the learner's ability is updated after every answer: an item `d` levels hard is known with probability `logistic(1.5 · (ability − d))`. A miss within 400 km of a country's border (150 km region, 200 km place) earns half credit, and the reveal says so. Each question aims at the current estimate and goes to the world area asked least so far, so breadth is measured too. It stops after 12–20 questions, once the estimate's spread is under half a level.
+  - Items passed are seeded as L3 review cards with a short initial stability, so they come back within days to confirm, never skipped outright. Close misses start at L2.
+  - Untested items are placed by the probability the learner knows them: ≥ 0.85 → L3 confirmation reviews, least certain first, 6 a day from day 2 (reviews, so outside the new-item cap); ≥ 0.5 → start at L2; otherwise L1.
 - **Session:** due reviews first, then new items up to a daily cap (default 15; a setting). The session interleaves exercise levels so it isn't one long run of multiple choice.
 
 ## Globe and layout (UI redo, decided 2026-11-26)
@@ -185,7 +186,7 @@ UI redo (see *Globe and layout*):
   - grading thresholds
   - FSRS scheduling transitions
   - unlock rules (master FR → FR regions available, DE regions still locked)
-  - placement staircase converging on synthetic users of known skill
+  - placement estimate converging on synthetic users of known skill (and on noisy ones)
   - export → import round-trip
   - import rejects a file whose rungs fall outside 1–3
 - Playwright smoke test on desktop and mobile viewports: complete a placement test, then a session. Check that a tap inside a highlighted polygon scores correct, that progress survives a reload, and that the globe rotates and zooms with touch.
