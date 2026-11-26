@@ -1,17 +1,20 @@
+import { Anchor, Stack, Text } from '@mantine/core';
 import { Link } from 'react-router';
 
 export default function Footer() {
   return (
-    <footer className="app-footer">
-      <p>
-        Place list courtesy of <a href="https://maptap.gg">MapTap.gg</a>
-      </p>
-      <p>
-        Boundaries: <a href="https://www.naturalearthdata.com">Natural Earth</a>
-      </p>
-      <p>
-        <Link to="/credits">Credits</Link>
-      </p>
-    </footer>
+    <Stack component="footer" gap={0} py="md">
+      <Text size="sm" c="dimmed">
+        Place list courtesy of <Anchor href="https://maptap.gg">MapTap.gg</Anchor>
+      </Text>
+      <Text size="sm" c="dimmed">
+        Boundaries: <Anchor href="https://www.naturalearthdata.com">Natural Earth</Anchor>
+      </Text>
+      <Text size="sm">
+        <Anchor component={Link} to="/credits">
+          Credits
+        </Anchor>
+      </Text>
+    </Stack>
   );
 }

@@ -1,4 +1,17 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  Alert,
+  Anchor,
+  Button,
+  FileButton,
+  Group,
+  Modal,
+  NumberInput,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import type { ItemProgress } from '../engine/srs';
 import { progressStore } from '../storage/progressStore';
@@ -40,11 +53,11 @@ export default function Settings() {
   // Kept here, above `Status`, because the loaded subtree remounts when an import or reset reloads.
   const [notice, setNotice] = useState<Notice>(null);
   return (
-    <>
-      <h1>Settings</h1>
-      <p>
-        <Link to="/">Back to Home</Link>
-      </p>
+    <Stack align="flex-start">
+      <Title order={1}>Settings</Title>
+      <Anchor component={Link} to="/">
+        Back to Home
+      </Anchor>
       <Status
         state={data}
         retry={reload}
@@ -54,7 +67,7 @@ export default function Settings() {
           <SettingsContent data={loaded} reload={reload} notice={notice} setNotice={setNotice} />
         )}
       </Status>
-    </>
+    </Stack>
   );
 }
 
@@ -80,11 +93,11 @@ function SettingsContent({
   const [busy, setBusy] = useState(false);
   const shared = { busy, setBusy, notice, setNotice };
   return (
-    <>
+    <Stack gap="xl" w="100%">
       <DailyLimit stored={data.dailyNewCap} {...shared} />
       <ProgressFiles progress={data.progress} reload={reload} {...shared} />
       <Reset reload={reload} {...shared} />
-    </>
+    </Stack>
   );
 }
 
@@ -98,8 +111,8 @@ function DailyLimit({
   const [text, setText] = useState(String(stored));
   const [error, setError] = useState<string | null>(null);
 
-  const edit = (event: ChangeEvent<HTMLInputElement>) => {
-    setText(event.currentTarget.value);
+  const edit = (value: number | string) => {
+    setText(String(value));
     setError(null);
     setNotice(null);
   };
@@ -126,28 +139,31 @@ function DailyLimit({
   };
 
   return (
-    <section aria-labelledby="settings-limit">
-      <h2 id="settings-limit">Daily limit</h2>
-      <form className="settings-form" onSubmit={save} noValidate>
-        <label>
-          New items per day
-          <input
-            type="number"
-            className="settings-number"
+    <Stack component="section" aria-labelledby="settings-limit" gap="sm">
+      <Title order={2} size="h4" id="settings-limit">
+        Daily limit
+      </Title>
+      <form onSubmit={save} noValidate>
+        <Group align="flex-end" gap="sm">
+          <NumberInput
+            label="New items per day"
             min={DAILY_NEW_CAP_MIN}
             max={DAILY_NEW_CAP_MAX}
             step={1}
+            // The check below says what is wrong with a value; the input does not change it.
+            clampBehavior="none"
             value={text}
             onChange={edit}
+            w="8rem"
           />
-        </label>
-        <button type="submit" className="session-button" disabled={busy}>
-          Save
-        </button>
+          <Button type="submit" disabled={busy}>
+            Save
+          </Button>
+        </Group>
       </form>
-      {error && <p role="alert">{error}</p>}
-      {notice === 'saved' && <p role="status">Saved.</p>}
-    </section>
+      {error && <Alert color="red">{error}</Alert>}
+      {notice === 'saved' && <Text role="status">Saved.</Text>}
+    </Stack>
   );
 }
 
@@ -163,6 +179,7 @@ function ProgressFiles({
   const [leftOut, setLeftOut] = useState(0);
   const [pending, setPending] = useState<{ parsed: unknown; summary: ImportSummary } | null>(null);
   const latestPick = useRef(0);
+  const resetPicker = useRef<() => void>(null);
   const importedRef = useRef<HTMLParagraphElement>(null);
 
   // After a Replace the page reloads and this section mounts again: move focus to the status line.
@@ -199,9 +216,7 @@ function ProgressFiles({
     }
   };
 
-  const pickFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
+  const pickFile = async (file: File | null) => {
     const pick = ++latestPick.current;
     setError(null);
     setLeftOut(0);
@@ -219,7 +234,7 @@ function ProgressFiles({
       setError(`Could not read that file: ${e instanceof Error ? e.message : String(e)}`);
     }
     // So the same file can be picked again.
-    input.value = '';
+    resetPicker.current?.();
   };
 
   const replace = async () => {
@@ -239,48 +254,52 @@ function ProgressFiles({
   };
 
   return (
-    <section aria-labelledby="settings-progress">
-      <h2 id="settings-progress">Your progress</h2>
-      <p className="home-actions">
-        <button type="button" className="session-button" onClick={exportFile} disabled={busy}>
+    <Stack component="section" aria-labelledby="settings-progress" gap="sm">
+      <Title order={2} size="h4" id="settings-progress">
+        Your progress
+      </Title>
+      <Group gap="sm">
+        <Button onClick={exportFile} disabled={busy}>
           Export progress
-        </button>
-        <label className="session-button home-import">
-          Import progress
-          <input
-            type="file"
-            accept=".json,application/json"
-            onChange={pickFile}
-            disabled={busy}
-          />
-        </label>
-      </p>
-      {error && <p role="alert">{error}</p>}
-      {leftOut > 0 && <p role="alert">{leftOutText(leftOut)}</p>}
+        </Button>
+        <FileButton
+          onChange={(file) => void pickFile(file)}
+          accept=".json,application/json"
+          disabled={busy}
+          resetRef={resetPicker}
+          inputProps={{ 'aria-label': 'Import progress' }}
+        >
+          {(props) => <Button {...props}>Import progress</Button>}
+        </FileButton>
+      </Group>
+      {error && <Alert color="red">{error}</Alert>}
+      {leftOut > 0 && <Alert color="yellow">{leftOutText(leftOut)}</Alert>}
       {notice === 'imported' && (
-        <p role="status" tabIndex={-1} ref={importedRef}>
+        <Text role="status" tabIndex={-1} ref={importedRef}>
           Progress imported.
-        </p>
+        </Text>
       )}
-      {pending && (
-        <div className="home-confirm" role="group" aria-label="Confirm import">
-          <p>{importConfirmText(pending.summary)}</p>
-          <p className="home-actions">
-            <button type="button" className="session-button" onClick={replace} disabled={busy}>
-              Replace
-            </button>
-            <button
-              type="button"
-              className="session-button"
-              onClick={() => setPending(null)}
-              disabled={busy}
-            >
+      <Modal
+        opened={pending !== null}
+        onClose={() => {
+          if (!busy) setPending(null);
+        }}
+        title="Confirm import"
+        centered
+      >
+        <Stack>
+          <Text>{pending && importConfirmText(pending.summary)}</Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setPending(null)} disabled={busy}>
               Cancel
-            </button>
-          </p>
-        </div>
-      )}
-    </section>
+            </Button>
+            <Button color="red" onClick={replace} disabled={busy}>
+              Replace
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
   );
 }
 
@@ -291,6 +310,7 @@ function Reset({
   notice,
   setNotice,
 }: SectionProps & { reload: () => void }) {
+  const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
   const resetRef = useRef<HTMLParagraphElement>(null);
@@ -310,54 +330,72 @@ function Reset({
     setBusy(true);
     try {
       await progressStore.resetProgress();
-      setTyped('');
+      setConfirming(false);
       setNotice('reset');
       reload();
     } catch (e) {
+      setConfirming(false);
       setError(`Could not reset your progress: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
   };
 
+  const open = () => {
+    setTyped('');
+    setError(null);
+    setNotice(null);
+    setConfirming(true);
+  };
+
   return (
-    <section aria-labelledby="settings-reset">
-      <h2 id="settings-reset">Reset all progress</h2>
-      <p>
+    <Stack component="section" aria-labelledby="settings-reset" gap="sm" align="flex-start">
+      <Title order={2} size="h4" id="settings-reset">
+        Reset all progress
+      </Title>
+      <Text>
         This deletes your progress, your answer history and your finished placement tests. The
         daily limit stays.
-      </p>
-      <form className="settings-form" onSubmit={run}>
-        <label>
-          Type {RESET_WORD} to confirm
-          <input
-            type="text"
-            className="settings-text"
-            value={typed}
-            onChange={(event) => {
-              setTyped(event.currentTarget.value);
-              setError(null);
-              setNotice(null);
-            }}
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-          />
-        </label>
-        <button
-          type="submit"
-          className="session-button"
-          disabled={busy || !isResetConfirmed(typed)}
-        >
-          Reset all progress
-        </button>
-      </form>
-      {error && <p role="alert">{error}</p>}
+      </Text>
+      <Button color="red" variant="outline" onClick={open} disabled={busy}>
+        Reset all progress
+      </Button>
+      {error && <Alert color="red">{error}</Alert>}
       {notice === 'reset' && (
-        <p role="status" tabIndex={-1} ref={resetRef}>
+        <Text role="status" tabIndex={-1} ref={resetRef}>
           All progress was reset.
-        </p>
+        </Text>
       )}
-    </section>
+      <Modal
+        opened={confirming}
+        onClose={() => {
+          if (!busy) setConfirming(false);
+        }}
+        title="Reset all progress"
+        centered
+      >
+        <form onSubmit={run}>
+          <Stack>
+            <TextInput
+              label={`Type ${RESET_WORD} to confirm`}
+              value={typed}
+              onChange={(event) => setTyped(event.currentTarget.value)}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-autofocus
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setConfirming(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button type="submit" color="red" disabled={busy || !isResetConfirmed(typed)}>
+                Reset all progress
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+    </Stack>
   );
 }

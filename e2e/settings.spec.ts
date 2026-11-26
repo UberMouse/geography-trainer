@@ -33,25 +33,40 @@ test('an out-of-range limit shows an alert and saves nothing', async ({ page }) 
   await expect(page.getByTestId('today-new')).toHaveText('0 of 15 new today', WAIT);
 });
 
-test('reset needs "reset" typed, then clears the progress', async ({ page }, testInfo) => {
+test('import and reset each ask in a dialog; reset needs "reset" typed, then clears the progress', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('progress.json');
   await writeMasteredUnitedStates(file);
   await page.goto('/settings');
+  // The import asks first, in a dialog: Cancel keeps the progress as it is.
+  const confirm = page.getByRole('dialog', { name: 'Confirm import' });
   await page.getByLabel('Import progress').setInputFiles(file);
-  await page.getByRole('button', { name: 'Replace' }).click();
+  await expect(confirm).toContainText('This browser: nothing started.');
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirm).toBeHidden();
+  await page.getByLabel('Import progress').setInputFiles(file);
+  await confirm.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
   await page.getByRole('link', { name: 'Back to Home' }).click();
   await expect(page.getByTestId('today-learned')).not.toHaveText('0', WAIT);
 
   await page.getByRole('link', { name: 'Settings' }).click();
-  const button = page.getByRole('button', { name: 'Reset all progress' });
+  const open = page.getByRole('button', { name: 'Reset all progress' });
+  const dialog = page.getByRole('dialog', { name: 'Reset all progress' });
+  // Cancel closes the confirmation and resets nothing.
+  await open.click();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+
+  await open.click();
+  const button = dialog.getByRole('button', { name: 'Reset all progress' });
   await expect(button).toBeDisabled();
-  await page.getByLabel('Type reset to confirm').fill('rese');
+  await dialog.getByLabel('Type reset to confirm').fill('rese');
   await expect(button).toBeDisabled();
-  await page.getByLabel('Type reset to confirm').fill(' Reset ');
+  await dialog.getByLabel('Type reset to confirm').fill(' Reset ');
   await expect(button).toBeEnabled();
   await button.click();
   await expect(page.getByRole('status')).toHaveText('All progress was reset.', WAIT);
+  await expect(dialog).toBeHidden();
 
   await page.getByRole('link', { name: 'Back to Home' }).click();
   await expect(page.getByTestId('today-learned')).toHaveText('0', WAIT);

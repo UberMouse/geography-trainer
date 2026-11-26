@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   countryOptions,
+  mixOklab,
+  PROGRESS_COLOURS,
   progressFill,
   startedCountries,
   tierCountText,
@@ -10,20 +12,32 @@ import {
 describe('progressFill', () => {
   it('uses the state colour for locked, new and learning', () => {
     for (const state of ['locked', 'new', 'learning'] as const) {
-      expect(progressFill(state, { total: 10, mastered: 5 })).toBe(`var(--progress-${state})`);
+      expect(progressFill(state, { total: 10, mastered: 5 })).toBe(PROGRESS_COLOURS[state]);
     }
   });
 
   it('mixes a mastered item by the share of its mastered descendants', () => {
     expect(progressFill('mastered', { total: 4, mastered: 1 })).toBe(
-      'color-mix(in oklab, var(--progress-complete) 25%, var(--progress-mastered))',
+      mixOklab(PROGRESS_COLOURS.mastered, PROGRESS_COLOURS.complete, 0.25),
     );
-    expect(progressFill('mastered', { total: 4, mastered: 0 })).toContain('complete) 0%');
-    expect(progressFill('mastered', { total: 4, mastered: 4 })).toContain('complete) 100%');
+    expect(progressFill('mastered', { total: 4, mastered: 0 })).toBe(PROGRESS_COLOURS.mastered);
+    expect(progressFill('mastered', { total: 4, mastered: 4 })).toBe(PROGRESS_COLOURS.complete);
   });
 
   it('gives a mastered item with no descendants the complete colour', () => {
-    expect(progressFill('mastered', { total: 0, mastered: 0 })).toBe('var(--progress-complete)');
+    expect(progressFill('mastered', { total: 0, mastered: 0 })).toBe(PROGRESS_COLOURS.complete);
+  });
+});
+
+describe('mixOklab', () => {
+  it('gives each end unchanged', () => {
+    expect(mixOklab('#4d8f63', '#4ade80', 0)).toBe('#4d8f63');
+    expect(mixOklab('#4d8f63', '#4ade80', 1)).toBe('#4ade80');
+  });
+
+  it('mixes by lightness in Oklab, not by sRGB channel', () => {
+    // Halfway from black to white is Oklab lightness 0.5: sRGB 99, not the channel midpoint 128.
+    expect(mixOklab('#000000', '#ffffff', 0.5)).toBe('#636363');
   });
 });
 

@@ -1,7 +1,6 @@
 :root {
   --bg: #121212;
   --link: #8ab4ff;
-  --muted: #a3a3a3;
   color-scheme: dark;
 }
 
@@ -16,16 +15,6 @@ body {
 
 a {
   color: var(--link);
-}
-
-.app-footer {
-  padding: 16px 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.app-footer p {
-  margin: 0;
 }
 
 /* Maps */
@@ -140,10 +129,6 @@ a {
 
 /* Playground, sessions */
 
-:root {
-  --wrong: #f87171;
-}
-
 .playground-item {
   margin: 8px 0;
 }
@@ -164,172 +149,8 @@ a {
   margin: 0;
 }
 
-.session-banner {
-  margin: 0 0 12px;
-  padding: 8px 12px;
-  border: 2px solid var(--wrong);
-  border-radius: 6px;
-}
-
-.session-banner p {
-  margin: 0 0 8px;
-}
-
-.session-button {
-  min-height: 44px;
-  padding: 0 16px;
-  font: inherit;
-}
-
 .session-summary:focus,
 [data-testid='session-question']:focus,
 [data-testid='placement-question']:focus {
   outline: none;
-}
-
-.home-numbers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin: 0 0 16px;
-}
-
-.home-numbers dt {
-  color: var(--muted);
-}
-
-.home-numbers dd {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.home-start {
-  display: inline-block;
-  padding: 10px 0;
-  font-size: 1.25rem;
-}
-
-.home-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.home-import {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  box-sizing: border-box;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-/* The picker stays in the page (so a label click or setInputFiles reaches it) but unseen. */
-.home-import input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
-}
-
-.home-import:focus-within {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
-.settings-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.settings-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-form input {
-  box-sizing: border-box;
-  min-height: 44px;
-  padding: 0 8px;
-  font: inherit;
-}
-
-.settings-number {
-  width: 8rem;
-}
-
-.settings-text {
-  width: 12rem;
-  max-width: 100%;
-}
-
-.home-confirm {
-  margin: 12px 0;
-}
-
-/* Progress map */
-
-:root {
-  --progress-locked: #404040;
-  --progress-new: #a16207;
-  --progress-learning: #ea580c;
-  --progress-mastered: #4d8f63;
-  --progress-complete: #4ade80;
-}
-
-.map.progress-map {
-  max-width: 960px;
-  aspect-ratio: 960 / 500;
-}
-
-.progress-tappable {
-  cursor: pointer;
-}
-
-.progress-counts,
-.progress-legend,
-.progress-started {
-  padding-left: 0;
-  list-style: none;
-}
-
-.progress-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-}
-
-.progress-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-right: 6px;
-  vertical-align: -2px;
-  border: 1px solid var(--map-border);
-}
-
-.drill-map {
-  margin: 16px 0;
-}
-
-.drill-list {
-  padding-left: 0;
-  list-style: none;
-}
-
-.home-map {
-  margin: 16px 0;
-}
-
-.home-map .map.progress-map {
-  max-width: 480px;
-}
-
-.progress-goto select {
-  max-width: 100%;
 }

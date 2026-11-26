@@ -1,3 +1,4 @@
+import { Alert, Button, Text } from '@mantine/core';
 import { useEffect, useSyncExternalStore } from 'react';
 import { progressStore } from '../storage/progressStore';
 
@@ -22,15 +23,12 @@ export default function SaveStatus() {
 
   if (!failed) return null;
   return (
-    <div role="alert" className="session-banner">
-      <p>
+    <Alert color="red" mb="md">
+      <Text mb="sm">
         Your last {unsaved === 1 ? 'answer' : `${unsaved} answers`} could not be saved. You can keep
-        going; closing or reloading the app before it is saved loses {unsaved === 1 ? 'it' : 'them'}
-        .
-      </p>
-      <button type="button" onClick={() => void queue.retry()}>
-        Retry
-      </button>
-    </div>
+        going; closing or reloading the app before it is saved loses {unsaved === 1 ? 'it' : 'them'}.
+      </Text>
+      <Button onClick={() => void queue.retry()}>Retry</Button>
+    </Alert>
   );
 }

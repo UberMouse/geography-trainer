@@ -1,11 +1,12 @@
+import { Anchor, Button, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PLACEMENT_MAX_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
-import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
 import { newTodayText, showsPlacementOffer } from './homeView';
 import Status from './LoadStatus';
-import { countryLooks, lookOrLocked } from './progressView';
+import { countryLooks } from './progressView';
+import { useCountriesGlobe } from './useCountriesGlobe';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
@@ -30,13 +31,16 @@ function useNow(): Date {
   return now;
 }
 
-/** Today's numbers, a Start link and the progress map, with links to Progress and Settings. */
+/**
+ * Today's numbers, a Start link and the links to Progress and Settings, beside the globe filled by
+ * country progress.
+ */
 export default function Home() {
   const [data, reload] = useLoaded('home', loadWorldData);
   const now = useNow();
   return (
-    <>
-      <h1>Geography Trainer</h1>
+    <Stack>
+      <Title order={1}>Geography Trainer</Title>
       <Status
         state={data}
         retry={reload}
@@ -44,13 +48,27 @@ export default function Home() {
       >
         {(loaded) => <HomeContent data={loaded} now={now} />}
       </Status>
-    </>
+    </Stack>
   );
 }
 
 interface HomeContentProps {
   data: WorldData;
   now: Date;
+}
+
+/** One of today's numbers: its label over its value. */
+function TodayNumber({ label, testId, value }: { label: string; testId: string; value: string | number }) {
+  return (
+    <div>
+      <Text component="dt" size="sm" c="dimmed">
+        {label}
+      </Text>
+      <Text component="dd" size="xl" m={0} data-testid={testId}>
+        {value}
+      </Text>
+    </div>
+  );
 }
 
 function HomeContent({ data, now }: HomeContentProps) {
@@ -63,55 +81,41 @@ function HomeContent({ data, now }: HomeContentProps) {
     () => todayNumbers(curriculum, data.progress, now, tzOffset(now), data.dailyNewCap),
     [curriculum, data.progress, now, data.dailyNewCap],
   );
+  useCountriesGlobe(data, looks);
   return (
-    <>
-      <dl className="home-numbers">
-        <div>
-          <dt>Due reviews</dt>
-          <dd data-testid="today-due">{numbers.due}</dd>
-        </div>
-        <div>
-          <dt>New today</dt>
-          <dd data-testid="today-new">
-            {newTodayText(numbers.newToday, numbers.dailyCap)}
-          </dd>
-        </div>
-        <div>
-          <dt>Learning</dt>
-          <dd data-testid="today-learning">{numbers.learning}</dd>
-        </div>
-        <div>
-          <dt>Learned</dt>
-          <dd data-testid="today-learned">{numbers.learned}</dd>
-        </div>
-      </dl>
+    <Stack align="flex-start">
+      <SimpleGrid component="dl" cols={2} spacing="sm" m={0} w="100%">
+        <TodayNumber label="Due reviews" testId="today-due" value={numbers.due} />
+        <TodayNumber
+          label="New today"
+          testId="today-new"
+          value={newTodayText(numbers.newToday, numbers.dailyCap)}
+        />
+        <TodayNumber label="Learning" testId="today-learning" value={numbers.learning} />
+        <TodayNumber label="Learned" testId="today-learned" value={numbers.learned} />
+      </SimpleGrid>
       {showsPlacementOffer(data.curriculum, data.progress, data.finishedTests) && (
-        <p>
-          Already know some countries? <Link to="/placement">Take the placement test</Link> (about{' '}
-          {PLACEMENT_MAX_QUESTIONS} questions)
-        </p>
+        <Text>
+          Already know some countries?{' '}
+          <Anchor component={Link} to="/placement">
+            Take the placement test
+          </Anchor>{' '}
+          (about {PLACEMENT_MAX_QUESTIONS} questions)
+        </Text>
       )}
       {numbers.sessionLength > 0 ? (
-        <p>
-          <Link to="/session" className="home-start">
-            Start ({numbers.sessionLength} {numbers.sessionLength === 1 ? 'question' : 'questions'})
-          </Link>
-        </p>
+        <Button component={Link} to="/session" size="md">
+          Start ({numbers.sessionLength} {numbers.sessionLength === 1 ? 'question' : 'questions'})
+        </Button>
       ) : (
-        <p>There is nothing to study right now.</p>
+        <Text>There is nothing to study right now.</Text>
       )}
-      <div className="home-map">
-        <ProgressMap
-          features={data.countries.features as ProgressFeature[]}
-          look={lookOrLocked(looks)}
-        />
-        <p>
-          <Link to="/progress">See your progress</Link>
-        </p>
-      </div>
-      <p>
-        <Link to="/settings">Settings</Link>
-      </p>
-    </>
+      <Anchor component={Link} to="/progress">
+        See your progress
+      </Anchor>
+      <Anchor component={Link} to="/settings">
+        Settings
+      </Anchor>
+    </Stack>
   );
 }

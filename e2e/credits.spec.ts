@@ -7,6 +7,13 @@ test('the footer opens the Credits page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Credits' })).toBeVisible();
   await expect(page.getByRole('main').getByRole('link', { name: 'MapTap.gg' })).toBeVisible();
   await expect(page.getByRole('main').getByRole('link', { name: 'Natural Earth' })).toBeVisible();
+  await expect(page.getByRole('main')).toContainText(
+    'Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
+  );
+  await expect(page.getByRole('main').getByRole('link', { name: 'https://s2maps.eu' })).toHaveAttribute(
+    'href',
+    'https://s2maps.eu',
+  );
 });
 
 test('Credits does not scroll horizontally at 390 px', async ({ page }) => {

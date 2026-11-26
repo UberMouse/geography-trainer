@@ -21,6 +21,8 @@ const PAGES = [
 const NO_PHONE_GLOBE = ['/settings', '/credits'];
 
 test('client-side links between pages keep the same globe', async ({ page }) => {
+  // Five pages, each loading its data and drawing on the globe: slow on a loaded machine.
+  test.setTimeout(120_000);
   await page.goto('/');
   await globeHooked(page);
   const instance = await hook.instanceId(page);

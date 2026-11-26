@@ -1,16 +1,17 @@
-import { Fragment, useMemo, type ReactNode } from 'react';
+import { Anchor, List, Stack, Text, Title } from '@mantine/core';
+import { Fragment, useEffect, useMemo, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   countryItemId,
+  itemState,
   placeItemId,
   regionItemId,
   unlockedBy,
   type Curriculum,
 } from '../engine/curriculum';
 import { loadRegions, type RegionsData } from '../data/loaders';
-import { answerPoint, mainPart } from '../maps/geo';
-import DrillMap, { type DrillDot } from '../maps/DrillMap';
-import type { ProgressLook } from '../maps/ProgressMap';
+import { answerPoint, mainPart, type LngLat } from '../maps/geo';
+import { moveCamera, useGlobe } from '../maps/globeContext';
 import {
   NO_CHILDREN_TEXT,
   childRows,
@@ -21,7 +22,8 @@ import {
   type OffMapEntry,
 } from './drillView';
 import Status from './LoadStatus';
-import { STATE_LABELS, itemLook } from './progressView';
+import { drillCamera, drillMode } from './progressGlobe';
+import { PROGRESS_COLOURS, STATE_LABELS, itemLook } from './progressView';
 import { showsTestOutLink, testOutLabel, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
@@ -55,13 +57,13 @@ function Resolved({
   );
   if (route.kind === 'not-found') {
     return (
-      <>
-        <h1>Not found</h1>
-        <p>There is nothing to show at this address.</p>
-        <Link to={route.back}>
+      <Stack align="flex-start">
+        <Title order={1}>Not found</Title>
+        <Text>There is nothing to show at this address.</Text>
+        <Anchor component={Link} to={route.back}>
           {route.back === '/progress' ? 'Back to the world' : 'Back to the country'}
-        </Link>
-      </>
+        </Anchor>
+      </Stack>
     );
   }
   // Only a regions-tier country has a topology to fetch, and only a resolved route gets here.
@@ -90,10 +92,12 @@ function WithRegions({
   );
 }
 
-const placeLook = (state: ProgressLook['state']): ProgressLook => ({
-  state,
-  fill: `var(--progress-${state})`,
-});
+/** A place on the drill-down globe. */
+interface PlaceDot {
+  id: string;
+  name: string;
+  at: LngLat;
+}
 
 function Drill({
   data,
@@ -121,41 +125,64 @@ function Drill({
 
   const routeKind = route.kind;
   const regionId = route.kind === 'region' ? route.regionId : null;
-  const { features, dots, fit, offMap } = useMemo(() => {
+  const outline = data.countries.features.find((f) => f.id === countryId)!;
+  const { features, dots, offMap } = useMemo(() => {
     const countryPlaces = data.places.filter((p) => p.country === countryId);
-    const placeDots = (places: typeof countryPlaces): DrillDot[] =>
+    const placeDots = (places: typeof countryPlaces): PlaceDot[] =>
       places.map((p) => ({ id: p.id, name: p.name, at: [p.lng, p.lat] }));
     if (routeKind === 'region') {
       return {
         features: (regions?.features ?? []).filter((f) => f.id === regionId),
         dots: placeDots(countryPlaces.filter((p) => p.region === regionId)),
-        fit: undefined,
         offMap: [] as OffMapEntry[],
       };
     }
-    // The country page frames the main part of the country, as the exercises do: outlying
-    // regions and places (overseas, far islands) stay off the map and are named under it.
-    const outline = data.countries.features.find((f) => f.id === countryId)!;
+    // The country page is about the main part of the country, as the exercises are: outlying
+    // regions and places (overseas, far islands) are not drawn, and are named in the column.
     const frame = mainPart(outline);
     if (regions) {
       const split = splitByFrame(frame, regions.features, answerPoint);
       const offMap = split.off.map((f) => ({ id: f.id, name: f.properties.name, isRegion: true }));
-      return { features: split.onMap, dots: [], fit: [frame], offMap };
+      return { features: split.onMap, dots: [], offMap };
     }
     const split = splitByFrame(frame, placeDots(countryPlaces), (d) => d.at);
     const offMap = split.off.map((d) => ({ id: d.id, name: d.name, isRegion: false }));
-    return { features: [outline], dots: split.onMap, fit: [frame], offMap };
-  }, [data.places, data.countries, regions, routeKind, regionId, countryId]);
+    return { features: [outline], dots: split.onMap, offMap };
+  }, [data.places, outline, regions, routeKind, regionId, countryId]);
 
-  // A region with no places is not a curriculum item: drawn neutral, not a link.
-  const lookShape = (id: string): ProgressLook | null =>
-    regions && curriculum.items.has(regionItemId(id))
-      ? itemLook(curriculum, data.progress, regionItemId(id))
-      : null;
-  const lookDot = (id: string): ProgressLook | null =>
-    curriculum.items.has(placeItemId(id))
-      ? placeLook(itemLook(curriculum, data.progress, placeItemId(id)).state)
-      : null;
+  // A region with no places is not a curriculum item: drawn unfilled, not a link. A place's dot
+  // is its state's own colour (a mastered place `mastered`, not `complete`).
+  const progress = data.progress;
+  const mode = useMemo(
+    () =>
+      drillMode(
+        features,
+        (id) =>
+          regions && curriculum.items.has(regionItemId(id))
+            ? itemLook(curriculum, progress, regionItemId(id)).fill
+            : null,
+        dots,
+        (id) =>
+          curriculum.items.has(placeItemId(id))
+            ? PROGRESS_COLOURS[itemState(curriculum, progress, placeItemId(id))]
+            : null,
+      ),
+    [features, dots, regions, curriculum, progress],
+  );
+  const regionBase = `/progress/${countryId}`;
+  const selects = route.kind === 'country' && regions !== null;
+  const camera = useGlobe({
+    mode,
+    onSelect: selects
+      ? (id) => {
+          if (curriculum.items.has(regionItemId(id))) navigate(`${regionBase}/${id}`);
+        }
+      : undefined,
+  });
+  const shownRegion = route.kind === 'region' ? features[0] : undefined;
+  useEffect(() => {
+    moveCamera(camera, drillCamera(outline, shownRegion));
+  }, [camera, outline, shownRegion]);
 
   const rows = childRows(curriculum, data.progress, itemId, names);
   const self = itemLook(curriculum, data.progress, itemId);
@@ -164,67 +191,62 @@ function Drill({
   const testOutTier = showsTestOutLink(curriculum, data.progress, data.finishedTests, itemId)
     ? (`${unlockedBy(curriculum, itemId)!.tier}s` as const)
     : null;
-  const regionBase = `/progress/${countryId}`;
 
   return (
-    <>
-      <p>
-        {isRegion ? (
-          <Link to={regionBase}>Back to {country.name}</Link>
-        ) : (
-          <Link to="/progress">Back to the world</Link>
-        )}
-      </p>
-      <h1>
-        {name} <span data-testid="drill-state">({STATE_LABELS[self.state]})</span>
-      </h1>
-      {testOutTier && (
-        <p>
-          <Link to={testOutPath(itemId)}>{testOutLabel(name, testOutTier)}</Link>
-        </p>
+    <Stack align="flex-start">
+      {isRegion ? (
+        <Anchor component={Link} to={regionBase}>
+          Back to {country.name}
+        </Anchor>
+      ) : (
+        <Anchor component={Link} to="/progress">
+          Back to the world
+        </Anchor>
       )}
-      <DrillMap
-        features={features}
-        dots={dots}
-        fit={fit}
-        look={lookShape}
-        dotLook={lookDot}
-        onSelect={
-          isRegion || !regions
-            ? undefined
-            : (id) => {
-                if (curriculum.items.has(regionItemId(id))) navigate(`${regionBase}/${id}`);
-              }
-        }
-        label={`${name} progress map`}
-      />
+      <Title order={1}>
+        {name} <span data-testid="drill-state">({STATE_LABELS[self.state]})</span>
+      </Title>
+      {testOutTier && (
+        <Anchor component={Link} to={testOutPath(itemId)}>
+          {testOutLabel(name, testOutTier)}
+        </Anchor>
+      )}
       {offMap.length > 0 && (
-        <p data-testid="off-map">
+        <Text data-testid="off-map">
           Not on this map:{' '}
           {sortOffMap(offMap).map((e, i) => (
             <Fragment key={e.id}>
               {i > 0 && ', '}
               {e.isRegion && curriculum.items.has(regionItemId(e.id)) ? (
-                <Link to={`${regionBase}/${e.id}`}>{e.name}</Link>
+                <Anchor component={Link} to={`${regionBase}/${e.id}`}>
+                  {e.name}
+                </Anchor>
               ) : (
                 e.name
               )}
             </Fragment>
           ))}
-        </p>
+        </Text>
       )}
       {rows.length === 0 ? (
-        <p>{NO_CHILDREN_TEXT}</p>
+        <Text>{NO_CHILDREN_TEXT}</Text>
       ) : (
-        <ul className="drill-list" data-testid="drill-list">
+        <List listStyleType="none" spacing={2} data-testid="drill-list">
           {rows.map((row) => (
-            <li key={row.itemId} data-item-id={row.itemId} data-state={row.state}>
-              {row.href ? <Link to={row.href}>{row.name}</Link> : row.name}: {row.stateLabel}
+            <List.Item key={row.itemId} data-item-id={row.itemId} data-state={row.state}>
+              {row.href ? (
+                <Anchor component={Link} to={row.href}>
+                  {row.name}
+                </Anchor>
+              ) : (
+                row.name
+              )}
+              : {row.stateLabel}
               {row.unlockText && ` (${row.unlockText})`}
-            </li>
+            </List.Item>
           ))}
-        </ul>
+        </List>
       )}
-    </>
+    </Stack>
   );
 }

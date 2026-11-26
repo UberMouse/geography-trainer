@@ -1,28 +1,49 @@
+import {
+  Anchor,
+  Button,
+  ColorSwatch,
+  Group,
+  List,
+  NativeSelect,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { tierCounts, type ItemState, type Tier } from '../engine/curriculum';
-import ProgressMap, { type ProgressFeature } from '../maps/ProgressMap';
 import Status from './LoadStatus';
 import {
+  PROGRESS_COLOURS,
   STATE_LABELS,
   countryLooks,
   countryOptions,
-  lookOrLocked,
   startedCountries,
   tierCountText,
 } from './progressView';
+import { useCountriesGlobe } from './useCountriesGlobe';
 import { useLoaded } from './useLoaded';
 import { loadWorldData, type WorldData } from './worldData';
 
 const TIERS: Tier[] = ['country', 'region', 'place'];
 const LEGEND: ItemState[] = ['locked', 'new', 'learning', 'mastered'];
 
-/** The per-tier counts, a world map coloured by country progress, and the started countries. */
+/** A legend entry: its colour's swatch and what it means. */
+function LegendEntry({ colour, children }: { colour: string; children: string }) {
+  return (
+    <Group component="li" gap={6} wrap="nowrap" align="flex-start">
+      <ColorSwatch color={colour} size={14} radius={0} withShadow={false} mt={4} />
+      <Text size="sm">{children}</Text>
+    </Group>
+  );
+}
+
+/** The per-tier counts, the legend, a way to any country and the started countries, beside the globe. */
 export default function Progress() {
   const [data, reload] = useLoaded('progress', loadWorldData);
   return (
-    <>
-      <h1>Progress</h1>
+    <Stack>
+      <Title order={1}>Progress</Title>
       <Status
         state={data}
         retry={reload}
@@ -30,7 +51,7 @@ export default function Progress() {
       >
         {(loaded) => <ProgressContent data={loaded} />}
       </Status>
-    </>
+    </Stack>
   );
 }
 
@@ -47,71 +68,67 @@ function ProgressContent({ data }: { data: WorldData }) {
     [data.countries, looks],
   );
   const options = useMemo(() => countryOptions(data.countries.countries), [data.countries]);
+  useCountriesGlobe(data, looks);
   const [chosen, setChosen] = useState('');
   const go = (event: FormEvent) => {
     event.preventDefault();
     if (chosen) navigate(`/progress/${chosen}`);
   };
   return (
-    <>
-      <ul className="progress-counts">
+    <Stack>
+      <List listStyleType="none" spacing={2}>
         {TIERS.map((tier) => (
-          <li key={tier} data-testid={`tier-${tier}`}>
+          <List.Item key={tier} data-testid={`tier-${tier}`}>
             {tierCountText(tier, counts[tier])}
-          </li>
+          </List.Item>
         ))}
-      </ul>
-      <ProgressMap
-        features={data.countries.features as ProgressFeature[]}
-        look={lookOrLocked(looks)}
-        onSelect={(id) => navigate(`/progress/${id}`)}
-      />
-      <ul className="progress-legend" aria-label="Legend">
+      </List>
+      <Stack component="ul" gap={4} m={0} p={0} aria-label="Legend" style={{ listStyle: 'none' }}>
         {LEGEND.map((state) => (
-          <li key={state}>
-            <span className="progress-swatch" style={{ background: `var(--progress-${state})` }} />
-            {STATE_LABELS[state]}
-            {state === 'mastered' &&
-              ' (deeper as its regions and places are mastered)'}
-          </li>
+          <LegendEntry key={state} colour={PROGRESS_COLOURS[state]}>
+            {state === 'mastered'
+              ? `${STATE_LABELS[state]} (deeper as its regions and places are mastered)`
+              : STATE_LABELS[state]}
+          </LegendEntry>
         ))}
-        <li>
-          <span className="progress-swatch" style={{ background: 'var(--progress-complete)' }} />
-          Everything below it mastered
-        </li>
-      </ul>
-      <form className="progress-goto" onSubmit={go}>
-        <label htmlFor="progress-goto-select">Go to a country</label>{' '}
-        <select
-          id="progress-goto-select"
-          value={chosen}
-          onChange={(event) => setChosen(event.target.value)}
-        >
-          <option value="">Choose a country</option>
-          {options.map(({ id, name }) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-        </select>{' '}
-        <button type="submit" disabled={!chosen}>
-          Go
-        </button>
+        <LegendEntry colour={PROGRESS_COLOURS.complete}>Everything below it mastered</LegendEntry>
+      </Stack>
+      <form onSubmit={go}>
+        <Group align="flex-end" gap="xs" wrap="nowrap">
+          <NativeSelect
+            label="Go to a country"
+            value={chosen}
+            onChange={(event) => setChosen(event.currentTarget.value)}
+            data={[{ value: '', label: 'Choose a country' }, ...options.map(({ id, name }) => ({ value: id, label: name }))]}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <Button type="submit" disabled={!chosen}>
+            Go
+          </Button>
+        </Group>
       </form>
-      <h2>Countries you have started</h2>
+      <Title order={2} size="h4">
+        Countries you have started
+      </Title>
       {started.length === 0 ? (
-        <p>
-          You haven&apos;t started any countries yet. <Link to="/session">Start</Link>
-        </p>
+        <Text>
+          You haven&apos;t started any countries yet.{' '}
+          <Anchor component={Link} to="/session">
+            Start
+          </Anchor>
+        </Text>
       ) : (
-        <ul className="progress-started" data-testid="started-countries">
+        <List listStyleType="none" spacing={2} data-testid="started-countries">
           {started.map(({ country, state }) => (
-            <li key={country.id}>
-              <Link to={`/progress/${country.id}`}>{country.name}</Link>: {STATE_LABELS[state]}
-            </li>
+            <List.Item key={country.id}>
+              <Anchor component={Link} to={`/progress/${country.id}`}>
+                {country.name}
+              </Anchor>
+              : {STATE_LABELS[state]}
+            </List.Item>
           ))}
-        </ul>
+        </List>
       )}
-    </>
+    </Stack>
   );
 }

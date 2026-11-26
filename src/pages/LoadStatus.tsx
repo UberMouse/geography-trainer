@@ -1,3 +1,4 @@
+import { Alert, Button, Group, Loader, Text } from '@mantine/core';
 import type { ReactNode } from 'react';
 import type { Loaded } from './useLoaded';
 
@@ -14,17 +15,22 @@ export default function Status<T>({
   /** The error text before the message. */
   failure?: string;
 }) {
-  if (state.status === 'loading') return <p>Loading…</p>;
+  if (state.status === 'loading') {
+    return (
+      <Group gap="xs">
+        <Loader size="sm" />
+        <Text>Loading…</Text>
+      </Group>
+    );
+  }
   if (state.status === 'error') {
     return (
-      <div role="alert">
-        <p>
+      <Alert color="red">
+        <Text mb="sm">
           {failure} {state.error.message}
-        </p>
-        <button type="button" onClick={retry}>
-          Retry
-        </button>
-      </div>
+        </Text>
+        <Button onClick={retry}>Retry</Button>
+      </Alert>
     );
   }
   return children(state.data);

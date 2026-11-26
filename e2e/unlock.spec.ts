@@ -1,5 +1,5 @@
-import { expect, test } from './test';
-import { hook } from './globeHook';
+import { expect, test, type Page } from './test';
+import { hook, type LngLat } from './globeHook';
 import {
   answer,
   current,
@@ -7,9 +7,30 @@ import {
   next,
   question,
   summary,
+  tap,
+  tapGlobe,
   WAIT,
   writeMasteredUnitedStates,
 } from './sessionHelpers';
+
+/** The progress colours (`PROGRESS_COLOURS` in `src/pages/progressView.ts`). */
+const NEW = '#a16207';
+const MASTERED = '#4d8f63';
+/** A place dot's colour when the place is not in the curriculum (`NEUTRAL_DOT`). */
+const NEUTRAL_DOT = '#3b3a35';
+
+const GERMANY: LngLat = [10.4, 51.1];
+const BAYERN: LngLat = [11.4, 48.9];
+
+/** The globe's progress mode once it fills or dots `id`: the page showing it has mounted. */
+async function progressShowing(page: Page, id: string) {
+  const shows = async () => {
+    const shown = await hook.progress(page);
+    return !!shown && (id in shown.fills || shown.dots.some((d) => d.id === id));
+  };
+  await expect.poll(shows, WAIT).toBe(true);
+  return (await hook.progress(page))!;
+}
 
 // Sessions load the world's map data and draw maps: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
@@ -58,27 +79,45 @@ test('the Progress page shows the mastered country and its map shape', async ({ 
   await expect(started.getByRole('link', { name: 'United States' })).toBeVisible(WAIT);
   await expect(started).toContainText('United States: Mastered');
 
-  const map = page.getByTestId('progress-map');
-  await expect(map.locator('[data-item-id="united-states"]')).toHaveAttribute(
-    'data-state',
-    'mastered',
-    WAIT,
-  );
-  // Germany is a country: new, as it has no parent to lock it.
-  await expect(map.locator('[data-item-id="germany"]')).toHaveAttribute('data-state', 'new');
+  // The globe fills each country by its state: the United States mastered (none of its regions
+  // yet, so not deepened), Germany new, as it has no parent to lock it.
+  const { fills } = await progressShowing(page, 'united-states');
+  expect(fills['united-states']).toBe(MASTERED);
+  expect(fills.germany).toBe(NEW);
 
   await started.getByRole('link', { name: 'United States' }).click();
   await expect(page).toHaveURL(/\/progress\/united-states$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('United States', WAIT);
 });
 
-test('tapping a country on the map goes to its page', async ({ page }) => {
+for (const path of ['/', '/progress']) {
+  test(`tapping a country on the globe on ${path} goes to its page`, async ({ page, isMobile }) => {
+    await page.goto(path);
+    await progressShowing(page, 'germany');
+    await tapGlobe(page, isMobile, GERMANY);
+    await expect(page).toHaveURL(/\/progress\/germany$/);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+  });
+}
+
+test("a tap on a point-only country's dot, beside its few-km disc, goes to its page", async ({
+  page,
+  isMobile,
+}) => {
   await page.goto('/progress');
-  const shape = page.getByTestId('progress-map').locator('[data-item-id="germany"]');
-  await expect(shape).toBeAttached(WAIT);
-  await shape.dispatchEvent('click');
-  await expect(page).toHaveURL(/\/progress\/germany$/);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
+  const { dots } = await progressShowing(page, 'germany');
+  const dot = dots[0]!;
+  // Zoomed out, the country's own disc is under a pixel across: a tap 6 px off lands on the dot only.
+  await hook.jumpTo(page, dot.at, 4);
+  // Two frames, so the dot has been drawn where the camera now is (the tap is hit-tested on it).
+  await page.evaluate(() => {
+    const frame = (globalThis as unknown as { requestAnimationFrame(cb: () => void): void })
+      .requestAnimationFrame;
+    return new Promise<void>((done) => frame(() => frame(done)));
+  });
+  const { x, y } = await hook.project(page, dot.at);
+  await tap(page, isMobile, x + 6, y);
+  await expect(page).toHaveURL(new RegExp(`/progress/${dot.id}$`), WAIT);
 });
 
 test('a country can be opened from the Go to a country control using only the keyboard', async ({
@@ -141,22 +180,31 @@ test('a country whose parent is not mastered lists its regions as locked', async
   }
 });
 
-test('the drill-down goes from the world to a country to a region and back', async ({ page }) => {
+test('the drill-down goes from the world to a country to a region and back', async ({
+  page,
+  isMobile,
+}) => {
   await page.goto('/progress');
-  const started = page.getByTestId('progress-map').locator('[data-item-id="germany"]');
-  await expect(started).toBeAttached(WAIT);
-  await started.dispatchEvent('click');
+  await progressShowing(page, 'germany');
+  await tapGlobe(page, isMobile, GERMANY);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
 
-  // The regions map: tapping a region opens its page.
-  const bayern = page.getByTestId('drill-map').locator('[data-item-id="germany.bayern"]');
-  await expect(bayern).toBeAttached(WAIT);
-  await bayern.dispatchEvent('click');
+  // The globe shows Germany's regions: tapping one opens its page.
+  await progressShowing(page, 'germany.bayern');
+  await tapGlobe(page, isMobile, BAYERN);
   await expect(page).toHaveURL(/\/progress\/germany\/germany\.bayern$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Bayern', WAIT);
   const places = page.getByTestId('drill-list').locator('li');
   await expect(places.first()).toContainText('Master Bayern to unlock', WAIT);
-  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]').first()).toBeAttached();
+  // Bayern alone, with its places as dots.
+  const placeCount = await places.count();
+  await expect
+    .poll(async () => {
+      const shown = await hook.progress(page);
+      return shown && { fills: Object.keys(shown.fills), dots: shown.dots.length };
+    }, WAIT)
+    .toEqual({ fills: ['germany.bayern'], dots: placeCount });
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-progress-dots');
 
   await page.getByRole('link', { name: 'Back to Germany' }).click();
   await expect(page).toHaveURL(/\/progress\/germany$/);
@@ -174,7 +222,7 @@ test('a country without regions draws its places as dots', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Singapore', WAIT);
   const expected = await page.getByTestId('drill-list').locator('li').count();
   expect(expected).toBeGreaterThan(0);
-  await expect(page.getByTestId('drill-map').locator('circle[data-item-id]')).toHaveCount(expected);
+  await expect.poll(async () => (await hook.progress(page))?.dots.length, WAIT).toBe(expected);
 });
 
 test('outlying regions and places are named under the map', async ({ page }) => {
@@ -194,9 +242,12 @@ test('outlying regions and places are named under the map', async ({ page }) => 
 test('a country outline stays neutral when a place shares the country id', async ({ page }) => {
   await page.goto('/progress/cyprus');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Cyprus', WAIT);
-  const map = page.getByTestId('drill-map');
-  await expect(map.locator('circle[data-item-id="cyprus"]')).toHaveAttribute('data-state', /.+/);
-  await expect(map.locator('path[data-item-id]')).toHaveCount(0);
+  // The place Cyprus is a dot in its state's colour; the outline Cyprus is not filled.
+  const { fills, dots } = await progressShowing(page, 'cyprus');
+  expect(fills).toEqual({});
+  const cyprus = dots.find((d) => d.id === 'cyprus');
+  expect(cyprus?.colour).toBeDefined();
+  expect(cyprus?.colour).not.toBe(NEUTRAL_DOT);
 });
 
 test('an unknown country or region shows not found with a link back', async ({ page }) => {
@@ -214,17 +265,17 @@ test('an unknown country or region shows not found with a link back', async ({ p
 test('the drill-down pages do not scroll sideways', async ({ page }) => {
   for (const path of ['/progress/united-states', '/progress/united-states/united-states.texas']) {
     await page.goto(path);
-    await expect(page.getByTestId('drill-map')).toBeVisible(WAIT);
+    await expect(page.getByTestId('drill-list')).toBeVisible(WAIT);
     const fits = await page.locator('html').evaluate((el) => el.scrollWidth <= el.clientWidth);
     expect(fits, `${path} has no horizontal scroll`).toBe(true);
   }
 });
 
-test('Home shows the small progress map and a link to Progress', async ({ page }) => {
+test("Home's globe shows progress by country, and Home links to Progress", async ({ page }) => {
   await page.goto('/');
-  const map = page.getByTestId('progress-map');
-  await expect(map).toBeVisible(WAIT);
-  await expect(map).toHaveAttribute('aria-hidden', 'true');
+  const { fills } = await progressShowing(page, 'germany');
+  expect(fills.germany).toBe(NEW);
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-progress-fill');
   await page.getByRole('link', { name: 'See your progress' }).click();
   await expect(page).toHaveURL(/\/progress$/);
 });
@@ -232,7 +283,7 @@ test('Home shows the small progress map and a link to Progress', async ({ page }
 test('Home and Progress do not scroll sideways', async ({ page }) => {
   for (const path of ['/', '/progress']) {
     await page.goto(path);
-    await expect(page.getByTestId('progress-map')).toBeVisible(WAIT);
+    await progressShowing(page, 'germany');
     const fits = await page.locator('html').evaluate((el) => el.scrollWidth <= el.clientWidth);
     expect(fits, `${path} has no horizontal scroll`).toBe(true);
   }

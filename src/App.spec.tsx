@@ -6,6 +6,9 @@ import App from './App';
 // MapLibre needs a browser: the shell renders without the map (e2e covers the globe).
 vi.mock('./maps/Globe', () => ({ default: () => <div data-testid="globe-stub" /> }));
 
+/** A level-one heading's text as rendered (Mantine's `Title` gives it attributes). */
+const h1 = (text: string) => new RegExp(`<h1[^>]*>${text}</h1>`);
+
 function render(path: string) {
   return renderToString(
     <MemoryRouter initialEntries={[path]}>
@@ -17,7 +20,7 @@ function render(path: string) {
 describe('App', () => {
   it('renders the heading and both credit lines', () => {
     const html = render('/');
-    expect(html).toContain('<h1>Geography Trainer</h1>');
+    expect(html).toMatch(h1('Geography Trainer'));
     expect(html).toContain('Place list courtesy of');
     expect(html).toContain('href="https://maptap.gg"');
     expect(html).toContain('Boundaries:');
@@ -29,23 +32,27 @@ describe('App', () => {
     expect(html.match(/data-testid="globe-stub"/g)).toHaveLength(1);
     const column = html.indexOf('data-testid="column"');
     expect(column).toBeGreaterThan(-1);
-    expect(html.indexOf('<h1>Geography Trainer</h1>')).toBeGreaterThan(column);
+    expect(html.search(h1('Geography Trainer'))).toBeGreaterThan(column);
     expect(html.indexOf('Place list courtesy of')).toBeGreaterThan(column);
   });
 
   it('renders the Progress page heading', () => {
-    expect(render('/progress')).toContain('<h1>Progress</h1>');
+    expect(render('/progress')).toMatch(h1('Progress'));
   });
 
   it('renders the Credits page', () => {
     const html = render('/credits');
-    expect(html).toContain('<h1>Credits</h1>');
+    expect(html).toMatch(h1('Credits'));
     expect(html).toContain('MapTap.gg');
     expect(html).toContain('Natural Earth');
+    expect(html).toContain('Sentinel-2 cloudless – <a');
+    expect(html).toContain(
+      'by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
+    );
   });
 
   it('renders the Settings page heading', () => {
-    expect(render('/settings')).toContain('<h1>Settings</h1>');
+    expect(render('/settings')).toMatch(h1('Settings'));
   });
 
   it('renders the Placement page (loading first)', () => {
