@@ -74,8 +74,8 @@ const loadSessionData = async (): Promise<SessionData> => {
   // Re-asks and later rounds only repeat these items, so these are all the regions a session needs,
   // plus those of a resumed round's mastered items, so a mastered region's line can name its country.
   const needed = countriesNeedingRegions(curriculum, [
-    ...questions,
-    ...(resumed?.mastered ?? []).map((itemId) => ({ itemId, rung: 1 as const })),
+    ...questions.map((question) => question.itemId),
+    ...(resumed?.mastered ?? []),
   ]);
   const loaded = await Promise.all(needed.map((id) => loadRegions(id)));
   const regions = new Map(needed.map((id, i) => [id, loaded[i]!]));

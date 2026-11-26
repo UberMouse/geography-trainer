@@ -128,26 +128,24 @@ describe('the full tree', () => {
   const nameOf = (id: string) => names[id] ?? id;
 
   describe('[SES-C07] countriesNeedingRegions', () => {
-    const q = (itemId: string) => ({ itemId, rung: 1 as const });
-
     it('names the owner of each region question and each place under a region, once', () => {
-      const questions = [
-        q('country:fr'),
-        q('region:fr.idf'),
-        q('place:brest'),
-        q('place:paris'),
-        q('country:jp'),
-        q('place:tokyo'),
+      const itemIds = [
+        'country:fr',
+        'region:fr.idf',
+        'place:brest',
+        'place:paris',
+        'country:jp',
+        'place:tokyo',
       ];
-      expect(countriesNeedingRegions(curriculum, questions)).toEqual(['fr']);
+      expect(countriesNeedingRegions(curriculum, itemIds)).toEqual(['fr']);
     });
 
     it('needs nothing for countries and places directly under a country', () => {
-      expect(countriesNeedingRegions(curriculum, [q('country:fr'), q('place:tokyo')])).toEqual([]);
+      expect(countriesNeedingRegions(curriculum, ['country:fr', 'place:tokyo'])).toEqual([]);
     });
 
     it('throws for an unknown item', () => {
-      expect(() => countriesNeedingRegions(curriculum, [q('place:nope')])).toThrow('Unknown item');
+      expect(() => countriesNeedingRegions(curriculum, ['place:nope'])).toThrow('Unknown item');
     });
   });
 

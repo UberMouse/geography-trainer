@@ -74,16 +74,16 @@ export function questionHeader(run: SessionRun): string {
 }
 
 /**
- * The countries whose regions the questions need drawn: the owner of every region question and of
- * every place question under a region, in first-seen order. Ids are the bare country ids
+ * The countries whose regions the items need drawn: the owner of every region and of
+ * every place under a region, in first-seen order. Ids are the bare country ids
  * (`loadRegions`' argument).
  */
 export function countriesNeedingRegions(
   curriculum: Curriculum,
-  questions: readonly SessionQuestion[],
+  itemIds: readonly string[],
 ): string[] {
   const needed = new Set<string>();
-  for (const { itemId } of questions) {
+  for (const itemId of itemIds) {
     const item = curriculum.items.get(itemId);
     if (!item) throw new Error(`Unknown item "${itemId}"`);
     if (item.tier === 'region' || item.parent?.startsWith('region:')) {
