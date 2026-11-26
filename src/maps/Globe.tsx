@@ -1,5 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { AreaFeature, LngLat } from './geo';
@@ -8,6 +9,7 @@ import {
   featureBounds,
   fittedZoom,
   imageryStyle,
+  MAX_ZOOM,
   modeLayers,
   OUR_PREFIX,
   revealLayers,
@@ -55,7 +57,6 @@ export interface GlobeProps {
 maplibregl.setWorkerUrl(workerUrl);
 
 const START: LngLat = [0, 20];
-const MAX_ZOOM = 14;
 /** A tap whose point, unprojected and projected back, moves more than this is off the globe. */
 const OFF_GLOBE_PX = 2;
 const FIT_PADDING = 40;
@@ -93,7 +94,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [failed, setFailed] = useState(false);
-  const [styleReady, setStyleReady] = useState(false);
+  // The mounted map once its style has loaded; null before that and after it is removed.
+  const [readyMap, setReadyMap] = useState<maplibregl.Map | null>(null);
   // The latest props, for the map's event handlers, which are bound once.
   const latest = useRef({ mode, onTap, onSelect });
   useEffect(() => {
@@ -107,15 +109,15 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
       const { width, height } = container.getBoundingClientRect();
       return fittedZoom(width, height);
     };
-    const minZoom = fit();
+    const mountZoom = fit();
     let map: maplibregl.Map;
     try {
       map = new maplibregl.Map({
         container,
         style: imageryStyle(),
         center: START,
-        zoom: minZoom,
-        minZoom,
+        zoom: mountZoom,
+        minZoom: mountZoom,
         maxZoom: MAX_ZOOM,
         maxPitch: 0,
         dragRotate: false,
@@ -124,7 +126,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
         pixelRatio: Math.min(window.devicePixelRatio, 2),
         attributionControl: { compact: false },
       });
-    } catch {
+    } catch (error) {
+      console.error(error);
       // Deferred, so the effect itself does not set state.
       queueMicrotask(() => setFailed(true));
       return;
@@ -133,7 +136,9 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     map.keyboard.disableRotation();
     mapRef.current = map;
 
+    // MapLibre restores the style once the context comes back.
     map.on('webglcontextlost', () => setFailed(true));
+    map.on('webglcontextrestored', () => setFailed(false));
     map.on('click', (e: MapMouseEvent) => {
       const back = map.project(e.lngLat);
       if (Math.hypot(back.x - e.point.x, back.y - e.point.y) > OFF_GLOBE_PX) return;
@@ -148,15 +153,21 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     });
     // MapLibre watches the container's size and fires `resize`: refit the zoom-out limit to it.
     // A view zoomed out past the new limit is pulled in to it; the centre stays.
-    map.on('resize', () => map.setMinZoom(fit()));
+    map.on('resize', () => {
+      const zoom = fit();
+      if (Number.isFinite(zoom)) map.setMinZoom(zoom);
+    });
     // The style, not `load`, which also waits for the first imagery tiles.
     map.once('style.load', () => {
+      // The container may have changed size since the map was made: fit to it as it is now.
+      const minZoom = fit();
+      map.setMinZoom(minZoom);
       // MapLibre's globe grows by 1 / cos(lat) at a zoom, and its minZoom is the zoom at the
       // equator (it clamps to minZoom + log2(cos lat)): this zoom, below minZoom, fits the whole
       // sphere at the starting latitude. Only now, in globe projection: before the style loads,
       // the zoom is clamped to minZoom without that allowance.
       map.jumpTo({ zoom: minZoom + Math.log2(Math.cos((START[1] * Math.PI) / 180)) });
-      setStyleReady(true);
+      setReadyMap(map);
       if (import.meta.env.DEV) {
         // Ready once the camera has settled after that jump and the first tiles are in.
         const markReady = () => {
@@ -186,21 +197,22 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
       map.remove();
       mapRef.current = null;
       applied.current = { mode: EMPTY, reveal: EMPTY };
+      setReadyMap(null);
     };
   }, []);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !styleReady) return;
+    const map = readyMap;
+    if (!map) return;
     const next = modeLayers(mode);
     // Below the reveal, which stays on top.
     applyLayers(map, applied.current.mode, next, applied.current.reveal.layers[0]?.id);
     applied.current.mode = next;
-  }, [mode, styleReady]);
+  }, [mode, readyMap]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !styleReady) return;
+    const map = readyMap;
+    if (!map) return;
     const next = reveal ? revealLayers(reveal) : EMPTY;
     applyLayers(map, applied.current.reveal, next);
     applied.current.reveal = next;
@@ -210,7 +222,7 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
       new maplibregl.Marker({ color: '#40c057' }).setLngLat(reveal.answer).addTo(map),
     ];
     return () => markers.forEach((m) => m.remove());
-  }, [reveal, styleReady]);
+  }, [reveal, readyMap]);
 
   useImperativeHandle(
     ref,

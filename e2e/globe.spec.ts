@@ -266,3 +266,28 @@ test('a tap in the space beside the globe is not a tap', async ({ page, isMobile
   await nextFrame(page);
   await expect(lastTap).toHaveText('none');
 });
+
+test('a lost WebGL context shows the message until the context comes back', async ({ page }) => {
+  await readyGlobe(page);
+  const canvas = page.locator('canvas.maplibregl-canvas');
+  // Through the canvas's own context's WEBGL_lose_context extension (no DOM types here). A lost
+  // context hands out no extensions, so the one fetched before the loss is kept on the canvas.
+  const context = (call: 'loseContext' | 'restoreContext') =>
+    canvas.evaluate((el, name) => {
+      type LoseContext = Record<'loseContext' | 'restoreContext', () => void>;
+      const canvasEl = el as unknown as {
+        loseContextExt?: LoseContext;
+        getContext(kind: string): { getExtension(ext: string): LoseContext | null } | null;
+      };
+      canvasEl.loseContextExt ??= canvasEl
+        .getContext('webgl2')!
+        .getExtension('WEBGL_lose_context')!;
+      canvasEl.loseContextExt[name]();
+    }, call);
+  const message = page.getByRole('alert').filter({ hasText: "This browser can't draw the globe" });
+  await context('loseContext');
+  await expect(message).toBeVisible();
+  await context('restoreContext');
+  await expect(message).toHaveCount(0);
+  await expect(canvas).toBeVisible();
+});

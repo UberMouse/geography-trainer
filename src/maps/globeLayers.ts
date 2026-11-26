@@ -273,6 +273,11 @@ export function featureAt(features: IdentifiedFeature[], at: LngLat): string | u
   return features.find((f) => geoContains(f, at))?.id;
 }
 
+/** The map's zoom-in limit; `setMinZoom` throws above it. */
+export const MAX_ZOOM = 14;
+/** The lowest zoom MapLibre accepts for `minZoom`; `setMinZoom` throws below it. */
+const LOWEST_ZOOM = -2;
+
 /** MapLibre's default vertical field of view, in degrees. */
 const FOV_DEG = (Math.atan(0.75) * 180) / Math.PI;
 
@@ -281,11 +286,16 @@ const FOV_DEG = (Math.atan(0.75) * 180) / Math.PI;
  * 5% margin on each side. At the equator the sphere's radius is `512 · 2^zoom / (2π)` CSS px, but
  * MapLibre views it through a perspective camera `d` px from its near surface (`d` set by the
  * container's height and the field of view), so its outline on screen is the smaller
- * `d · R / √(d² + 2dR)`. Solved for R.
+ * `d · R / √(d² + 2dR)`. Solved for R. Clamped to [LOWEST_ZOOM, MAX_ZOOM], the range `setMinZoom`
+ * accepts on our map; a container with no size (or a non-finite one) gets LOWEST_ZOOM.
  */
 export function fittedZoom(width: number, height: number): number {
+  if (!(width > 0 && height > 0 && Number.isFinite(width) && Number.isFinite(height))) {
+    return LOWEST_ZOOM;
+  }
   const visible = (0.9 * Math.min(width, height)) / 2;
   const d = height / 2 / Math.tan((FOV_DEG * Math.PI) / 360);
   const radius = (visible * visible + visible * Math.hypot(visible, d)) / d;
-  return Math.log2((radius * 2 * Math.PI) / 512);
+  const zoom = Math.log2((radius * 2 * Math.PI) / 512);
+  return Math.min(MAX_ZOOM, Math.max(LOWEST_ZOOM, zoom));
 }

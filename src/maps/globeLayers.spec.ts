@@ -320,4 +320,21 @@ describe('fittedZoom', () => {
     expect(fittedZoom(600, 800)).toBeLessThan(z);
     expect(fittedZoom(1600, 1200)).toBeCloseTo(z + 1, 9);
   });
+
+  it("gives an ordinary container a zoom inside MapLibre's range", () => {
+    const z = fittedZoom(800, 600);
+    expect(z).toBeGreaterThan(-2);
+    expect(z).toBeLessThan(14);
+  });
+
+  it('gives a container with no width or height the lowest zoom MapLibre accepts', () => {
+    expect(fittedZoom(0, 0)).toBe(-2);
+    expect(fittedZoom(0, 600)).toBe(-2);
+    expect(fittedZoom(800, 0)).toBe(-2);
+    expect(fittedZoom(Number.NaN, 600)).toBe(-2);
+  });
+
+  it('clamps a tiny container up to the lowest zoom MapLibre accepts', () => {
+    expect(fittedZoom(10, 10)).toBe(-2);
+  });
 });
