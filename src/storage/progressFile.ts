@@ -127,13 +127,20 @@ function checkUnique(keys: (string | number)[], what: string) {
 
 /**
  * Checks a parsed progress file and returns it typed, as the same object. Only the current
- * version is accepted: earlier versions follow the old four-rung ladder. Throws an `Error` naming
- * the first problem.
+ * version is accepted: earlier versions follow the old four-rung ladder, and are rejected with a
+ * message saying so. Throws an `Error` naming the first problem.
  */
 export function validateProgressFile(parsed: unknown): ProgressFile {
   if (!isObj(parsed)) throw new Error('The file is not a progress export');
   if (parsed.format !== FILE_FORMAT) throw new Error(`Wrong format: expected "${FILE_FORMAT}"`);
-  if (parsed.version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(parsed.version)}`);
+  const version = parsed.version;
+  if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version < FILE_VERSION) {
+    throw new Error(
+      `This file is from an older version of Geography Trainer (version ${version}), ` +
+        `before the exercise ladder changed, and can't be imported.`,
+    );
+  }
+  if (version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(version)}`);
   if (typeof parsed.exportedAt !== 'string' || !isEpochMs(Date.parse(parsed.exportedAt))) {
     throw new Error('exportedAt is not a date string');
   }

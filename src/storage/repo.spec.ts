@@ -110,8 +110,8 @@ describe('import rejection leaves the database unchanged', () => {
   type Mutate = (file: Record<string, any>) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
   const cases: [string, Mutate, RegExp][] = [
     ['a wrong format', (f) => (f.format = 'other'), /format/],
-    ['an unsupported version', (f) => (f.version = 4), /version/],
-    ['a version-2 file', (f) => (f.version = 2), /Unsupported version: 2/],
+    ['an unsupported version', (f) => (f.version = 4), /^Unsupported version: 4$/],
+    ['a version-2 file', (f) => (f.version = 2), /older version of Geography Trainer \(version 2\), before the exercise ladder changed/],
     ['a non-array progress', (f) => (f.progress = {}), /progress is not an array/],
     ['a non-array answers', (f) => (f.answers = 'x'), /answers is not an array/],
     ['a progress row without itemId', (f) => delete f.progress[0].itemId, /itemId/],
@@ -430,7 +430,9 @@ describe('export version 3 and import', () => {
     await seed();
     const good = await repo.exportProgress(NOW);
     const old = { format: 'geography-trainer-progress', version, exportedAt: NOW.toISOString(), progress: [answered('country:chad')], answers: [], placementsDone: [] };
-    await expect(repo.importProgress(old)).rejects.toThrow(`Unsupported version: ${version}`);
+    await expect(repo.importProgress(old)).rejects.toThrow(
+      `This file is from an older version of Geography Trainer (version ${version}), before the exercise ladder changed, and can't be imported.`,
+    );
     expect(await repo.exportProgress(NOW)).toEqual(good);
   });
 
