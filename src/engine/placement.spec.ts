@@ -9,6 +9,7 @@ import {
   PLACEMENT_MIN_TO_PLACE,
   PLACEMENT_START_LEVEL,
 } from './config';
+import * as config from './config';
 import { buildCurriculum, type Curriculum } from './curriculum';
 import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
@@ -17,6 +18,7 @@ import {
   answerPlacement,
   canTestOut,
   finishPlacement,
+  isFinished,
   isStudied,
   knowProbability,
   nextQuestion,
@@ -565,5 +567,141 @@ describe('[PLC-24, PLC-C07] canTestOut', () => {
 
   it('throws for an id not in the curriculum', () => {
     expect(() => canTestOut(c, {}, 'country:nowhere')).toThrow(/Unknown item/);
+  });
+});
+
+describe('[PLC-C01, PLC-C02, PLC-C03, PLC-C04] placement constants', () => {
+  it('match the spec', () => {
+    expect({
+      PLACEMENT_START_LEVEL: config.PLACEMENT_START_LEVEL,
+      PLACEMENT_PRIOR_SD: config.PLACEMENT_PRIOR_SD,
+      PLACEMENT_SLOPE: config.PLACEMENT_SLOPE,
+      PLACEMENT_MIN_LEVEL: config.PLACEMENT_MIN_LEVEL,
+      PLACEMENT_MAX_LEVEL: config.PLACEMENT_MAX_LEVEL,
+      PLACEMENT_NO_ESTIMATE: config.PLACEMENT_NO_ESTIMATE,
+      PLACEMENT_MIN_QUESTIONS: config.PLACEMENT_MIN_QUESTIONS,
+      PLACEMENT_MAX_QUESTIONS: config.PLACEMENT_MAX_QUESTIONS,
+      PLACEMENT_STOP_SD: config.PLACEMENT_STOP_SD,
+      PLACEMENT_MIN_TO_PLACE: config.PLACEMENT_MIN_TO_PLACE,
+      PLACEMENT_CLOSE_KM: config.PLACEMENT_CLOSE_KM,
+      PLACEMENT_LIKELY_KNOWN: config.PLACEMENT_LIKELY_KNOWN,
+      PLACEMENT_PROBABLY_KNOWN: config.PLACEMENT_PROBABLY_KNOWN,
+      PLACEMENT_CONFIRM_START_DAYS: config.PLACEMENT_CONFIRM_START_DAYS,
+      PLACEMENT_CONFIRM_PER_DAY: config.PLACEMENT_CONFIRM_PER_DAY,
+      PLACEMENT_SEED_STABILITY_DAYS: config.PLACEMENT_SEED_STABILITY_DAYS,
+    }).toEqual({
+      PLACEMENT_START_LEVEL: 4,
+      PLACEMENT_PRIOR_SD: 2.5,
+      PLACEMENT_SLOPE: 1.5,
+      PLACEMENT_MIN_LEVEL: 1,
+      PLACEMENT_MAX_LEVEL: 8,
+      PLACEMENT_NO_ESTIMATE: 0,
+      PLACEMENT_MIN_QUESTIONS: 12,
+      PLACEMENT_MAX_QUESTIONS: 20,
+      PLACEMENT_STOP_SD: 0.45,
+      PLACEMENT_MIN_TO_PLACE: 8,
+      PLACEMENT_CLOSE_KM: { country: 600, region: 150, place: 200 },
+      PLACEMENT_LIKELY_KNOWN: 0.85,
+      PLACEMENT_PROBABLY_KNOWN: 0.5,
+      PLACEMENT_CONFIRM_START_DAYS: 2,
+      PLACEMENT_CONFIRM_PER_DAY: 6,
+      PLACEMENT_SEED_STABILITY_DAYS: 2,
+    });
+  });
+});
+
+describe('[PLC-C01] the ability posterior', () => {
+  // The spec's model, written out independently: a normal prior N(4, 2.5) on 0..9 in steps of 0.25.
+  const grid = Array.from({ length: 37 }, (_, i) => i * 0.25);
+  const logistic = (a: number, level: number) => 1 / (1 + Math.exp(-1.5 * (a - level)));
+  function expected(answers: readonly { level: number; credit: number }[]) {
+    const w = grid.map((a) =>
+      answers.reduce(
+        (acc, { level, credit }) => acc * logistic(a, level) ** credit * (1 - logistic(a, level)) ** (1 - credit),
+        Math.exp(-(((a - 4) / 2.5) ** 2) / 2),
+      ),
+    );
+    const total = w.reduce((x, y) => x + y, 0);
+    const mean = w.reduce((s, x, i) => s + x * grid[i]!, 0) / total;
+    const sd = Math.sqrt(w.reduce((s, x, i) => s + x * (grid[i]! - mean) ** 2, 0) / total);
+    return { mean, sd };
+  }
+
+  it('knowProbability is the logistic of slope 1.5', () => {
+    expect(knowProbability(4, 4)).toBe(0.5);
+    expect(knowProbability(5, 4)).toBeCloseTo(1 / (1 + Math.exp(-1.5)), 12);
+    expect(knowProbability(2, 4)).toBeCloseTo(1 / (1 + Math.exp(3)), 12);
+  });
+
+  it('matches the spec model with no answers, and after full, half and no credit', () => {
+    const cases: { itemId: string; level: number; credit: PlacementCredit }[][] = [
+      [],
+      [{ itemId: 'a', level: 3, credit: 1 }],
+      [
+        { itemId: 'a', level: 3, credit: 1 },
+        { itemId: 'b', level: 5, credit: 0.5 },
+        { itemId: 'c', level: 7, credit: 0 },
+      ],
+    ];
+    for (const answers of cases) {
+      const got = abilityOf(answers);
+      const want = expected(answers);
+      expect(got.mean).toBeCloseTo(want.mean, 10);
+      expect(got.sd).toBeCloseTo(want.sd, 10);
+    }
+  });
+});
+
+describe('[PLC-11, PLC-C02] isFinished', () => {
+  type Answer = PlacementState['answers'][number];
+  const state = (answers: Answer[]): PlacementState => ({ items: [], unaskable: [], answers, pending: null });
+  /** `n` answers at level 4, alternately right and far off: the most informative, so the spread narrows fast. */
+  const mixed = (n: number): Answer[] =>
+    Array.from({ length: n }, (_, i) => ({ itemId: `a${i}`, level: 4, credit: i % 2 === 0 ? 1 : 0 }));
+  const allRight = (n: number): Answer[] =>
+    Array.from({ length: n }, (_, i) => ({ itemId: `a${i}`, level: 4, credit: 1 }));
+
+  it('never stops before 12 answers, even once settled', () => {
+    expect(abilityOf(mixed(11)).sd).toBeLessThan(0.45);
+    expect(isFinished(state(mixed(11)))).toBe(false);
+  });
+
+  it('stops from 12 answers once the spread is below 0.45, and always at 20', () => {
+    expect(abilityOf(mixed(12)).sd).toBeLessThan(0.45);
+    expect(isFinished(state(mixed(12)))).toBe(true);
+    expect(abilityOf(allRight(19)).sd).toBeGreaterThanOrEqual(0.45);
+    expect(isFinished(state(allRight(19)))).toBe(false);
+    expect(isFinished(state(allRight(20)))).toBe(true);
+  });
+});
+
+describe('[PLC-13, PLC-C06] what each outcome stores', () => {
+  const NOW = new Date('2026-03-10T09:00:00Z');
+  const day = '2026-03-10';
+  const result: PlacementResult = {
+    estimate: 4,
+    outcomes: {
+      'country:p': 'passed',
+      'country:c': 'close',
+      'country:f': 'failed',
+      'country:u': 'untestedAtOrBelow',
+      'country:x': 'aboveEstimate',
+    },
+    confidence: {},
+  };
+
+  it('a pass is an L3 review due in 2 days that counts today toward mastery; close and probably known start at L2; the rest store nothing', () => {
+    const seeds = placementSeeds(result, {}, NOW, day);
+    expect(seeds.map((s) => s.itemId)).toEqual(['country:p', 'country:c', 'country:u']);
+    const [passed, close, below] = seeds;
+    expect(passed).toMatchObject({ rung: 3, highestRung: 3, l3PassDays: [day], introducedAt: null });
+    expect(Object.keys(passed!.cards)).toEqual(['3']);
+    expect(passed!.cards[3]!.due).toBe(NOW.getTime() + 2 * DAY);
+    expect(passed!.cards[3]!.stability).toBe(2);
+    for (const s of [close!, below!]) {
+      expect(s).toMatchObject({ rung: 2, highestRung: 2, l3PassDays: [], introducedAt: null });
+      expect(Object.keys(s.cards)).toEqual(['2']);
+      expect(s.cards[2]!.reps).toBe(0);
+    }
   });
 });
