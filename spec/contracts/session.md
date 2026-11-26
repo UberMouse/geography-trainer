@@ -135,6 +135,11 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
 - A missing `mastered` or `testable` reads as `[]` (a run saved before they existed). Either makes
   the result null when present but not an array of strings, when it holds an id `isKnown` rejects, or,
   for `testable`, an id not in `mastered`.
+- The result is also null when a `mastered` id has no progress or its progress is not `isMastered`,
+  and, when the queue is empty, when an id in `run.asks` has no progress. With no queued question
+  left to check against, these are what notice that progress was reset or imported since (in
+  another tab), or that an answer could not be recorded (SES-15): the session is then rebuilt from
+  the progress as it is.
 - `loadSessionRun`, `saveSessionRun` and `clearSessionRun` swallow storage errors: a load that
   throws is null, a save or clear that throws does nothing.
 
@@ -157,14 +162,14 @@ questionSeed(itemId: string, position: number, salt: number): number
   `run.answered` as the position.
 
 ### SES-C07 The page's view helpers
-Up: SES-10, SES-14, SES-21, SES-23
+Up: SES-10, SES-14, SES-21, SES-23, SES-25
 
 - `questionHeader(run)`: the question number `answeredInRound + 1`, then `itemsDone(run)` of
   `itemTotal` done.
-- `countriesNeedingRegions(curriculum, questions)`: the bare ids of the countries owning a region
-  question or a place question under a region, once each in first-seen order. At session load
-  the page passes the queued questions and, for a resumed round, its `mastered` items, so a
-  mastered region's unlock line can name it; only these region files are loaded. Throws
+- `countriesNeedingRegions(curriculum, itemIds)`: the bare ids of the countries owning a region
+  or a place under a region among `itemIds`, once each in first-seen order. At session load
+  the page passes the queued questions' item ids and, for a resumed round, its `mastered` ids, so
+  a mastered region's unlock line can name it; only these region files are loaded. Throws
   `Unknown item` for an id not in the curriculum, which fails the load (with Retry).
 - `unlockLines(curriculum, masteredIds, nameOf)`: for each distinct mastered id that unlocks a
   tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and for a region

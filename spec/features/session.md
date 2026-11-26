@@ -491,13 +491,15 @@ Scenario Outline: a fresh session is built instead
   When the session opens
   Then a fresh session is built
   Examples:
-    | why                                                               |
-    | it was saved on another local day                                 |
-    | what was saved is not valid                                       |
-    | it has nothing left to ask, and nothing was answered in it        |
-    | progress was reset or imported, so a queued rung has no card      |
-    | a queued or mastered item is no longer in the data                |
-    | the browser's session storage is missing or refuses access        |
+    | why                                                                 |
+    | it was saved on another local day                                   |
+    | what was saved is not valid                                         |
+    | it has nothing left to ask, and nothing was answered in it          |
+    | progress was reset or imported, so a queued rung has no card        |
+    | an item the round mastered is no longer mastered                    |
+    | it has nothing left to ask, and an item asked in it has no progress |
+    | a queued or mastered item is no longer in the data                  |
+    | the browser's session storage is missing or refuses access          |
 ```
 
 ### SES-27 Leaving the session ends it
