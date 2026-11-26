@@ -2,7 +2,7 @@ import { Alert, Anchor, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { buildCurriculum, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
-import { buildSession, type SessionQuestion } from '../engine/session';
+import { buildSession, dueQuestions, type SessionQuestion } from '../engine/session';
 import {
   answerCurrent,
   nextRound,
@@ -27,6 +27,7 @@ import {
   countriesNeedingRegions,
   questionHeader,
   questionSeed,
+  resumable,
   unlockLines,
   withMastered,
   type RoundMastery,
@@ -46,7 +47,7 @@ interface SessionData {
   resumed: SavedSession | null;
   /** Today's local day, which a saved run belongs to. */
   dayKey: string;
-  /** The loaded regions of every country that owns a region or place question, by country id. */
+  /** The loaded regions of every country that owns a region or place question, or a resumed round's mastered item, by country id. */
   regions: ReadonlyMap<string, RegionsData>;
   /** The exercise item of every question in the first queue, by item id. */
   items: ReadonlyMap<string, ExerciseItem>;
@@ -63,7 +64,10 @@ const loadSessionData = async (): Promise<SessionData> => {
   const now = new Date();
   const curriculum = buildCurriculum(countries.countries, regionsFromPlaces(countries.countries, places), places);
   const dayKey = localDayKey(now, -now.getTimezoneOffset());
-  const resumed = loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id));
+  const resumed = resumable(
+    loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id)),
+    dueQuestions({ curriculum, progress, now }),
+  );
   const questions = resumed ? [...resumed.run.queue] : buildSession({
     curriculum,
     progress,
@@ -107,8 +111,15 @@ export default function Session() {
 function Runner({ data }: { data: SessionData }) {
   const { countries, curriculum, regions, items } = data;
   const [run, setRun] = useState<SessionRun>(() => data.resumed?.run ?? startRun(data.questions));
-  // Leaving the page ends the session: only a reload (which runs no cleanup) resumes it.
-  useEffect(() => clearSessionRun, []);
+  // Leaving the page ends the session: only a reload (which runs no cleanup) resumes it. A resumed
+  // run is written again on mount, so StrictMode's dev remount (which runs the cleanup) keeps it.
+  useEffect(() => {
+    const { dayKey, resumed } = data;
+    if (resumed) saveSessionRun(dayKey, resumed.run, resumed.mastered, resumed.testable);
+    return clearSessionRun;
+    // Only on mount: `data` is fixed for this page's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // A resumed run with an empty queue is the day's last summary, not an empty session.
   const empty = data.questions.length === 0 && !data.resumed;
   // What this round has mastered, in answer order, and which of it can be tested out of (judged when
@@ -142,8 +153,8 @@ function Runner({ data }: { data: SessionData }) {
     (ended ? summaryRef : questionRef).current?.focus();
   }, [run.answered, ended]);
 
-  // A country's name is in `countries`; a region is only mastered after being asked, which loaded
-  // its country's regions.
+  // A country's name is in `countries`; a region is only mastered after being asked or in a resumed
+  // round, and either way its country's regions were loaded.
   const nameOf = (itemId: string): string => {
     const item = curriculum.items.get(itemId)!;
     const id = itemId.slice(itemId.indexOf(':') + 1);

@@ -333,7 +333,7 @@ test('[SES-21] a session whose data fails to load offers Retry, which starts it'
   await expect(question(page)).toBeVisible(WAIT);
 });
 
-test('[SES-25, SES-C05] a reload on the last summary of the day keeps its unlock line and Test out link', async ({
+test('[SES-25, SES-C05] a reload on the last summary of the day keeps its unlock line and Test out link, reload after reload', async ({
   page,
   isMobile,
 }, testInfo) => {
@@ -357,6 +357,14 @@ test('[SES-25, SES-C05] a reload on the last summary of the day keeps its unlock
   await expect(page.getByText(/everything for today/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Keep going' })).toHaveCount(0);
   await expect(page.getByText(/nothing to study right now/)).toHaveCount(0);
+
+  // The write on mount keeps the run through StrictMode's remount, so it survives a second reload.
+  await page.reload();
+  await expect(summary(page)).toHaveText('Round done: 1 of 1 right', WAIT);
+  await expect(unlocked).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Test out' })).toBeVisible();
+  await expect(page.getByText(/everything for today/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep going' })).toHaveCount(0);
 });
 
 test('[SES-25, SES-C05, SES-C07] a reload mid-round keeps what the round has mastered, a region naming its country', async ({

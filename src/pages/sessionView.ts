@@ -6,6 +6,7 @@ import type { SessionQuestion } from '../engine/session';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
 import type { ExerciseResult } from '../exercises/types';
 import type { AnswerEntry } from '../storage/repo';
+import type { SavedSession } from '../storage/sessionRunStore';
 
 /** A small deterministic 32-bit string hash (FNV-1a). */
 function hashOf(text: string): number {
@@ -91,6 +92,11 @@ export function countriesNeedingRegions(
     }
   }
   return [...needed];
+}
+
+/** The saved session, or null when its queue is empty and a review has come due since (a fresh session is built). */
+export function resumable(saved: SavedSession | null, due: readonly SessionQuestion[]): SavedSession | null {
+  return saved && saved.run.queue.length === 0 && due.length > 0 ? null : saved;
 }
 
 /** What the current round has mastered: the unlock lines' ids, and those with a Test out link. */

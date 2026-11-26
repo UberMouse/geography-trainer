@@ -5,7 +5,17 @@ import { Rating } from 'ts-fsrs';
 import type { ExerciseResult } from '../exercises/types';
 import { buildCurriculum } from '../engine/curriculum';
 import type { Country, Place } from '../engine/types';
-import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines, withMastered } from './sessionView';
+import type { SessionQuestion } from '../engine/session';
+import type { SavedSession } from '../storage/sessionRunStore';
+import {
+  answerEntry,
+  countriesNeedingRegions,
+  questionHeader,
+  questionSeed,
+  resumable,
+  unlockLines,
+  withMastered,
+} from './sessionView';
 
 describe('[SES-17] questionSeed', () => {
   it('is stable, and differs by item, by position and by salt', () => {
@@ -178,7 +188,30 @@ describe('the full tree', () => {
   });
 });
 
-describe('[SES-25, SES-C05] withMastered', () => {
+describe('[SES-26, SES-C05] resumable', () => {
+  const question = { itemId: 'country:france', rung: 1 } as const;
+  const saved = (queue: SessionQuestion[]): SavedSession => ({
+    run: { ...startRun(queue), queue },
+    mastered: [],
+    testable: [],
+  });
+  it('is null when the queue is empty and a review has come due', () => {
+    expect(resumable(saved([]), [question])).toBeNull();
+  });
+  it('is the session when the queue is empty and nothing is due', () => {
+    const empty = saved([]);
+    expect(resumable(empty, [])).toBe(empty);
+  });
+  it('is the session when the queue still has questions, due reviews or not', () => {
+    const midRound = saved([question]);
+    expect(resumable(midRound, [question])).toBe(midRound);
+  });
+  it('is null when nothing was saved', () => {
+    expect(resumable(null, [question])).toBeNull();
+  });
+});
+
+describe('[SES-25, SES-C07] withMastered', () => {
   it('adds the item in answer order, to testable only when it can be tested out of', () => {
     const start = { mastered: ['country:france'], testable: ['country:france'] };
     const peru = withMastered(start, 'country:peru', false);
