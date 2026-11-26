@@ -9,8 +9,10 @@ import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
 import {
   answerPoint,
+  frameTest,
   mainPart,
   nearPoint,
+  type AreaFeature,
   type LngLat,
 } from '../maps/geo';
 import type { ExerciseItem } from './types';
@@ -28,6 +30,8 @@ const pointRecord = (
   f: { id: string; properties: { name: string } },
   [lng, lat]: LngLat,
 ): PointRecord => ({ id: f.id, name: f.properties.name, lng, lat });
+
+const outside = (frame: AreaFeature, at: LngLat): boolean => !frameTest(frame)(at);
 
 function splitId(itemId: string): [string, string] {
   const at = itemId.indexOf(':');
@@ -74,6 +78,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         features.map((f) => pointRecord(f, nearPoint(f))),
       ),
       frame: mainPart(country),
+      outsideFrame: false,
       highlightMode: {
         kind: 'highlight',
         target: { kind: 'country', feature: country, countries: features },
@@ -114,6 +119,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         })),
       ),
       frame,
+      outsideFrame: outside(frame, answer),
       highlightMode: {
         kind: 'highlight',
         target: { kind: 'region', feature: region, country, regions: regions.features },
@@ -145,6 +151,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       target: { point },
       candidates: placeCandidates(place, data.places),
       frame,
+      outsideFrame: outside(frame, point),
       highlightMode: { kind: 'highlight', target: { kind: 'place', place, country, regions } },
       bordersMode: { kind: 'regionBorders', country, regions },
       pointOnly,

@@ -17,7 +17,7 @@ export function moveCamera(camera: GlobeCamera, move: CameraMove): void {
     case 'pair':
       return camera.fitPoints(move.a, move.b);
     case 'world':
-      return camera.worldView();
+      return camera.worldView(move.at);
     case 'stay':
       return camera.stop();
   }

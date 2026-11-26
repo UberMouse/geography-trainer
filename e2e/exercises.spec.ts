@@ -45,6 +45,27 @@ async function settled(page: Page) {
 const near = (a: LngLat, b: LngLat, degrees: number) =>
   Math.abs(a[0] - b[0]) <= degrees && Math.abs(a[1] - b[1]) <= degrees;
 
+/** The great-circle angle between two points, in degrees. */
+function arcDegrees([lng1, lat1]: LngLat, [lng2, lat2]: LngLat): number {
+  const rad = Math.PI / 180;
+  const cos =
+    Math.sin(lat1 * rad) * Math.sin(lat2 * rad) +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos((lng2 - lng1) * rad);
+  return Math.acos(Math.min(1, Math.max(-1, cos))) / rad;
+}
+
+/** The point halfway along the great circle between two points (not antipodes). */
+function arcMidpoint(a: LngLat, b: LngLat): LngLat {
+  const rad = Math.PI / 180;
+  const vector = ([lng, lat]: LngLat) => [
+    Math.cos(lat * rad) * Math.cos(lng * rad),
+    Math.cos(lat * rad) * Math.sin(lng * rad),
+    Math.sin(lat * rad),
+  ];
+  const [x, y, z] = vector(a).map((v, i) => v + vector(b)[i]!) as [number, number, number];
+  return [Math.atan2(y, x) / rad, Math.atan2(z, Math.hypot(x, y)) / rad];
+}
+
 test.describe('L1 highlighted → name', () => {
   test('choosing the item is correct, and the globe then names it without moving', async ({
     page,
@@ -226,6 +247,39 @@ test.describe('L2 and L3 name → tap', () => {
     // France's main part spans about 5°W–8°E, 42–51°N.
     expect(near(view.center, [2, 46.5], 3)).toBe(true);
   });
+
+  // Each with about where its country's main part centres: the contiguous US, mainland France.
+  const outlying: [string, LngLat][] = [
+    ['region:united-states.hawaii', [-98, 39]],
+    ['place:honolulu_hawaii', [-98, 39]],
+    ['region:france.reunion', [2.5, 46.5]],
+    ['place:saint_denis_reunion', [2.5, 46.5]],
+  ];
+  for (const [item, mainland] of outlying) {
+    test(`L2 outside its country’s main part (${item}): the whole world, with it in view`, async ({
+      page,
+    }) => {
+      await openExercise(page, `item=${item}&rung=2`);
+      await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
+      const view = await settled(page);
+      const answer = await itemAnswer(page);
+      // The whole sphere, as the opening view zooms (`worldView`), centred halfway between the
+      // main part and the answer.
+      expect(near(view.center, arcMidpoint(mainland, answer), 3)).toBe(true);
+      const worldZoom =
+        (await hook.minZoom(page)) + Math.log2(Math.cos((view.center[1] * Math.PI) / 180));
+      expect(view.zoom).toBeCloseTo(worldZoom, 1);
+      // Well on the near side of the globe (`project` does not cull the far side), and in the slot.
+      expect(arcDegrees(view.center, answer)).toBeLessThan(80);
+      const at = await hook.project(page, answer);
+      const slot = await page.getByTestId('globe-slot').boundingBox();
+      expect(slot).not.toBeNull();
+      expect(at.x).toBeGreaterThanOrEqual(slot!.x);
+      expect(at.x).toBeLessThanOrEqual(slot!.x + slot!.width);
+      expect(at.y).toBeGreaterThanOrEqual(slot!.y);
+      expect(at.y).toBeLessThanOrEqual(slot!.y + slot!.height);
+    });
+  }
 
   test('L2 country: the camera goes to the whole world', async ({ page }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=1');

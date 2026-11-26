@@ -1,7 +1,7 @@
 // What a question shows on the shared globe and where it moves the camera, as plain data.
 import type { Rung } from '../engine/srs';
 import { NEIGHBOURHOOD_VIEW_KM, type CameraMove } from '../maps/camera';
-import { answerPoint, targetPoint, type LngLat } from '../maps/geo';
+import { answerPoint, midpoint, targetPoint, type LngLat } from '../maps/geo';
 import type { GlobeMarker } from '../maps/Globe';
 import type { GlobeMode, Reveal } from '../maps/globeLayers';
 import type { ExerciseItem } from './types';
@@ -23,7 +23,8 @@ const neighbourhood = (at: LngLat): CameraMove => ({
  * Where the camera goes when a question starts:
  * - L1: to fit the country or region; to the neighbourhood of a point-only country or a place.
  * - L2: a country, the whole world; a region or place, to fit its country (the neighbourhood of a
- *   point-only one).
+ *   point-only one); when it lies outside that frame (`outsideFrame`), the whole world centred
+ *   halfway between the frame's answer point and the target's, so both are well on the near side.
  * - L3: nowhere (any flight stops where it is), except for a page's `opening` question, which
  *   starts from the whole world.
  */
@@ -35,7 +36,10 @@ export function questionCamera(item: ExerciseItem, rung: Rung, opening = false):
   }
   if (rung === 2) {
     if (item.tier === 'country') return { kind: 'world' };
-    return item.pointOnly ? neighbourhood(answerPoint(item.frame)) : { kind: 'fit', feature: item.frame };
+    if (item.pointOnly) return neighbourhood(answerPoint(item.frame));
+    return item.outsideFrame
+      ? { kind: 'world', at: midpoint(answerPoint(item.frame), targetPoint(target)) }
+      : { kind: 'fit', feature: item.frame };
   }
   return opening ? { kind: 'world' } : { kind: 'stay' };
 }

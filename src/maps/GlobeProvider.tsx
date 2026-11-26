@@ -36,7 +36,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         flyTo: (at, zoom) => handle.current?.flyTo(at, zoom),
         flyToSpan: (at, km) => handle.current?.flyToSpan(at, km),
         fitPoints: (a, b) => handle.current?.fitPoints(a, b),
-        worldView: () => handle.current?.worldView(),
+        worldView: (at) => handle.current?.worldView(at),
         stop: () => handle.current?.stop(),
       },
       show,

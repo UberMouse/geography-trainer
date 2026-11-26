@@ -18,8 +18,8 @@ export type CameraMove =
   | { kind: 'span'; at: LngLat; km: number }
   /** Fly to frame both points together. */
   | { kind: 'pair'; a: LngLat; b: LngLat }
-  /** Fly to the opening view: the whole sphere. */
-  | { kind: 'world' }
+  /** Fly to the whole sphere at the opening view's zoom, centred on `at` (else where it starts). */
+  | { kind: 'world'; at?: LngLat }
   /** Stop any flight where it has reached, and stay there. */
   | { kind: 'stay' };
 

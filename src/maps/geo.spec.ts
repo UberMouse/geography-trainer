@@ -7,6 +7,7 @@ import {
   frameTest,
   mainPart,
   measureTap,
+  midpoint,
   type AreaFeature,
   type LngLat,
 } from './geo';
@@ -426,5 +427,25 @@ describe('ensureArea', () => {
       geometry: { type: 'MultiPolygon', coordinates: [[[[NaN, NaN]]]] },
     };
     expect(() => ensureArea(f)).toThrow(/nowhere/);
+  });
+});
+
+describe('midpoint', () => {
+  it('is halfway along the great circle', () => {
+    const [lng, lat] = midpoint([0, 0], [90, 0]);
+    expect(lng).toBeCloseTo(45, 6);
+    expect(lat).toBeCloseTo(0, 6);
+    // Along a meridian through the pole, not along the parallel.
+    expect(midpoint([0, 60], [180, 60])[1]).toBeCloseTo(90, 6);
+  });
+
+  it('crosses the antimeridian the short way, its longitude in [-180, 180]', () => {
+    const [lng, lat] = midpoint([170, 10], [-170, 10]);
+    expect(Math.abs(lng)).toBeCloseTo(180, 6);
+    expect(lng).toBeGreaterThanOrEqual(-180);
+    expect(lng).toBeLessThanOrEqual(180);
+    expect(lat).toBeGreaterThan(10);
+    const [west] = midpoint([175, 0], [-165, 0]);
+    expect(west).toBeCloseTo(-175, 6);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NEIGHBOURHOOD_VIEW_KM } from '../maps/camera';
-import { answerPoint, type LngLat } from '../maps/geo';
+import { answerPoint, midpoint, type LngLat } from '../maps/geo';
 import { COUNTRIES, DATA, DATA_WITH_ALPHA } from './fixtures';
 import { buildExerciseItem } from './item';
 import type { ExerciseItem } from './types';
@@ -70,6 +70,22 @@ describe('questionCamera', () => {
     expect(questionCamera(country, 2)).toEqual({ kind: 'world' });
     expect(questionCamera(region, 2)).toEqual({ kind: 'fit', feature: region.frame });
     expect(questionCamera(place, 2)).toEqual({ kind: 'fit', feature: place.frame });
+  });
+
+  it('L2: shows the whole world, centred between frame and target, for one outside the frame', () => {
+    const isle = buildExerciseItem('region:alpha.isle', DATA_WITH_ALPHA);
+    const islePlace = buildExerciseItem('place:i1', DATA_WITH_ALPHA);
+    expect(questionCamera(isle, 2)).toEqual({
+      kind: 'world',
+      at: midpoint(answerPoint(isle.frame), area(isle).answer),
+    });
+    expect(questionCamera(islePlace, 2)).toEqual({
+      kind: 'world',
+      at: midpoint(answerPoint(islePlace.frame), [55.5, -21]),
+    });
+    // L2 still draws its country's region borders.
+    expect(questionMode(isle, 2)).toBe(isle.bordersMode);
+    expect(isle.bordersMode).toMatchObject({ kind: 'regionBorders' });
   });
 
   it('L2: flies to the neighbourhood of a point-only country for its place', () => {

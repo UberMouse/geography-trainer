@@ -21,8 +21,18 @@ export interface ExerciseItem {
    * should not ask such an item at L1, the multiple-choice rung.
    */
   candidates: Candidate[];
-  /** The country's main part, which L2's camera fits for a region or place. */
+  /**
+   * The country's main part, which L2's camera fits for a region or place (unless `outsideFrame`).
+   */
   frame: AreaFeature;
+  /**
+   * A region or place whose answer point lies outside `frame`'s padded extent (`frameTest`):
+   * overseas or far off, like Hawaii or Réunion; always false for a country. `questionCamera`
+   * reads it: at L2 such a question starts at the whole-world zoom, centred halfway between
+   * `frame`'s answer point and the target's, instead of fitting `frame` (a place in a point-only
+   * country still flies to its neighbourhood).
+   */
+  outsideFrame: boolean;
   /**
    * L1's globe: the item shaded (a place dotted) with its tier's context borders: every country's
    * for a country, its country's regions' (or the country's outline alone) for a region or place.

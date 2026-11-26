@@ -32,8 +32,8 @@ export interface GlobeHandle {
   flyToSpan(at: LngLat, km: number): void;
   /** Fly to frame both points, never closer than `NEIGHBOURHOOD_VIEW_KM` across. */
   fitPoints(a: LngLat, b: LngLat): void;
-  /** Fly to the opening view: the whole sphere, centred where it starts. */
-  worldView(): void;
+  /** Fly to the opening view's zoom, the whole sphere, centred on `at` (by default where it starts). */
+  worldView(at?: LngLat): void;
   /** Stop a camera flight where it has reached (and drop one held for the opening jump). */
   stop(): void;
 }
@@ -470,10 +470,8 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
           }),
         ),
       // minZoom is the fitted zoom at the equator; the same allowance below it as the opening jump.
-      worldView: () =>
-        move((map) =>
-          map.flyTo({ center: START, zoom: map.getMinZoom() + latAllowance(START[1]) }),
-        ),
+      worldView: (at = START) =>
+        move((map) => map.flyTo({ center: at, zoom: map.getMinZoom() + latAllowance(at[1]) })),
       stop: () => {
         camera.current.held = null;
         mapRef.current?.stop();

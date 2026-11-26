@@ -6,6 +6,7 @@ import {
   geoCircle,
   geoContains,
   geoDistance,
+  geoInterpolate,
 } from 'd3-geo';
 import type { Feature, Geometry, MultiPoint, MultiPolygon, Point, Polygon } from 'geojson';
 import type { TapInput } from '../engine/grading';
@@ -80,6 +81,12 @@ function firstCoordinate(
 
 /** A tap target's point: a feature's answer point, or the place's point. */
 export const targetPoint = (t: TapTarget): LngLat => ('point' in t ? t.point : t.answer);
+
+/** The point halfway along the great circle from `a` to `b`, its longitude in [-180, 180]. */
+export function midpoint(a: LngLat, b: LngLat): LngLat {
+  const [lng, lat] = geoInterpolate(a, b)(0.5);
+  return [((((lng + 180) % 360) + 360) % 360) - 180, lat];
+}
 
 export type TapMeasurement = Omit<TapInput, 'tier'>;
 

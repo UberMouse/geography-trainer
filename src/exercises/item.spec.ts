@@ -100,6 +100,19 @@ describe('buildExerciseItem: a place', () => {
   });
 });
 
+describe('buildExerciseItem: outside the frame', () => {
+  it('marks a region or place outside its country’s main part, and nothing on it', () => {
+    const flag = (id: string) => buildExerciseItem(id, DATA_WITH_ALPHA).outsideFrame;
+    expect(flag('region:alpha.isle')).toBe(true);
+    expect(flag('place:i1')).toBe(true);
+    expect(flag('region:alpha.north')).toBe(false);
+    expect(flag('place:n1')).toBe(false);
+    expect(flag('place:b1')).toBe(false);
+    // A country's answer point is on its main part.
+    expect(flag('country:alpha')).toBe(false);
+  });
+});
+
 describe('buildExerciseItem: the globe modes', () => {
   const [alpha, beta] = COUNTRIES.features;
   const regions = ALPHA_REGIONS.features;
