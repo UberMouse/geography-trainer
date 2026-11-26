@@ -71,20 +71,15 @@ export function findTests(file: string, text: string): TestCase[] {
   const visit = (node: ts.Node, describes: string[]): void => {
     if (ts.isCallExpression(node)) {
       const chain = calleeChain(node.expression);
-      const fn = node.arguments.at(-1);
+      // The callback can sit before a timeout (`it(title, fn, 30_000)`) or after options
+      // (`it(title, { timeout }, fn)`), so take the first function after the title.
+      const fn = node.arguments.slice(1).find(isFunction);
       const first = node.arguments[0];
-      if (
-        chain &&
-        ROOTS.has(chain.root) &&
-        !chain.members.some((m) => NOT_DECLARATIONS.has(m)) &&
-        first &&
-        node.arguments.length >= 2 &&
-        isFunction(fn)
-      ) {
+      if (chain && ROOTS.has(chain.root) && !chain.members.some((m) => NOT_DECLARATIONS.has(m)) && first && fn) {
         const title = titleText(first, source);
         const isDescribe = chain.root === 'describe' || chain.members.includes('describe');
         if (isDescribe) {
-          ts.forEachChild(fn!, (child) => visit(child, [...describes, title]));
+          ts.forEachChild(fn, (child) => visit(child, [...describes, title]));
           return;
         }
         const titles = [...describes, title];

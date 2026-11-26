@@ -84,6 +84,14 @@ describe('[TLG-02] spec:check reads test titles', () => {
     expect(found.map((t) => t.ids)).toEqual([['SES-01'], ['SES-01', 'SES-C01'], ['SES-01', 'SES-C01']]);
   });
 
+  it('finds a test whose callback comes before a timeout or after options', () => {
+    const found = findTests(
+      'x.spec.ts',
+      `it('[SES-01] slow', () => {}, 30_000);\nit('[SES-02] opts', { timeout: 5 }, () => {});\nit('untagged', async () => {}, 9);`,
+    );
+    expect(found.map((t) => t.titles[0])).toEqual(['[SES-01] slow', '[SES-02] opts', 'untagged']);
+  });
+
   it('cites only bracketed IDs', () => {
     expect(citedIds('[SES-01] and SES-02 and [GRD-C04, GEO-12]')).toEqual(['SES-01', 'GRD-C04', 'GEO-12']);
   });
