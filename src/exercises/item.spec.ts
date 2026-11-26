@@ -7,7 +7,7 @@ const ids = (xs: { id: string }[]) => xs.map((x) => x.id).sort();
 describe('buildExerciseItem: a country', () => {
   const item = buildExerciseItem('country:alpha', DATA);
 
-  it('targets the country at the centre of its main part, ignoring its far isle', () => {
+  it('[EXR-20] targets the country at the centre of its main part, ignoring its far isle', () => {
     expect(item).toMatchObject({ id: 'country:alpha', tier: 'country', name: 'Alpha' });
     expect(item.countryId).toBe('country:alpha');
     if (!('feature' in item.target)) throw new Error('expected a feature target');
@@ -16,7 +16,7 @@ describe('buildExerciseItem: a country', () => {
     expect(item.target.answer[1]).toBeCloseTo(45, 0);
   });
 
-  it('offers every other country', () => {
+  it('[EXR-05] offers every other country', () => {
     expect(ids(item.candidates)).toEqual(['country:beta', 'country:gamma']);
     expect(item.candidates.find((c) => c.id === 'country:beta')).toMatchObject({
       name: 'Beta',
@@ -29,19 +29,19 @@ describe('buildExerciseItem: a country', () => {
 describe('buildExerciseItem: a region', () => {
   const north = buildExerciseItem('region:alpha.north', DATA_WITH_ALPHA);
 
-  it('targets the region on its country’s regions', () => {
+  it('[EXR-20] targets the region on its country’s regions', () => {
     expect(north).toMatchObject({ tier: 'region', name: 'North', countryId: 'country:alpha' });
   });
 
-  it('offers the country’s other regions that have places', () => {
+  it('[EXR-05] offers the country’s other regions that have places', () => {
     expect(ids(north.candidates)).toEqual(['region:alpha.isle', 'region:alpha.south']);
   });
 
-  it('needs the country’s regions', () => {
+  it('[EXR-22] needs the country’s regions', () => {
     expect(() => buildExerciseItem('region:alpha.north', DATA)).toThrow(/regions/);
   });
 
-  it('rejects another country’s regions', () => {
+  it('[EXR-22] rejects another country’s regions', () => {
     const regions = {
       ...ALPHA_REGIONS,
       regions: ALPHA_REGIONS.regions.map((r) => ({ ...r, country: 'beta' })),
@@ -53,18 +53,18 @@ describe('buildExerciseItem: a region', () => {
 });
 
 describe('buildExerciseItem: a place', () => {
-  it('targets the point on its region’s country', () => {
+  it('[EXR-20] targets the point on its region’s country', () => {
     const n1 = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
     expect(n1).toMatchObject({ tier: 'place', name: 'N1', countryId: 'country:alpha' });
     expect(n1.target).toEqual({ point: [2, 47] });
   });
 
-  it('offers its region’s other places when there are 3', () => {
+  it('[EXR-05] offers its region’s other places when there are 3', () => {
     const n1 = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
     expect(ids(n1.candidates)).toEqual(['place:n2', 'place:n3', 'place:n4']);
   });
 
-  it('widens to its country, then everywhere, when there are fewer', () => {
+  it('[EXR-05] widens to its country, then everywhere, when there are fewer', () => {
     const s1 = buildExerciseItem('place:s1', DATA_WITH_ALPHA);
     expect(ids(s1.candidates)).toEqual([
       'place:i1',
@@ -78,14 +78,14 @@ describe('buildExerciseItem: a place', () => {
     expect(b1.candidates).toHaveLength(7);
   });
 
-  it('dedups each pool before testing its size, so a thin one falls back', () => {
+  it('[EXR-05] dedups each pool before testing its size, so a thin one falls back', () => {
     // n1's region has 3 other places, but two share a name: only 2 distinct, so the country's pool.
     const places = PLACES.map((p) => (p.id === 'n3' ? { ...p, name: 'N2' } : p));
     const n1 = buildExerciseItem('place:n1', { ...DATA_WITH_ALPHA, places });
     expect(ids(n1.candidates)).toEqual(['place:i1', 'place:n2', 'place:n4', 'place:s1']);
   });
 
-  it('marks a place in a point-only country, and the country', () => {
+  it('[EXR-09, EXR-C01] marks a place in a point-only country, and the country', () => {
     const pointOnlyBeta = {
       ...COUNTRIES,
       features: COUNTRIES.features.map((f) =>
@@ -101,7 +101,7 @@ describe('buildExerciseItem: a place', () => {
 });
 
 describe('buildExerciseItem: outside the frame', () => {
-  it('marks a region or place outside its country’s main part, and nothing on it', () => {
+  it('[EXR-12] marks a region or place outside its country’s main part, and nothing on it', () => {
     const flag = (id: string) => buildExerciseItem(id, DATA_WITH_ALPHA).outsideFrame;
     expect(flag('region:alpha.isle')).toBe(true);
     expect(flag('place:i1')).toBe(true);
@@ -113,7 +113,7 @@ describe('buildExerciseItem: outside the frame', () => {
   });
 });
 
-describe('buildExerciseItem: the globe modes', () => {
+describe('[EXR-02, EXR-C01] buildExerciseItem: the globe modes', () => {
   const [alpha, beta] = COUNTRIES.features;
   const regions = ALPHA_REGIONS.features;
 
@@ -154,7 +154,7 @@ describe('buildExerciseItem: the globe modes', () => {
   });
 });
 
-describe('buildExerciseItem: empty regions data', () => {
+describe('[EXR-22] buildExerciseItem: empty regions data', () => {
   const regions = { features: [], regions: [] };
 
   it('throws for a region and for a regions-tier place', () => {
@@ -166,7 +166,7 @@ describe('buildExerciseItem: empty regions data', () => {
   });
 });
 
-describe('buildExerciseItem: unknown ids', () => {
+describe('[EXR-22] buildExerciseItem: unknown ids', () => {
   it.each(['country:nowhere', 'region:alpha.nowhere', 'place:nowhere', 'city:n1', 'alpha'])(
     'throws for %s',
     (id) => expect(() => buildExerciseItem(id, DATA_WITH_ALPHA)).toThrow(),
@@ -176,7 +176,7 @@ describe('buildExerciseItem: unknown ids', () => {
 describe('distinctCandidates', () => {
   const at = (id: string, name: string, lng: number) => ({ id, name, lng, lat: 0 });
 
-  it('drops the target’s own name and keeps the nearest of each repeated name', () => {
+  it('[EXR-05] drops the target’s own name and keeps the nearest of each repeated name', () => {
     const out = distinctCandidates(
       [at('far-x', 'X', 30), at('near-x', 'X', 10), at('same', 'Target', 5), at('y', 'Y', 20)],
       'Target',
@@ -187,7 +187,7 @@ describe('distinctCandidates', () => {
 });
 
 describe('buildExerciseItem: same-named siblings', () => {
-  it('never offers the target’s name, or one name twice, for a place', () => {
+  it('[EXR-05] never offers the target’s name, or one name twice, for a place', () => {
     const places = [
       ...PLACES,
       { ...PLACES[0]!, id: 'n1b', name: 'N1', lng: 9 },
@@ -200,7 +200,7 @@ describe('buildExerciseItem: same-named siblings', () => {
     expect(item.candidates.filter((c) => c.name === 'N2').map((c) => c.id)).toEqual(['place:n2']);
   });
 
-  it('lists same-named sibling regions as also inside', () => {
+  it('[EXR-21, EXR-C01] lists same-named sibling regions as also inside', () => {
     const renamed = (name: string) =>
       ALPHA_REGIONS.features.map((f) =>
         f.id === 'alpha.south' ? { ...f, properties: { ...f.properties, name } } : f,
@@ -217,7 +217,7 @@ describe('buildExerciseItem: same-named siblings', () => {
     expect(alone.alsoInside).toBeUndefined();
   });
 
-  it('never offers the target’s name for a region', () => {
+  it('[EXR-05] never offers the target’s name for a region', () => {
     const features = ALPHA_REGIONS.features.map((f) =>
       f.id === 'alpha.south' ? { ...f, properties: { ...f.properties, name: 'North' } } : f,
     );

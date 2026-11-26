@@ -67,7 +67,7 @@ function arcMidpoint(a: LngLat, b: LngLat): LngLat {
 }
 
 test.describe('L1 highlighted → name', () => {
-  test('choosing the item is correct, and the globe then names it without moving', async ({
+  test('[EXR-01, EXR-06, EXR-08, EXR-15, EXR-16] choosing the item is correct, and the globe then names it without moving', async ({
     page,
   }) => {
     await openExercise(page, 'item=country:france&rung=1');
@@ -95,7 +95,7 @@ test.describe('L1 highlighted → name', () => {
     expect(await settled(page)).toEqual(before);
   });
 
-  test('choosing another option is incorrect and marks the item', async ({ page }) => {
+  test('[EXR-06, EXR-13] choosing another option is incorrect and marks the item', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
     const wrong: Locator = options(page)
       .filter({ hasNotText: /^France$/ })
@@ -108,7 +108,7 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByTestId('last-km')).toHaveText('–');
   });
 
-  test('a click after the answer changes nothing', async ({ page }) => {
+  test('[EXR-06, EXR-C07] a click after the answer changes nothing', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
     await option(page, 'France').click();
     await expect(verdict(page)).toHaveText(/^Correct/);
@@ -123,7 +123,7 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByTestId('last-correct')).toHaveText('true');
   });
 
-  test('Next starts a fresh question, without the last one’s name on the globe', async ({
+  test('[EXR-17, EXR-C07] Next starts a fresh question, without the last one’s name on the globe', async ({
     page,
   }) => {
     await openExercise(page, 'item=country:france&rung=1');
@@ -138,7 +138,7 @@ test.describe('L1 highlighted → name', () => {
     expect((await hook.layerIds(page)).filter((id) => id.startsWith('gt-reveal'))).toEqual([]);
   });
 
-  test('a place: the camera flies to its neighbourhood', async ({ page }) => {
+  test('[EXR-03, EXR-09] a place: the camera flies to its neighbourhood', async ({ page }) => {
     await openExercise(page, 'item=place:honolulu_hawaii&rung=1');
     await expect(page.getByText('Which place is marked?')).toBeVisible();
     await expect.poll(() => hook.layerIds(page)).toContain('gt-highlight-dot');
@@ -148,7 +148,7 @@ test.describe('L1 highlighted → name', () => {
   });
 
   for (const item of ['country:saba', 'country:vatican-city', 'place:the_bottom_netherlands']) {
-    test(`a point-only item (${item}): the camera flies to its neighbourhood`, async ({ page }) => {
+    test(`[EXR-09] a point-only item (${item}): the camera flies to its neighbourhood`, async ({ page }) => {
       await openExercise(page, `item=${item}&rung=1`);
       await expect(options(page).first()).toBeVisible();
       const view = await settled(page);
@@ -159,7 +159,7 @@ test.describe('L1 highlighted → name', () => {
 });
 
 test.describe('L2 and L3 name → tap', () => {
-  test('L3: a tap on the answer point, confirmed, is correct with maptap 100', async ({
+  test('[EXR-01, EXR-07, EXR-14, EXR-15] L3: a tap on the answer point, confirmed, is correct with maptap 100', async ({
     page,
     isMobile,
   }) => {
@@ -183,7 +183,7 @@ test.describe('L2 and L3 name → tap', () => {
     );
   });
 
-  test('L2: a far tap on the bordered globe, confirmed, is incorrect; the reveal shows the whole globe on the answer', async ({
+  test('[EXR-01, EXR-13, EXR-16] L2: a far tap on the bordered globe, confirmed, is incorrect; the reveal shows the whole globe on the answer', async ({
     page,
     isMobile,
   }) => {
@@ -202,7 +202,7 @@ test.describe('L2 and L3 name → tap', () => {
     expect(view.zoom).toBeLessThan(2);
   });
 
-  test('L2: a miss a few thousand km off frames the tap and the whole country together', async ({
+  test('[EXR-16] L2: a miss a few thousand km off frames the tap and the whole country together', async ({
     page,
     isMobile,
   }) => {
@@ -225,7 +225,7 @@ test.describe('L2 and L3 name → tap', () => {
     }
   });
 
-  test('a tap after the answer changes nothing', async ({ page, isMobile }) => {
+  test('[EXR-07, EXR-C07] a tap after the answer changes nothing', async ({ page, isMobile }) => {
     await openExercise(page, 'item=country:france&rung=2');
     await tapGlobe(page, isMobile, [-150, -40]);
     await confirm(page).click();
@@ -238,7 +238,7 @@ test.describe('L2 and L3 name → tap', () => {
     expect((await hook.markers(page)).filter((m) => m.kind === 'pin')).toEqual([]);
   });
 
-  test('a tap moves the pin, even one that lands on the pin itself', async ({ page, isMobile }) => {
+  test('[EXR-07] a tap moves the pin, even one that lands on the pin itself', async ({ page, isMobile }) => {
     await openExercise(page, 'item=country:france&rung=3');
     const pins = async () => (await hook.markers(page)).filter((m) => m.kind === 'pin');
     await tapGlobe(page, isMobile, [10, 50]);
@@ -251,7 +251,7 @@ test.describe('L2 and L3 name → tap', () => {
     expect(await pins()).toHaveLength(1);
   });
 
-  test('Next starts a fresh question with no pin', async ({ page, isMobile }) => {
+  test('[EXR-17, EXR-C07] Next starts a fresh question with no pin', async ({ page, isMobile }) => {
     await openExercise(page, 'item=country:france&rung=3');
     await tapGlobe(page, isMobile, [-150, -40]);
     await confirm(page).click();
@@ -262,7 +262,7 @@ test.describe('L2 and L3 name → tap', () => {
     await expect.poll(() => hook.markers(page)).toEqual([]);
   });
 
-  test('L2 region: the camera fits its country, whose region borders show', async ({ page }) => {
+  test('[EXR-02, EXR-09] L2 region: the camera fits its country, whose region borders show', async ({ page }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=2');
     await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
     await expect.poll(() => hook.layerIds(page)).toContain('gt-region-borders');
@@ -279,7 +279,7 @@ test.describe('L2 and L3 name → tap', () => {
     ['place:saint_denis_reunion', [2.5, 46.5]],
   ];
   for (const [item, mainland] of outlying) {
-    test(`L2 outside its country’s main part (${item}): the whole world, with it in view`, async ({
+    test(`[EXR-09, EXR-12] L2 outside its country’s main part (${item}): the whole world, with it in view`, async ({
       page,
     }) => {
       await openExercise(page, `item=${item}&rung=2`);
@@ -304,7 +304,7 @@ test.describe('L2 and L3 name → tap', () => {
     });
   }
 
-  test('L2 country: the camera goes to the whole world', async ({ page }) => {
+  test('[EXR-09] L2 country: the camera goes to the whole world', async ({ page }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=1');
     await settled(page);
     await page.getByRole('combobox', { name: 'Tier' }).selectOption('country');
@@ -314,7 +314,7 @@ test.describe('L2 and L3 name → tap', () => {
     expect(near(view.center, [0, 20], 0.5)).toBe(true);
   });
 
-  test('Next during the reveal’s flight starts the next question’s own camera move', async ({
+  test('[EXR-11] Next during the reveal’s flight starts the next question’s own camera move', async ({
     page,
     isMobile,
   }) => {
@@ -328,7 +328,7 @@ test.describe('L2 and L3 name → tap', () => {
     expect(near(view.center, [0, 20], 0.5)).toBe(true);
   });
 
-  test('L3: the camera stays where the last question left it', async ({ page }) => {
+  test('[EXR-10] L3: the camera stays where the last question left it', async ({ page }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=1');
     const before = await settled(page);
     await page.getByRole('combobox', { name: 'Rung' }).selectOption('3');
@@ -339,7 +339,7 @@ test.describe('L2 and L3 name → tap', () => {
 
 test.describe('phone width', () => {
   for (const rung of [1, 2, 3]) {
-    test(`L${rung}: no horizontal scroll for a country, a region and a place`, async ({ page }) => {
+    test(`[EXR-23] L${rung}: no horizontal scroll for a country, a region and a place`, async ({ page }) => {
       await page.setViewportSize({ width: 360, height: 800 });
       for (const item of ['country:france', 'region:france.bretagne', 'place:honolulu_hawaii']) {
         await openExercise(page, `item=${item}&rung=${rung}`);

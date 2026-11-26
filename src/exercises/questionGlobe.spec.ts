@@ -36,18 +36,18 @@ const pointOnlyCountry = buildExerciseItem('country:beta', pointOnlyData);
 const pointOnlyPlace = buildExerciseItem('place:b1', pointOnlyData);
 
 describe('questionMode', () => {
-  it('highlights at L1, draws the borders at L2 and is bare at L3', () => {
+  it('[EXR-01] highlights at L1, draws the borders at L2 and is bare at L3', () => {
     expect(questionMode(region, 1)).toBe(region.highlightMode);
     expect(questionMode(region, 2)).toBe(region.bordersMode);
     expect(questionMode(region, 3)).toEqual({ kind: 'bare' });
   });
 
-  it('gives the same bare mode every time, so the globe does not redraw', () => {
+  it('[EXR-C03] gives the same bare mode every time, so the globe does not redraw', () => {
     expect(questionMode(country, 3)).toBe(questionMode(place, 3));
   });
 });
 
-describe('questionCamera', () => {
+describe('[EXR-09, EXR-C03] questionCamera', () => {
   it('L1: fits a country or region', () => {
     expect(questionCamera(country, 1)).toEqual({ kind: 'fit', feature: area(country).feature });
     expect(questionCamera(region, 1)).toEqual({ kind: 'fit', feature: area(region).feature });
@@ -98,19 +98,19 @@ describe('questionCamera', () => {
     expect(questionCamera(pointOnlyCountry, 2)).toEqual({ kind: 'world' });
   });
 
-  it('L3: stays where the camera is, unless it opens a page', () => {
+  it('[EXR-10] L3: stays where the camera is, unless it opens a page', () => {
     expect(questionCamera(country, 3)).toEqual({ kind: 'stay' });
     expect(questionCamera(place, 3, false)).toEqual({ kind: 'stay' });
     expect(questionCamera(place, 3, true)).toEqual({ kind: 'world' });
   });
 
-  it('L1 and L2 make their own move when they open a page', () => {
+  it('[EXR-10] L1 and L2 make their own move when they open a page', () => {
     expect(questionCamera(region, 1, true)).toEqual(questionCamera(region, 1));
     expect(questionCamera(region, 2, true)).toEqual(questionCamera(region, 2));
   });
 });
 
-describe('questionReveal', () => {
+describe('[EXR-15, EXR-C03] questionReveal', () => {
   it('outlines an area target, with the tap and its answer point for a tap', () => {
     const tap: LngLat = [3, 44];
     expect(questionReveal(region, tap)).toEqual({
@@ -133,7 +133,7 @@ describe('questionReveal', () => {
   });
 });
 
-describe('revealCamera', () => {
+describe('[EXR-16, EXR-C03] revealCamera', () => {
   it('frames the tap and the answer point together for a place', () => {
     expect(revealCamera(place, [10, 40])).toEqual({ kind: 'pair', a: [10, 40], b: [2, 47] });
   });
@@ -153,13 +153,13 @@ describe('revealCamera', () => {
   });
 });
 
-describe('questionMarkers', () => {
-  it('has nothing before the first tap, then the pin', () => {
+describe('[EXR-C03] questionMarkers', () => {
+  it('[EXR-07, EXR-08] has nothing before the first tap, then the pin', () => {
     expect(questionMarkers(place, null, false)).toEqual([]);
     expect(questionMarkers(place, [1, 2], false)).toEqual([{ kind: 'pin', at: [1, 2] }]);
   });
 
-  it('names the target at its answer point once answered, and drops the pin', () => {
+  it('[EXR-15] names the target at its answer point once answered, and drops the pin', () => {
     expect(questionMarkers(place, [1, 2], true)).toEqual([
       { kind: 'name', at: [2, 47], text: 'N1' },
     ]);

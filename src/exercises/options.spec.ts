@@ -5,7 +5,7 @@ import { buildExerciseItem } from './item';
 import { buildChoices } from './options';
 
 describe('buildChoices', () => {
-  it('offers the item and 3 named distractors from its candidates', () => {
+  it('[EXR-04] offers the item and 3 named distractors from its candidates', () => {
     const item = buildExerciseItem('place:s1', DATA_WITH_ALPHA);
     const choices = buildChoices(item, mulberry32(1));
     expect(choices).toHaveLength(4);
@@ -18,12 +18,12 @@ describe('buildChoices', () => {
     }
   });
 
-  it('is the same for the same seed', () => {
+  it('[EXR-04, EXR-C04] is the same for the same seed', () => {
     const item = buildExerciseItem('place:s1', DATA_WITH_ALPHA);
     expect(buildChoices(item, mulberry32(7))).toEqual(buildChoices(item, mulberry32(7)));
   });
 
-  it('offers fewer options when there are fewer candidates', () => {
+  it('[EXR-04] offers fewer options when there are fewer candidates', () => {
     const item = buildExerciseItem('country:beta', DATA);
     expect(
       buildChoices(item, mulberry32(1))

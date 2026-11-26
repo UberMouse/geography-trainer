@@ -6,7 +6,7 @@ import { choiceResult, distanceText, formatKm, tapResult, verdictText } from './
 
 const KM_PER_DEG = (Math.PI * 6371) / 180;
 
-describe('choiceResult', () => {
+describe('[EXR-18, EXR-C02] choiceResult', () => {
   const item = buildExerciseItem('country:beta', DATA);
 
   it('is correct when the item is chosen, graded by speed', () => {
@@ -27,7 +27,7 @@ describe('choiceResult', () => {
   });
 });
 
-describe('tapResult on a country', () => {
+describe('[EXR-19, EXR-C02] tapResult on a country', () => {
   const item = buildExerciseItem('country:beta', DATA);
 
   it('is correct inside, 0 km off, maptap 100', () => {
@@ -53,7 +53,7 @@ describe('tapResult on a country', () => {
   });
 });
 
-describe('tapResult on a place', () => {
+describe('[EXR-19, EXR-C02] tapResult on a place', () => {
   const item = buildExerciseItem('place:b1', DATA);
 
   it('measures km from the point', () => {
@@ -65,7 +65,7 @@ describe('tapResult on a place', () => {
   });
 });
 
-describe('verdictText', () => {
+describe('[EXR-13, EXR-C05] verdictText', () => {
   it('words each outcome without the scheduler\'s ratings', () => {
     expect(verdictText({ correct: true, rating: Rating.Easy })).toEqual({ text: 'Correct · spot on', tone: 'right' });
     expect(verdictText({ correct: true, rating: Rating.Good })).toEqual({ text: 'Correct', tone: 'right' });
@@ -75,7 +75,7 @@ describe('verdictText', () => {
   });
 });
 
-describe('distanceText', () => {
+describe('[EXR-14, EXR-C05] distanceText', () => {
   it('says inside or how far outside the border for countries and regions, and how far away for places', () => {
     expect(distanceText('country', 0)).toBe('inside the border');
     expect(distanceText('region', 4.06)).toBe('4.1 km outside the border');
@@ -85,7 +85,7 @@ describe('distanceText', () => {
   });
 });
 
-describe('formatKm', () => {
+describe('[EXR-14, EXR-C05] formatKm', () => {
   it('rounds to one decimal before choosing the format', () => {
     expect(formatKm(9.97)).toBe('10');
     expect(formatKm(9.94)).toBe('9.9');
