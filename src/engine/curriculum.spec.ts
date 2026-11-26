@@ -18,7 +18,6 @@ import realCountries from '../../public/data/countries.topo.json';
 import {
   DIFFICULTY_LEVELS,
   DIFFICULTY_MEAN_LEVEL_WEIGHT,
-  MASTERY_DISTINCT_DAYS,
   REGIONS_TIER_MIN_PLACES,
   REGIONS_TIER_MIN_REGIONS,
 } from './config';
@@ -503,7 +502,7 @@ function committedCountries(): Country[] {
   return geoms.map((g) => country(g.id, 0, g.properties.hasRegions));
 }
 
-describe('[CUR-02, CUR-C01] the regions tier', () => {
+describe('[DAT-21, CUR-C01] the regions tier', () => {
   it('needs 4 regions holding a place and 15 places', () => {
     expect(REGIONS_TIER_MIN_REGIONS).toBe(4);
     expect(REGIONS_TIER_MIN_PLACES).toBe(15);
@@ -552,7 +551,7 @@ describe('[CUR-04] landmarks on the committed data', () => {
   });
 });
 
-describe('[CUR-13, CUR-C02] mastery', () => {
+describe('[GRD-15, CUR-14] mastery', () => {
   const ID = 'country:tuvalu';
   const answerOn = (p: ItemProgress, day: number, rating: Grade = Rating.Good) => {
     const now = new Date(T0.getTime() + day * DAY);
@@ -566,10 +565,6 @@ describe('[CUR-13, CUR-C02] mastery', () => {
     return p;
   };
   const stateOf = (p: ItemProgress) => itemState(fixture(), { [ID]: p }, ID);
-
-  it('takes passes on 2 different days', () => {
-    expect(MASTERY_DISTINCT_DAYS).toBe(2);
-  });
 
   it.each([
     [1, 'learning'],

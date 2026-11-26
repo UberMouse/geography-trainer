@@ -66,7 +66,7 @@ test("[CUR-08] a mastered country's regions are asked in the next session", asyn
   await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
 });
 
-test('[CUR-14, CUR-16] the Progress page shows the mastered country and its map shape', async ({ page }, testInfo) => {
+test('[SCR-09, SCR-10, SCR-12] the Progress page shows the mastered country and its map shape', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
   await importProgress(page, file);
@@ -91,7 +91,7 @@ test('[CUR-14, CUR-16] the Progress page shows the mastered country and its map 
 });
 
 for (const path of ['/', '/progress']) {
-  test(`[CUR-01] tapping a country on the globe on ${path} goes to its page`, async ({ page, isMobile }) => {
+  test(`[SCR-06] tapping a country on the globe on ${path} goes to its page`, async ({ page, isMobile }) => {
     await page.goto(path);
     await progressShowing(page, 'germany');
     await tapGlobe(page, isMobile, GERMANY);
@@ -110,7 +110,7 @@ const twoFrames = (page: Page) =>
 
 // Bonaire, in open sea: 6 px off is on the dot as drawn; 11 px off is beside it, in no country.
 for (const px of [6, 11]) {
-  test(`[CUR-01] a tap ${px}px off a point-only country's dot, beside its few-km disc, goes to its page`, async ({
+  test(`[GLB-18, SCR-06] a tap ${px}px off a point-only country's dot, beside its few-km disc, goes to its page`, async ({
     page,
     isMobile,
   }) => {
@@ -126,7 +126,7 @@ for (const px of [6, 11]) {
   });
 }
 
-test("[CUR-01] a tap on Italy beside Vatican City's dot, at the world view, goes to Italy's page", async ({
+test("[GLB-18] a tap on Italy beside Vatican City's dot, at the world view, goes to Italy's page", async ({
   page,
   isMobile,
 }) => {
@@ -153,7 +153,7 @@ test("[CUR-01] a tap on Italy beside Vatican City's dot, at the world view, goes
   await expect(page).toHaveURL(/\/progress\/italy$/, WAIT);
 });
 
-test("[CUR-01] a tap where a dot on the far side projects to does not open the dot's country", async ({
+test("[GLB-18] a tap where a dot on the far side projects to does not open the dot's country", async ({
   page,
   isMobile,
 }) => {
@@ -174,7 +174,7 @@ test("[CUR-01] a tap where a dot on the far side projects to does not open the d
   await expect(page).not.toHaveURL(new RegExp(`/progress/${dot.id}$`));
 });
 
-test('[CUR-01] a country can be opened from the Go to a country control using only the keyboard', async ({
+test('[SCR-11] a country can be opened from the Go to a country control using only the keyboard', async ({
   page,
 }) => {
   await page.goto('/progress');
@@ -188,7 +188,7 @@ test('[CUR-01] a country can be opened from the Go to a country control using on
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
 });
 
-test('[CUR-14] the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
+test('[SCR-14] the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
   await importProgress(page, file);
@@ -203,7 +203,7 @@ test('[CUR-14] the United States page shows it mastered and its regions as new',
   await expect(list.locator('li[data-state="new"]')).toHaveCount(await list.locator('li').count());
 });
 
-test('[CUR-17] the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
+test('[SCR-18] the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
   await importProgress(page, file);
@@ -223,7 +223,7 @@ test('[CUR-17] the mastered United States page links to test out of its regions'
   await expect(page.getByRole('link', { name: /Test out of/ })).toHaveCount(0);
 });
 
-test('[CUR-10] a country whose parent is not mastered lists its regions as locked', async ({ page }) => {
+test('[SCR-14] a country whose parent is not mastered lists its regions as locked', async ({ page }) => {
   await page.goto('/progress/germany');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Germany', WAIT);
   const rows = page.getByTestId('drill-list').locator('li');
@@ -234,7 +234,7 @@ test('[CUR-10] a country whose parent is not mastered lists its regions as locke
   }
 });
 
-test('[CUR-03] the drill-down goes from the world to a country to a region and back', async ({
+test('[SCR-14, SCR-15, SCR-17] the drill-down goes from the world to a country to a region and back', async ({
   page,
   isMobile,
 }) => {
@@ -271,7 +271,7 @@ test('[CUR-03] the drill-down goes from the world to a country to a region and b
   await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible(WAIT);
 });
 
-test('[CUR-03] a country without regions draws its places as dots', async ({ page }) => {
+test('[SCR-15] a country without regions draws its places as dots', async ({ page }) => {
   await page.goto('/progress/singapore');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Singapore', WAIT);
   const expected = await page.getByTestId('drill-list').locator('li').count();
@@ -279,7 +279,7 @@ test('[CUR-03] a country without regions draws its places as dots', async ({ pag
   await expect.poll(async () => (await hook.progress(page))?.dots.length, WAIT).toBe(expected);
 });
 
-test('[CUR-03] outlying regions and places are named under the map', async ({ page }) => {
+test('[SCR-16] outlying regions and places are named under the map', async ({ page }) => {
   await page.goto('/progress/united-states');
   const off = page.getByTestId('off-map');
   await expect(off).toContainText('Not on this map', WAIT);
@@ -293,7 +293,7 @@ test('[CUR-03] outlying regions and places are named under the map', async ({ pa
   await expect(page.getByTestId('off-map').getByRole('link')).toHaveCount(0);
 });
 
-test('[CUR-05] a country outline stays neutral when a place shares the country id', async ({ page }) => {
+test('[CUR-05, SCR-15] a country outline stays neutral when a place shares the country id', async ({ page }) => {
   await page.goto('/progress/cyprus');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Cyprus', WAIT);
   // The place Cyprus is a dot in its state's colour; the outline Cyprus is not filled.
@@ -304,7 +304,7 @@ test('[CUR-05] a country outline stays neutral when a place shares the country i
   expect(cyprus?.colour).not.toBe(NEUTRAL_DOT);
 });
 
-test('[CUR-01] an unknown country or region shows not found with a link back', async ({ page }) => {
+test('[SCR-13] an unknown country or region shows not found with a link back', async ({ page }) => {
   await page.goto('/progress/atlantis');
   await expect(page.getByText('There is nothing to show at this address.')).toBeVisible(WAIT);
   await page.getByRole('link', { name: 'Back to the world' }).click();
@@ -316,7 +316,7 @@ test('[CUR-01] an unknown country or region shows not found with a link back', a
   await expect(page).toHaveURL(/\/progress\/germany$/);
 });
 
-test('[CUR-03] the drill-down pages do not scroll sideways', async ({ page }) => {
+test('[SCR-26] the drill-down pages do not scroll sideways', async ({ page }) => {
   for (const path of ['/progress/united-states', '/progress/united-states/united-states.texas']) {
     await page.goto(path);
     await expect(page.getByTestId('drill-list')).toBeVisible(WAIT);
@@ -325,7 +325,7 @@ test('[CUR-03] the drill-down pages do not scroll sideways', async ({ page }) =>
   }
 });
 
-test("[CUR-14] Home's globe shows progress by country, and Home links to Progress", async ({ page }) => {
+test("[SCR-06, SCR-08] Home's globe shows progress by country, and Home links to Progress", async ({ page }) => {
   await page.goto('/');
   const { fills } = await progressShowing(page, 'germany');
   expect(fills.germany).toBe(NEW);
@@ -334,7 +334,7 @@ test("[CUR-14] Home's globe shows progress by country, and Home links to Progres
   await expect(page).toHaveURL(/\/progress$/);
 });
 
-test('[CUR-01] a world view whose globe shrinks mid-flight lands with the whole sphere in view', async ({
+test('[GLB-04, SCR-06] a world view whose globe shrinks mid-flight lands with the whole sphere in view', async ({
   page,
 }) => {
   await page.goto('/');
@@ -360,7 +360,7 @@ test('[CUR-01] a world view whose globe shrinks mid-flight lands with the whole 
   expect(await hook.zoom(page)).toBeCloseTo(fit, 2);
 });
 
-test('[CUR-14] Home and Progress do not scroll sideways', async ({ page }) => {
+test('[SCR-26] Home and Progress do not scroll sideways', async ({ page }) => {
   for (const path of ['/', '/progress']) {
     await page.goto(path);
     await progressShowing(page, 'germany');

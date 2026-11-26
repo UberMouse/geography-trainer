@@ -28,7 +28,7 @@ function render(next: SaveQueueState) {
     .replaceAll('<!-- -->', '');
 }
 
-describe('[GLB-34] the save status banner', () => {
+describe('[STO-03, STO-04] the save status banner', () => {
   it('shows nothing while saves succeed, even with answers waiting', () => {
     expect(render({ unsaved: 0, failed: false })).toBe('');
     expect(render({ unsaved: 3, failed: false })).toBe('');

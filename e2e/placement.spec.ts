@@ -79,7 +79,7 @@ test('[PLC-23] a test-out page for an item that is not mastered is not available
   if (isMobile) await noHorizontalScroll(page);
 });
 
-test('[PLC-22, PLC-19] Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, isMobile }) => {
+test('[PLC-22, PLC-19, SCR-05] Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, isMobile }) => {
   const offer = page.getByRole('link', { name: 'Take the placement test' });
   await page.goto('/');
   await expect(offer).toBeVisible(WAIT);
@@ -120,7 +120,7 @@ test('[PLC-19] Quit in the middle of a question leaves Home with no pin, and tap
   expect((await hook.markers(page)).filter((m) => m.kind === 'pin')).toEqual([]);
 });
 
-test("[PLC-02, PLC-06, PLC-18, PLC-20, PLC-22] a test-out of Texas's places: a close miss is noted, focus follows, and the finished test hides its link", async ({
+test("[PLC-02, PLC-06, PLC-18, PLC-20, PLC-22, SCR-18] a test-out of Texas's places: a close miss is noted, focus follows, and the finished test hides its link", async ({
   page,
   isMobile,
 }, testInfo) => {

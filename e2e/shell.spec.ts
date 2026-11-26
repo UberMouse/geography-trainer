@@ -157,7 +157,7 @@ test('[GLB-05] without WebGL the globe says so in its area and the column still 
 
 const REGION_FILE = /\/data\/regions\/([^/]+)\.topo\.json$/;
 
-test('[GLB-08] region files load only when a page needs one, and only its country’s', async ({
+test('[STO-18] region files load only when a page needs one, and only its country’s', async ({
   page,
 }) => {
   const fetched: string[] = [];
@@ -255,7 +255,7 @@ test('[GLB-18, GLB-C11] on Home a tap on a dot, or a fingertip from it at sea, s
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('[GLB-34] a failed save shows on every page with Retry, and leaving asks first until it is saved', async ({
+test('[STO-03, STO-04] a failed save shows on every page with Retry, and leaving asks first until it is saved', async ({
   page,
   isMobile,
 }) => {

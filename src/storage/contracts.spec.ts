@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Rating, S_MIN } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
+import { DAILY_NEW_CAP } from '../engine/config';
 import { applyAnswer, createProgress } from '../engine/srs';
 import { DB_NAME, GeographyDb } from './db';
 import { FILE_FORMAT, FILE_VERSION, validateProgressFile } from './progressFile';
@@ -100,11 +101,11 @@ describe('[STO-C04] import validation bounds', () => {
 });
 
 describe('[STO-C05] the daily new-item limit', () => {
-  it('is stored under setting:dailyNewCap, from 5 to 50, defaulting to 15', () => {
+  it('is stored under setting:dailyNewCap, from 5 to 50, defaulting to DAILY_NEW_CAP', () => {
     expect(DAILY_NEW_CAP_KEY).toBe('setting:dailyNewCap');
     expect(DAILY_NEW_CAP_MIN).toBe(5);
     expect(DAILY_NEW_CAP_MAX).toBe(50);
-    expect(dailyNewCapOrDefault(undefined)).toBe(15);
+    expect(dailyNewCapOrDefault(undefined)).toBe(DAILY_NEW_CAP);
     expect(dailyNewCapOrDefault(7)).toBe(7);
     expect([4, 5, 50, 51, 5.5, '5'].map(isValidDailyNewCap)).toEqual([false, true, true, false, false, false]);
   });

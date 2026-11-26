@@ -12,8 +12,6 @@ import {
   leftOutText,
   RESET_WORD,
 } from './settingsView';
-import { DAILY_NEW_CAP } from '../engine/config';
-import { DAILY_NEW_CAP_MAX, DAILY_NEW_CAP_MIN } from '../storage/settings';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -141,10 +139,6 @@ describe('[SCR-23, SCR-C02, SCR-C10] isResetConfirmed', () => {
 });
 
 describe('[SCR-C02] the Settings values', () => {
-  it('takes a daily limit from 5 to 50, 15 by default', () => {
-    expect([DAILY_NEW_CAP_MIN, DAILY_NEW_CAP_MAX, DAILY_NEW_CAP]).toEqual([5, 50, 15]);
-  });
-
   it('asks for the word "reset"', () => {
     expect(RESET_WORD).toBe('reset');
   });

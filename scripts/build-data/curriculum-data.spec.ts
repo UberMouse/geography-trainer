@@ -21,7 +21,7 @@ function mastered(itemId: string): ItemProgress {
 
 const ids = (items: { id: string }[]) => items.map((i) => i.id);
 
-describe('[DAT-32] curriculum on the committed data', () => {
+describe('[DAT-32, CUR-03, CUR-19] curriculum on the committed data', () => {
   const dir = new URL('../../public/data/', import.meta.url);
   const read = (f: string) => JSON.parse(readFileSync(new URL(f, dir), 'utf8'));
   const places: Place[] = read('places.json');

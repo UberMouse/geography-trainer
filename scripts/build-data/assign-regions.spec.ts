@@ -157,8 +157,6 @@ describe('assignRegion', () => {
 
 describe('[DAT-21, DAT-C07] hasRegionsTier', () => {
   it(`needs ≥ ${REGIONS_TIER_MIN_REGIONS} regions with places and ≥ ${REGIONS_TIER_MIN_PLACES} places`, () => {
-    expect(REGIONS_TIER_MIN_REGIONS).toBe(4);
-    expect(REGIONS_TIER_MIN_PLACES).toBe(15);
     expect(hasRegionsTier(4, 15)).toBe(true);
     expect(hasRegionsTier(3, 15)).toBe(false);
     expect(hasRegionsTier(4, 14)).toBe(false);

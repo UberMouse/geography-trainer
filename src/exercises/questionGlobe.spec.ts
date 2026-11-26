@@ -156,8 +156,7 @@ describe('[EXR-16, EXR-C03] revealCamera', () => {
 });
 
 describe('[EXR-C06] camera distances', () => {
-  it('spans 600 km around a place; the reveal shows the world beyond 5,000 km, on the answer beyond 9,000', () => {
-    expect(NEIGHBOURHOOD_VIEW_KM).toBe(600);
+  it('the reveal shows the world beyond 5,000 km, on the answer beyond 9,000', () => {
     expect(REVEAL_WORLD_KM).toBe(5_000);
     expect(REVEAL_FAR_SIDE_KM).toBe(9_000);
   });

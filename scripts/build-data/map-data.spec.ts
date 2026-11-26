@@ -51,7 +51,7 @@ describe('committed map data, as the loaders return it', () => {
     },
   );
 
-  it('[DAT-30] gives the point and zero-area countries a tappable disc', async () => {
+  it('[DAT-30, STO-20] gives the point and zero-area countries a tappable disc', async () => {
     const { features } = await loadCountries();
     const bonaire = features.find((f) => f.id === 'bonaire')!;
     // The committed point, dequantized.
