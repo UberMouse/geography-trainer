@@ -96,9 +96,9 @@ export function countriesNeedingRegions(
 
 /**
  * The saved session, or null when its queue is empty and a review has come due since (a fresh
- * session is built). `due` is only called when the queue is empty, and a due question for an
- * item the round itself asked (a key of `run.asks`) does not count: its learning steps come due
- * within minutes of the round.
+ * session is built). `due` is only called when the queue is empty. A due question for an item the
+ * session asked, in any of its rounds (a key of `run.asks`), does not count, because its learning
+ * steps come due within minutes.
  */
 export function resumable(
   saved: SavedSession | null,
