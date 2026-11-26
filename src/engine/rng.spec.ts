@@ -20,3 +20,13 @@ describe('[GRD-26] mulberry32', () => {
     }
   });
 });
+
+describe('[GRD-C12] mulberry32 sequence', () => {
+  it.each([
+    [0, [0.26642920868471265, 0.0003297457005828619, 0.2232720274478197]],
+    [42, [0.6011037519201636, 0.44829055899754167, 0.8524657934904099]],
+  ])('seed %i starts with the pinned outputs', (seed, outputs) => {
+    const r = mulberry32(seed);
+    expect([r(), r(), r()]).toEqual(outputs);
+  });
+});

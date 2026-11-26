@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { Rating } from 'ts-fsrs';
+import { Rating, type Grade } from 'ts-fsrs';
+import {
+  COUNTRY_NEAR_MISS_KM,
+  MAPTAP_SCORE_DECAY,
+  MAPTAP_SCORE_KM,
+  MC_FAST_MS,
+  MC_SLOW_MS,
+  PLACE_EASY_KM,
+  PLACE_GOOD_KM,
+  PLACE_HARD_KM,
+  REGION_NEAR_MISS_KM,
+  TAP_EASY_FRACTION,
+} from './config';
 import {
   gradeMultipleChoice,
   gradeTap,
@@ -119,5 +131,64 @@ describe('gradeTap', () => {
       expect(gradeTap({ ...base, tier: 'place', kmFromAnswer: Infinity })).toBe(Rating.Again);
       expect(gradeTap({ ...base, inside: false, kmOutsideBorder: Infinity })).toBe(Rating.Again);
     });
+  });
+});
+
+describe('[GRD-C01] rating values', () => {
+  it('Again, Hard, Good and Easy are 1 to 4, and only Good and Easy pass', () => {
+    expect([Rating.Again, Rating.Hard, Rating.Good, Rating.Easy]).toEqual([1, 2, 3, 4]);
+    expect(([1, 2, 3, 4] as Grade[]).map(isPass)).toEqual([false, false, true, true]);
+  });
+});
+
+describe('grading constants', () => {
+  it('[GRD-C02] multiple-choice speed thresholds', () => {
+    expect({ MC_FAST_MS, MC_SLOW_MS }).toEqual({ MC_FAST_MS: 4_000, MC_SLOW_MS: 12_000 });
+  });
+  it('[GRD-C03] tap thresholds', () => {
+    expect({
+      TAP_EASY_FRACTION,
+      COUNTRY_NEAR_MISS_KM,
+      REGION_NEAR_MISS_KM,
+      PLACE_EASY_KM,
+      PLACE_GOOD_KM,
+      PLACE_HARD_KM,
+    }).toEqual({
+      TAP_EASY_FRACTION: 0.25,
+      COUNTRY_NEAR_MISS_KM: 150,
+      REGION_NEAR_MISS_KM: 50,
+      PLACE_EASY_KM: 25,
+      PLACE_GOOD_KM: 75,
+      PLACE_HARD_KM: 200,
+    });
+  });
+});
+
+describe('[GRD-C05] maptap score formula', () => {
+  it('uses 16,250 km and a decay of 3.5', () => {
+    expect({ MAPTAP_SCORE_KM, MAPTAP_SCORE_DECAY }).toEqual({
+      MAPTAP_SCORE_KM: 16_250,
+      MAPTAP_SCORE_DECAY: 3.5,
+    });
+  });
+  it('is 100 · exp(-3.5 · km / 16250) unrounded, and the score rounds it', () => {
+    for (const km of [0, 1, 489, 3218, 8000, 16_000]) {
+      expect(maptapScoreRaw(km)).toBeCloseTo(100 * Math.exp((-3.5 * km) / 16_250), 10);
+      expect(maptapScore(km)).toBe(Math.round(maptapScoreRaw(km)));
+    }
+    expect(maptapScore(489)).toBe(90);
+    expect(maptapScore(3218)).toBe(50);
+  });
+  it('returns 100 inside before looking at km', () => {
+    expect(maptapScoreRaw(NaN, true)).toBe(100);
+    expect(maptapScore(-1, true)).toBe(100);
+  });
+});
+
+describe('[GRD-03] a region tap inside, far from the answer point', () => {
+  it('is Good', () => {
+    expect(
+      gradeTap({ tier: 'region', inside: true, kmFromAnswer: 900, kmOutsideBorder: 0, featureSizeKm: 1000 }),
+    ).toBe(Rating.Good);
   });
 });

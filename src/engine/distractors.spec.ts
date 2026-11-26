@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DISTRACTORS,
   countryCandidates,
   distinctCandidates,
   multipleChoice,
@@ -180,5 +181,24 @@ describe('[GRD-25] placeCandidates', () => {
     const twins = ['p1', 'p2', 'p3'].map((id) => place(id, 'c1', 'r1', 'Twin'));
     const out = placeCandidates(target, [target, ...twins, ...countryMates, ...elsewhere]);
     expect(ids(out)).toEqual(['place:p1', 'place:p4', 'place:p5']);
+  });
+
+  it('[GRD-C10] the exclusion radius is 25 km of great-circle distance on a 6,371 km Earth', () => {
+    // 25 km is 0.224829 degrees of latitude on a 6,371 km sphere.
+    const t = { ...place('p0', 'c1', 'r1'), lng: 0 };
+    const inner = { ...place('p1', 'c2', null), lat: 0.2247, lng: 0 };
+    const outer = { ...place('p2', 'c2', null), lat: 0.2249, lng: 0 };
+    expect(ids(placeCandidates(t, [t, inner, outer]))).toEqual(['place:p2']);
+  });
+});
+
+describe('[GRD-C10] distractor constants', () => {
+  it('offers 3 wrong options, drawn from the 6 nearest', () => {
+    expect(DISTRACTORS).toBe(3);
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 200; seed++) {
+      for (const id of pickDistractors(target, line, mulberry32(seed))) seen.add(id);
+    }
+    expect([...seen].sort()).toEqual(nearest6);
   });
 });

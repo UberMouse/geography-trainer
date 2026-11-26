@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State, type Grade } from 'ts-fsrs';
-import { PLACEMENT_SEED_STABILITY_DAYS } from './config';
+import { MASTERY_DISTINCT_DAYS, PLACEMENT_SEED_STABILITY_DAYS } from './config';
 import {
   applyAnswer,
   createProgress,
   dueRung,
   isIntroduced,
   isMastered,
+  isStudied,
   localDayKey,
   nextDue,
   seedFromPlacement,
@@ -332,5 +333,130 @@ describe('seedFromPlacement', () => {
     expect(Object.keys(p.cards)).toEqual(['2']);
     expect(p.cards[2]).toMatchObject({ state: State.New, due: T0.getTime() });
     expect(nextDue(p)).toBe(T0.getTime());
+  });
+
+  it('[GRD-19] close: the same as untestedAtOrBelow, rung 2 with one new card due now', () => {
+    expect(seedFromPlacement('a', 'close', T0, DK)).toEqual(seedFromPlacement('a', 'untestedAtOrBelow', T0, DK));
+  });
+
+  it('[GRD-19, GRD-C08] likelyKnown: an L3 review card due at the date given, with no pass day', () => {
+    const p = seedFromPlacement('a', 'likelyKnown', T0, DK, at(5));
+    expect(p).toMatchObject({ rung: 3, highestRung: 3, l3PassDays: [], inL3Lapse: false, introducedAt: null });
+    expect(Object.keys(p.cards)).toEqual(['3']);
+    expect(p.cards[3]).toMatchObject({
+      state: State.Review,
+      stability: 5,
+      scheduled_days: 5,
+      reps: 1,
+      lapses: 0,
+      learning_steps: 0,
+      last_review: T0.getTime(),
+      due: at(5).getTime(),
+    });
+    expect(p.cards[3]?.difficulty).toBe(seedFromPlacement('a', 'passed', T0, DK).cards[3]?.difficulty);
+    expect(isMastered(p)).toBe(false);
+  });
+
+  it.each([
+    [undefined, 2],
+    [1, 2],
+    [3.4, 3],
+    [9, 9],
+  ])('[GRD-19, GRD-C08] likelyKnown due in %s days: whole days, at least 2 (%i)', (dueDays, days) => {
+    const p = seedFromPlacement('a', 'likelyKnown', T0, DK, dueDays === undefined ? undefined : at(dueDays));
+    expect(p.cards[3]).toMatchObject({ stability: days, scheduled_days: days, due: at(days).getTime() });
+  });
+
+  it('[GRD-19] the due date is ignored for every other outcome', () => {
+    for (const o of ['passed', 'close', 'failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
+      expect(seedFromPlacement('a', o, T0, DK, at(9))).toEqual(seedFromPlacement('a', o, T0, DK));
+    }
+  });
+
+  it('[GRD-17] a likelyKnown seed is introduced, and its introduction time stays empty', () => {
+    const p = seedFromPlacement('a', 'likelyKnown', T0, DK);
+    expect(isIntroduced(p)).toBe(true);
+    expect(isIntroduced(seedFromPlacement('a', 'close', T0, DK))).toBe(false);
+    expect(answer(p, 3, Rating.Good, 3).introducedAt).toBeNull();
+  });
+});
+
+describe('[GRD-09, GRD-C06] the ladder, every rung and rating', () => {
+  const from = (rung: Rung): ItemProgress =>
+    rung === 1 ? createProgress('x', T0) : rung === 2 ? answer(createProgress('x', T0), 1, Rating.Good) : atRung3();
+  it.each([
+    [1, Rating.Again, 1],
+    [1, Rating.Hard, 2],
+    [1, Rating.Good, 2],
+    [1, Rating.Easy, 3],
+    [2, Rating.Again, 1],
+    [2, Rating.Hard, 2],
+    [2, Rating.Good, 3],
+    [2, Rating.Easy, 3],
+    [3, Rating.Again, 2],
+    [3, Rating.Hard, 3],
+    [3, Rating.Good, 3],
+    [3, Rating.Easy, 3],
+  ] as const)('from L%i rated %i goes to L%i', (rung, rating, to) => {
+    const before = from(rung);
+    const after = answer(before, rung, rating, 1);
+    expect(after.rung).toBe(to);
+    expect(after.highestRung).toBe(Math.max(before.highestRung, to));
+  });
+});
+
+describe('[GRD-C06] ladder constants', () => {
+  it('masters on 2 distinct days; seeds review in at least 2 days', () => {
+    expect({ MASTERY_DISTINCT_DAYS, PLACEMENT_SEED_STABILITY_DAYS }).toEqual({
+      MASTERY_DISTINCT_DAYS: 2,
+      PLACEMENT_SEED_STABILITY_DAYS: 2,
+    });
+  });
+});
+
+describe('[GRD-18] isStudied', () => {
+  const seeds = ['passed', 'close', 'failed', 'likelyKnown', 'aboveEstimate', 'untestedAtOrBelow'] as const;
+  it('is false for a fresh item and every seed before it is answered', () => {
+    expect(isStudied(createProgress('a', T0))).toBe(false);
+    for (const o of seeds) expect(isStudied(seedFromPlacement('a', o, T0, DK))).toBe(false);
+  });
+  it('is true after one answer, for a fresh item and for a review seed', () => {
+    expect(isStudied(answer(createProgress('a', T0), 1, Rating.Again))).toBe(true);
+    expect(isStudied(answer(seedFromPlacement('a', 'passed', T0, DK), 3, Rating.Good, 3))).toBe(true);
+    expect(isStudied(answer(seedFromPlacement('a', 'likelyKnown', T0, DK), 3, Rating.Again, 3))).toBe(true);
+  });
+});
+
+describe('[GRD-C07] the progress format', () => {
+  it('is plain JSON data with exactly the documented fields', () => {
+    let p = answer(createProgress('country:FR', T0), 1, Rating.Good);
+    p = answer(answer(p, 2, Rating.Good), 3, Rating.Again, 1);
+    expect(Object.keys(p).sort()).toEqual(
+      ['cards', 'highestRung', 'inL3Lapse', 'introducedAt', 'itemId', 'l3PassDays', 'rung'].sort(),
+    );
+    const cardKeys = ['difficulty', 'due', 'lapses', 'learning_steps', 'reps', 'scheduled_days', 'stability', 'state'];
+    expect(Object.keys(createProgress('a', T0).cards[1]!).sort()).toEqual(cardKeys);
+    for (const card of Object.values(p.cards)) {
+      expect(Object.keys(card).sort()).toEqual([...cardKeys, 'last_review'].sort());
+      for (const v of Object.values(card)) expect(typeof v).toBe('number');
+    }
+    expect(JSON.parse(JSON.stringify(p))).toEqual(p);
+  });
+});
+
+describe('[GRD-20, GRD-C09] the FSRS scheduler', () => {
+  const MIN = 60_000;
+  it.each([
+    [Rating.Again, 1 * MIN, State.Learning],
+    [Rating.Hard, 5.5 * MIN, State.Learning],
+    [Rating.Good, 10 * MIN, State.Learning],
+    [Rating.Easy, 8 * DAY, State.Review],
+  ] as const)('a first answer rated %i on a new card is due after %i ms', (rating, after, state) => {
+    const card = applyAnswer(createProgress('a', T0), 1, rating, T0, DK).cards[1];
+    expect(card).toMatchObject({ due: T0.getTime() + after, state, reps: 1 });
+  });
+  it('gives identical results for identical inputs', () => {
+    const p = answer(answer(atRung3(), 3, Rating.Good, 1), 3, Rating.Good, 9);
+    expect(answer(p, 3, Rating.Good, 40)).toEqual(answer(p, 3, Rating.Good, 40));
   });
 });
