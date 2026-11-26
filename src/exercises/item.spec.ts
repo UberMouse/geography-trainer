@@ -166,6 +166,15 @@ describe('[EXR-22] buildExerciseItem: empty regions data', () => {
   });
 });
 
+describe('[EXR-22] buildExerciseItem: a place whose region is unknown', () => {
+  it('throws when its region is not in its country’s regions data', () => {
+    const places = PLACES.map((p) => (p.id === 'n1' ? { ...p, region: 'alpha.nowhere' } : p));
+    expect(() => buildExerciseItem('place:n1', { ...DATA_WITH_ALPHA, places })).toThrow(
+      /no known region in alpha/,
+    );
+  });
+});
+
 describe('[EXR-22] buildExerciseItem: unknown ids', () => {
   it.each(['country:nowhere', 'region:alpha.nowhere', 'place:nowhere', 'city:n1', 'alpha'])(
     'throws for %s',

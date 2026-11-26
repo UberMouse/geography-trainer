@@ -147,6 +147,26 @@ test.describe('L1 highlighted → name', () => {
     expect(view.zoom).toBeGreaterThan(4);
   });
 
+  test('[EXR-03] a region: the prompt asks which region is highlighted', async ({ page }) => {
+    await openExercise(page, 'item=region:france.bretagne&rung=1');
+    await expect(page.getByText('Which region is highlighted?')).toBeVisible();
+    await expect(mode(page)).toHaveAttribute('data-mode', 'highlight');
+    await expect(options(page)).toHaveCount(4);
+  });
+
+  test('[EXR-18, EXR-13, EXR-C07] a right answer after the slow limit is correct but slow', async ({
+    page,
+  }) => {
+    await openExercise(page, 'item=country:france&rung=1');
+    await expect(options(page)).toHaveCount(4);
+    // Past the slow limit (12 s, `MC_SLOW_MS`), timed from when the question first showed.
+    await page.waitForTimeout(12_500);
+    await option(page, 'France').click();
+    await expect(verdict(page)).toHaveText(/^Correct · slow/);
+    await expect(page.getByTestId('last-rating')).toHaveText('Hard');
+    await expect(page.getByTestId('last-correct')).toHaveText('true');
+  });
+
   for (const item of ['country:saba', 'country:vatican-city', 'place:the_bottom_netherlands']) {
     test(`[EXR-09] a point-only item (${item}): the camera flies to its neighbourhood`, async ({ page }) => {
       await openExercise(page, `item=${item}&rung=1`);

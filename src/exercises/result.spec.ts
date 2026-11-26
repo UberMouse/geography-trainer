@@ -1,8 +1,15 @@
 import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
-import { DATA } from './fixtures';
+import { ALPHA_REGIONS, DATA, DATA_WITH_ALPHA } from './fixtures';
 import { buildExerciseItem } from './item';
-import { choiceResult, distanceText, formatKm, tapResult, verdictText } from './result';
+import {
+  choiceResult,
+  distanceText,
+  formatKm,
+  RATING_LABEL,
+  tapResult,
+  verdictText,
+} from './result';
 
 const KM_PER_DEG = (Math.PI * 6371) / 180;
 
@@ -62,6 +69,36 @@ describe('[EXR-19, EXR-C02] tapResult on a place', () => {
     expect(r).toMatchObject({ rating: Rating.Good, correct: true });
     // round(100 · exp(-3.5 · 55.6 / 16250)) = round(98.8)
     expect(r.maptapScore).toBe(99);
+  });
+});
+
+describe('[EXR-21, EXR-C02] tapResult on a region with a same-named sibling', () => {
+  const twinned = ALPHA_REGIONS.features.map((f) =>
+    f.id === 'alpha.south' ? { ...f, properties: { ...f.properties, name: 'North' } } : f,
+  );
+  const regions = { ...ALPHA_REGIONS, features: twinned };
+
+  it('counts a tap inside the sibling as inside: 0 km off, maptap 100, correct', () => {
+    const item = buildExerciseItem('region:alpha.north', { ...DATA_WITH_ALPHA, regions });
+    expect(tapResult(item, [5, 42], 500)).toMatchObject({ correct: true, km: 0, maptapScore: 100 });
+  });
+
+  it('measures the same tap as outside when the sibling has another name', () => {
+    const item = buildExerciseItem('region:alpha.north', DATA_WITH_ALPHA);
+    const r = tapResult(item, [5, 42], 500);
+    expect(r.km).toBeGreaterThan(0);
+    expect(r.maptapScore).toBeLessThan(100);
+  });
+});
+
+describe('[EXR-C05] RATING_LABEL', () => {
+  it('names each rating for the playground', () => {
+    expect(RATING_LABEL).toEqual({
+      [Rating.Again]: 'Again',
+      [Rating.Hard]: 'Hard',
+      [Rating.Good]: 'Good',
+      [Rating.Easy]: 'Easy',
+    });
   });
 });
 

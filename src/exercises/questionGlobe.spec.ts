@@ -9,6 +9,8 @@ import {
   questionMarkers,
   questionMode,
   questionReveal,
+  REVEAL_FAR_SIDE_KM,
+  REVEAL_WORLD_KM,
   revealCamera,
 } from './questionGlobe';
 
@@ -150,6 +152,14 @@ describe('[EXR-16, EXR-C03] revealCamera', () => {
     // [2, 47] to [60, 20]: about 5,300 km.
     expect(revealCamera(place, [60, 20])).toEqual({ kind: 'world', at: midpoint([60, 20], [2, 47]) });
     expect(revealCamera(place, [-170, -40])).toEqual({ kind: 'world', at: [2, 47] });
+  });
+});
+
+describe('[EXR-C06] camera distances', () => {
+  it('spans 600 km around a place; the reveal shows the world beyond 5,000 km, on the answer beyond 9,000', () => {
+    expect(NEIGHBOURHOOD_VIEW_KM).toBe(600);
+    expect(REVEAL_WORLD_KM).toBe(5_000);
+    expect(REVEAL_FAR_SIDE_KM).toBe(9_000);
   });
 });
 
