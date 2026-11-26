@@ -104,7 +104,7 @@ The globe is MapLibre GL JS in globe projection (WebGL). The first globe was d3 
 2. Match countries to NE admin-0, using `map_units` for England/Scotland/Wales/NI. Use an overrides table for naming (Türkiye, Côte d'Ivoire, territories, disputed areas). Tiny countries with no polygon get a point plus a radius. **Fail the build if a country goes unmatched.**
 3. Assign regions with NE admin-1 point-in-polygon. Check the result against maptap's `admin` where it exists and print disagreements for review. Coastal points that fall outside every polygon snap to the nearest region.
 4. Simplify geometry and write `public/data/*`. Commit the output, so the site build never hits maptap. The script also writes `public/data/SOURCE.md` with the fetch date, entry counts, and credit text.
-5. The Credits page: "Place list courtesy of MapTap.gg" + Natural Earth (+ the EOX Sentinel-2 credit from step 8 on).
+5. The Credits page: "Place list courtesy of MapTap.gg" + Natural Earth (+ the EOX Sentinel-2 credit from step 11 on, when the globe reaches the real pages; until then the imagery shows only in the dev playground, credited by the globe's attribution control).
 
 ## Step 0: Port the Claude tooling from kawaka (before any app code)
 I do this by hand in the conductor session, not through sdd-loop, because sdd-loop doesn't exist here yet. First `git init` (branch `main`), then add `.gitignore` with `.durable-state/`. Sources are under `~/code/kawaka/` (paths below are relative to it).
