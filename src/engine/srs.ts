@@ -1,11 +1,12 @@
-// Spaced repetition: one FSRS card per (item, rung), and the L1 -> L4 exercise ladder.
+// Spaced repetition: one FSRS card per (item, rung), and the L1 -> L3 exercise ladder: L1
+// highlighted -> name (multiple choice), L2 name -> tap with borders, L3 name -> tap with no borders.
 // Progress is plain JSON-serialisable data; every function returns new data and never mutates.
 
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
 import { MASTERY_DISTINCT_DAYS, PLACEMENT_SEED_STABILITY_DAYS } from './config';
 import { isPass } from './grading';
 
-export type Rung = 1 | 2 | 3 | 4;
+export type Rung = 1 | 2 | 3;
 
 /** A ts-fsrs `Card` with its dates as epoch milliseconds, so it survives JSON. */
 export interface StoredCard {
@@ -28,10 +29,10 @@ export interface ItemProgress {
   highestRung: Rung;
   /** One card per rung the item has reached. */
   cards: Partial<Record<Rung, StoredCard>>;
-  /** Sorted, distinct local days (`YYYY-MM-DD`) on which the item passed L4. */
-  l4PassDays: string[];
-  /** True from an Again at L4 until the item passes L3 and returns to L4. */
-  inL4Lapse: boolean;
+  /** Sorted, distinct local days (`YYYY-MM-DD`) on which the item passed L3. */
+  l3PassDays: string[];
+  /** True from an Again at L3 until the item passes L2 and returns to L3. */
+  inL3Lapse: boolean;
   /**
    * Epoch ms of the item's first answer as a new item (an answer while `!isIntroduced`), else null.
    * A placement seed is null until then, and a `passed` seed (already introduced) stays null forever.
@@ -44,7 +45,7 @@ export interface ItemProgress {
 /**
  * How a placement test left an item: `passed` (answered correctly), `failed` (tested and missed),
  * `aboveEstimate` (above the estimated level, untested) or `untestedAtOrBelow` (at or below the
- * estimate but never tested). Only `untestedAtOrBelow` skips ahead to L3.
+ * estimate but never tested). Only `untestedAtOrBelow` skips ahead to L2.
  */
 export type PlacementOutcome = 'passed' | 'failed' | 'aboveEstimate' | 'untestedAtOrBelow';
 
@@ -81,8 +82,8 @@ export function createProgress(itemId: string, now: Date): ItemProgress {
     rung: 1,
     highestRung: 1,
     cards: { 1: newCard(now) },
-    l4PassDays: [],
-    inL4Lapse: false,
+    l3PassDays: [],
+    inL3Lapse: false,
     introducedAt: null,
   };
 }
@@ -102,22 +103,22 @@ export function applyAnswer(
 
   const cards = { ...progress.cards, [rung]: toStored(scheduler.next(fromStored(card), now, rating).card) };
   const passed = isPass(rating);
-  // On the multiple-choice rungs (L1, L2) a slow but correct answer is Hard, so it climbs too. On
-  // L3 and L4 Hard is a near-miss tap and keeps the item on its rung.
-  const climbs = passed || (rating === Rating.Hard && progress.rung <= 2);
+  // On L1, the only multiple-choice rung, a slow but correct answer is Hard, so it climbs too. On
+  // L2 and L3 Hard is a near-miss tap and keeps the item on its rung.
+  const climbs = passed || (rating === Rating.Hard && progress.rung === 1);
 
-  let l4PassDays = progress.l4PassDays;
-  if (rung === 4 && progress.rung === 4 && passed && !l4PassDays.includes(dayKey)) {
-    l4PassDays = [...l4PassDays, dayKey].sort();
+  let l3PassDays = progress.l3PassDays;
+  if (rung === 3 && progress.rung === 3 && passed && !l3PassDays.includes(dayKey)) {
+    l3PassDays = [...l3PassDays, dayKey].sort();
   }
 
-  let { rung: current, highestRung, inL4Lapse } = progress;
+  let { rung: current, highestRung, inL3Lapse } = progress;
   if (rung === current) {
-    if (climbs && current < 4) {
+    if (climbs && current < 3) {
       current = (current + 1) as Rung;
-      if (current === 4) inL4Lapse = false;
+      if (current === 3) inL3Lapse = false;
     } else if (rating === Rating.Again && current > 1) {
-      if (current === 4) inL4Lapse = true;
+      if (current === 3) inL3Lapse = true;
       current = (current - 1) as Rung;
     }
     if (current > highestRung) highestRung = current;
@@ -128,7 +129,7 @@ export function applyAnswer(
 
   const introducedAt = isIntroduced(progress) ? progress.introducedAt : now.getTime();
 
-  return { ...progress, rung: current, highestRung, cards, l4PassDays, inL4Lapse, introducedAt };
+  return { ...progress, rung: current, highestRung, cards, l3PassDays, inL3Lapse, introducedAt };
 }
 
 /**
@@ -140,12 +141,12 @@ export function isIntroduced(progress: ItemProgress): boolean {
   return Object.values(progress.cards).some((card) => card.reps > 0);
 }
 
-/** True once L4 has been passed on enough different days; a later lapse never undoes it. */
+/** True once L3 has been passed on enough different days; a later lapse never undoes it. */
 export function isMastered(progress: ItemProgress): boolean {
-  return progress.l4PassDays.length >= MASTERY_DISTINCT_DAYS;
+  return progress.l3PassDays.length >= MASTERY_DISTINCT_DAYS;
 }
 
-/** The rung the item should be asked at next: always the current rung (L3 during an L4 lapse). */
+/** The rung the item should be asked at next: always the current rung (L2 during an L3 lapse). */
 export function dueRung(progress: ItemProgress): Rung {
   return progress.rung;
 }
@@ -159,7 +160,7 @@ export function nextDue(progress: ItemProgress): number {
 
 /**
  * Progress for an item as a placement test leaves it. `dayKey` is the learner's local day (see
- * `localDayKey`): a `passed` seed counts as the first L4 pass day, so one later L4 pass on a
+ * `localDayKey`): a `passed` seed counts as the first L3 pass day, so one later L3 pass on a
  * different day masters the item. Other outcomes ignore it. A passed seed is not yet mastered.
  * It builds fresh progress, so use it only for items that have no progress yet: storing a seed
  * replaces the record. A caller re-running placement (testing out of a newly unlocked tier) must
@@ -177,7 +178,7 @@ export function seedFromPlacement(
     case 'failed':
       return base;
     case 'untestedAtOrBelow':
-      return { ...base, rung: 3, highestRung: 3, cards: { 3: newCard(now) } };
+      return { ...base, rung: 2, highestRung: 2, cards: { 2: newCard(now) } };
     case 'passed': {
       // ts-fsrs's initial difficulty for a first Good.
       const initial = scheduler.next(createEmptyCard(now), now, Rating.Good).card;
@@ -192,7 +193,7 @@ export function seedFromPlacement(
         state: State.Review,
         last_review: now.getTime(),
       };
-      return { ...base, rung: 4, highestRung: 4, cards: { 4: seeded }, l4PassDays: [dayKey] };
+      return { ...base, rung: 3, highestRung: 3, cards: { 3: seeded }, l3PassDays: [dayKey] };
     }
   }
 }

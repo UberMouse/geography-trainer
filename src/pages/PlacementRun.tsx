@@ -196,12 +196,12 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
         data-testid="placement-question"
         data-item-id={item.id}
         data-item-name={item.name}
-        data-rung={4}
+        data-rung={3}
       >
         <Exercise
           key={position}
           item={item}
-          rung={4}
+          rung={3}
           seed={questionSeed(item.id, position, salt)}
           onAnswer={onAnswer}
           onNext={onNext}

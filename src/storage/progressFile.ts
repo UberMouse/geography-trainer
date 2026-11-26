@@ -6,7 +6,7 @@ import type { AnswerRow } from './db';
 import { isPlacementKey } from './placementKeys';
 
 export const FILE_FORMAT = 'geography-trainer-progress';
-export const FILE_VERSION = 2;
+export const FILE_VERSION = 3;
 
 export interface ProgressFile {
   format: typeof FILE_FORMAT;
@@ -33,7 +33,9 @@ const isEpochMs = (value: unknown): value is number =>
   Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= MAX_EPOCH_MS;
 /** The largest answer id accepted: a larger one would push Dexie's auto-increment key to its 2^53 limit. */
 const MAX_ANSWER_ID = 2 ** 52;
-const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 4;
+const isRung = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 3;
+/** An FSRS grade: 1 Again, 2 Hard, 3 Good, 4 Easy. */
+const isRating = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 1 && value <= 4;
 
 const isCount = (value: unknown): boolean => isNum(value) && Number.isInteger(value) && value >= 0;
 
@@ -70,28 +72,28 @@ function checkProgress(row: unknown, index: number) {
   const where = `progress[${index}]`;
   if (!isObj(row)) throw new Error(`${where} is not an object`);
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
-  if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
-  if (!isRung(row.highestRung)) throw new Error(`${where}.highestRung is not 1-4`);
+  if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-3`);
+  if (!isRung(row.highestRung)) throw new Error(`${where}.highestRung is not 1-3`);
   if ((row.rung as number) > (row.highestRung as number)) {
     throw new Error(`${where}.rung is above its highestRung`);
   }
   if (!isObj(row.cards)) throw new Error(`${where}.cards is not an object`);
   for (const [key, card] of Object.entries(row.cards)) {
     if (String(Number(key)) !== key || !isRung(Number(key)))
-      throw new Error(`${where}.cards has the key "${key}", not 1-4`);
+      throw new Error(`${where}.cards has the key "${key}", not 1-3`);
     checkCard(card, `${where}.cards.${key}`);
   }
   if (!(String(row.rung) in row.cards)) throw new Error(`${where}.cards has no card for its rung`);
-  if (!Array.isArray(row.l4PassDays) || !row.l4PassDays.every(isDayKey)) {
-    throw new Error(`${where}.l4PassDays is not an array of YYYY-MM-DD strings`);
+  if (!Array.isArray(row.l3PassDays) || !row.l3PassDays.every(isDayKey)) {
+    throw new Error(`${where}.l3PassDays is not an array of YYYY-MM-DD strings`);
   }
-  if (new Set(row.l4PassDays).size !== row.l4PassDays.length) {
-    throw new Error(`${where}.l4PassDays has a repeated day`);
+  if (new Set(row.l3PassDays).size !== row.l3PassDays.length) {
+    throw new Error(`${where}.l3PassDays has a repeated day`);
   }
-  if (row.l4PassDays.length > 0 && row.highestRung !== 4) {
-    throw new Error(`${where}.l4PassDays has days but highestRung is not 4`);
+  if (row.l3PassDays.length > 0 && row.highestRung !== 3) {
+    throw new Error(`${where}.l3PassDays has days but highestRung is not 3`);
   }
-  if (typeof row.inL4Lapse !== 'boolean') throw new Error(`${where}.inL4Lapse is not a boolean`);
+  if (typeof row.inL3Lapse !== 'boolean') throw new Error(`${where}.inL3Lapse is not a boolean`);
   if (row.introducedAt !== null && !isEpochMs(row.introducedAt)) {
     throw new Error(`${where}.introducedAt is not an epoch-ms number or null`);
   }
@@ -104,8 +106,8 @@ function checkAnswer(row: unknown, index: number) {
     throw new Error(`${where}.id is not an integer from 1 to 2^52`);
   }
   if (typeof row.itemId !== 'string') throw new Error(`${where}.itemId is not a string`);
-  if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-4`);
-  if (!isRung(row.rating)) throw new Error(`${where}.rating is not 1-4`);
+  if (!isRung(row.rung)) throw new Error(`${where}.rung is not 1-3`);
+  if (!isRating(row.rating)) throw new Error(`${where}.rating is not 1-4`);
   if (typeof row.correct !== 'boolean') throw new Error(`${where}.correct is not a boolean`);
   if (!isNum(row.timeMs)) throw new Error(`${where}.timeMs is not a number`);
   if (!isEpochMs(row.at)) throw new Error(`${where}.at is not an epoch-ms number`);
@@ -124,31 +126,27 @@ function checkUnique(keys: (string | number)[], what: string) {
 }
 
 /**
- * Checks a parsed progress file (version 1 or 2) and returns it typed. A version-2 file comes back
- * as the same object; a version-1 file as a copy normalised to version 2 with no placement
- * markers. Throws an `Error` naming the first problem.
+ * Checks a parsed progress file and returns it typed, as the same object. Only the current
+ * version is accepted: earlier versions follow the old four-rung ladder. Throws an `Error` naming
+ * the first problem.
  */
 export function validateProgressFile(parsed: unknown): ProgressFile {
   if (!isObj(parsed)) throw new Error('The file is not a progress export');
   if (parsed.format !== FILE_FORMAT) throw new Error(`Wrong format: expected "${FILE_FORMAT}"`);
-  if (parsed.version !== FILE_VERSION && parsed.version !== 1) throw new Error(`Unsupported version: ${String(parsed.version)}`);
+  if (parsed.version !== FILE_VERSION) throw new Error(`Unsupported version: ${String(parsed.version)}`);
   if (typeof parsed.exportedAt !== 'string' || !isEpochMs(Date.parse(parsed.exportedAt))) {
     throw new Error('exportedAt is not a date string');
   }
   if (!Array.isArray(parsed.progress)) throw new Error('progress is not an array');
   if (!Array.isArray(parsed.answers)) throw new Error('answers is not an array');
-  if (parsed.version === FILE_VERSION) {
-    const done = parsed.placementsDone;
-    if (!Array.isArray(done) || !done.every(isPlacementKey)) {
-      throw new Error('placementsDone is not an array of placement keys');
-    }
-    checkUnique(done as string[], 'placement markers');
+  const done = parsed.placementsDone;
+  if (!Array.isArray(done) || !done.every(isPlacementKey)) {
+    throw new Error('placementsDone is not an array of placement keys');
   }
+  checkUnique(done as string[], 'placement markers');
   parsed.progress.forEach(checkProgress);
   parsed.answers.forEach(checkAnswer);
-  const file = (
-    parsed.version === 1 ? { ...parsed, version: FILE_VERSION, placementsDone: [] } : parsed
-  ) as unknown as ProgressFile;
+  const file = parsed as unknown as ProgressFile;
   checkUnique(
     file.progress.map((row) => row.itemId),
     'progress rows (itemId)',

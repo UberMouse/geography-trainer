@@ -15,7 +15,7 @@ import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
 
 const DEFAULT_ITEM = 'country:france';
-const RUNGS: Rung[] = [1, 2, 3, 4];
+const RUNGS: Rung[] = [1, 2, 3];
 const TIERS: Tier[] = ['country', 'region', 'place'];
 
 const parseRung = (text: string | null): Rung => {
@@ -45,7 +45,7 @@ function hashOf(text: string): number {
 }
 
 /**
- * Dev-only: run one exercise. The item and rung live in the URL (`?item=<id>&rung=<1-4>`, and the
+ * Dev-only: run one exercise. The item and rung live in the URL (`?item=<id>&rung=<1-3>`, and the
  * globes start from `?view=`), so e2e can open any question directly.
  */
 export default function ExercisePlayground({

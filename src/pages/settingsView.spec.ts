@@ -47,10 +47,11 @@ describe('checkImportText', () => {
   it('summarises both sides of a valid file', async () => {
     await repo.importProgress({
       format: 'geography-trainer-progress',
-      version: 1,
+      version: 3,
       exportedAt: NOW.toISOString(),
       progress: [started('country:france'), started('country:peru')],
       answers: [],
+      placementsDone: [],
     });
     const text = JSON.stringify(await repo.exportProgress(NOW));
     const here = { 'country:chad': started('country:chad') };
@@ -93,10 +94,11 @@ describe('checkImportText', () => {
     };
     const file = JSON.stringify({
       format: 'geography-trainer-progress',
-      version: 1,
+      version: 3,
       exportedAt: NOW.toISOString(),
       progress: [started('country:france')],
       answers: [],
+      placementsDone: [],
     });
     const result = checkImportText(file, here, 0);
     expect(result.ok && result.summary.here).toEqual({ countries: 1, regions: 1, places: 1 });

@@ -8,7 +8,7 @@ const PROMPT = {
   place: 'Which place is marked?',
 } as const;
 
-/** L2: the item in context (see `HighlightPicture`) to name from the options. */
+/** L1: the item in context (see `HighlightPicture`) to name from the options. */
 export default function HighlightExercise(props: ExerciseProps) {
   const { item } = props;
   return (

@@ -4,7 +4,7 @@ import TapQuestion from './TapQuestion';
 import type { ExerciseProps } from './types';
 
 /**
- * L3: tap the named item on a bordered map: a country on the bordered globe; a region or place on
+ * L2: tap the named item on a bordered map: a country on the bordered globe; a region or place on
  * its country's map with region borders (the bordered globe when it is outside that map,
  * `onGlobe`).
  */

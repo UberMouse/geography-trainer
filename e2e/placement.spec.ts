@@ -10,7 +10,7 @@ const done = (page: Page) => page.getByRole('heading', { name: 'Placement done' 
 /** Answers the current placement question and waits for the reveal. */
 async function answerCurrent(page: Page, isMobile: boolean) {
   const q = await current(page, TEST_ID);
-  expect(q.rung).toBe(4);
+  expect(q.rung).toBe(3);
   await answer(page, isMobile, q);
 }
 

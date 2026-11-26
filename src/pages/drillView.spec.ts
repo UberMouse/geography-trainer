@@ -36,15 +36,15 @@ const regions = [
 ];
 const curriculum = buildCurriculum(countries, regions, places);
 
-// Mastered: L4 passed on two different days.
+// Mastered: L3 passed on two different days.
 const mastered = (itemId: string): ItemProgress =>
   ({
     itemId,
-    rung: 4,
-    highestRung: 4,
+    rung: 3,
+    highestRung: 3,
     cards: {},
-    l4PassDays: ['2026-01-10', '2026-01-20'],
-    inL4Lapse: false,
+    l3PassDays: ['2026-01-10', '2026-01-20'],
+    inL3Lapse: false,
     introducedAt: 1,
   }) as unknown as ItemProgress;
 

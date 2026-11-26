@@ -16,30 +16,29 @@ export interface ExerciseItem {
   /** A country or region: its feature and answer point; a place: its point. */
   target: TapTarget;
   /**
-   * The features the L2 and L3 maps draw: every country for a country; for a region or place,
+   * The features the L1 and L2 maps draw: every country for a country; for a region or place,
    * its country's regions, or the country alone when it has no regions tier.
    */
   context: IdentifiedFeature[];
   /**
    * Every other same-tier item a wrong option may be drawn from (see `buildExerciseItem`). It may
    * be empty: a region whose country has no other region with places has none, so a session
-   * should not ask such an item at a multiple-choice rung (L1, L2).
+   * should not ask such an item at L1, the multiple-choice rung.
    */
   candidates: Candidate[];
-  /** What L1 outlines: the target, or a place's region (its country when it has no regions). */
-  outline: AreaFeature;
   /** The country's main part, which the flat maps fit to. */
   frame: AreaFeature;
   /** Every country, with the item's country drawn as its regions when it has them: the globes. */
   world: IdentifiedFeature[];
   /**
-   * A region or place outside its country's flat map (France's Réunion, Alaska): L2 and L3 show
+   * A region or place outside its country's flat map (France's Réunion, Alaska): L1 and L2 show
    * it on the globe instead.
    */
   onGlobe: boolean;
   /**
-   * A point-only country (no area of its own) or a place in one: its outline is a featureless
-   * disc, so L1 shows the marked globe instead (and a place has `onGlobe` set).
+   * A point-only country (no area of its own) or a place in one: L1 zooms its globe to the
+   * neighbourhood, and a place has `onGlobe` set because its country's flat map is a featureless
+   * disc.
    */
   pointOnly: boolean;
 }
@@ -73,6 +72,6 @@ export interface ExerciseProps {
   onAnswer: (result: ExerciseResult) => void;
   /** Called when the learner presses Next after the reveal. */
   onNext: () => void;
-  /** Where the L3 and L4 globes start (default `NEUTRAL_VIEW`). */
+  /** Where the L2 and L3 globes start (default `NEUTRAL_VIEW`). */
   initialView?: GlobeView;
 }

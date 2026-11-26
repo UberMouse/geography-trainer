@@ -25,7 +25,6 @@ describe('buildExerciseItem: a country', () => {
     });
     expect(item.context).toBe(COUNTRIES.features);
     expect(item.world).toBe(COUNTRIES.features);
-    expect(item.outline).toBe(COUNTRIES.features[0]);
     expect(item.onGlobe).toBe(false);
   });
 });
@@ -36,7 +35,6 @@ describe('buildExerciseItem: a region', () => {
   it('targets the region on its country’s regions', () => {
     expect(north).toMatchObject({ tier: 'region', name: 'North', countryId: 'country:alpha' });
     expect(north.context).toBe(ALPHA_REGIONS.features);
-    expect(north.outline.id).toBe('alpha.north');
     expect(north.onGlobe).toBe(false);
   });
 
@@ -70,11 +68,10 @@ describe('buildExerciseItem: a region', () => {
 });
 
 describe('buildExerciseItem: a place', () => {
-  it('targets the point and outlines its region', () => {
+  it('targets the point on its region’s country', () => {
     const n1 = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
     expect(n1).toMatchObject({ tier: 'place', name: 'N1', countryId: 'country:alpha' });
     expect(n1.target).toEqual({ point: [2, 47] });
-    expect(n1.outline.id).toBe('alpha.north');
     expect(n1.context).toBe(ALPHA_REGIONS.features);
     expect(n1.onGlobe).toBe(false);
   });
@@ -105,9 +102,8 @@ describe('buildExerciseItem: a place', () => {
     expect(ids(n1.candidates)).toEqual(['place:i1', 'place:n2', 'place:n4', 'place:s1']);
   });
 
-  it('outlines a place in a country without regions with the country, on the country alone', () => {
+  it('draws a place in a country without regions on the country alone', () => {
     const b1 = buildExerciseItem('place:b1', DATA);
-    expect(b1.outline.id).toBe('beta');
     expect(ids(b1.context)).toEqual(['beta']);
     expect(b1.world).toBe(COUNTRIES.features);
   });

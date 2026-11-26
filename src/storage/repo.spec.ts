@@ -28,10 +28,16 @@ beforeEach(() => {
 });
 afterEach(() => repo.close());
 
-/** A repo holding two progress rows (one with an L3 card and last_review) and three answers. */
+/**
+ * A repo holding two progress rows and three answers. One row climbed to L3, passed it, then
+ * lapsed: it has an L3 pass day and `inL3Lapse` set.
+ */
 async function seed() {
   const a = answered('country:france');
-  const b = applyAnswer(answered('country:peru'), 2, Rating.Good, new Date(NOW.getTime() + 1000), '2026-03-04');
+  const later = (s: number) => new Date(NOW.getTime() + s * 1000);
+  let b = applyAnswer(answered('country:peru'), 2, Rating.Good, later(1), '2026-03-04');
+  b = applyAnswer(b, 3, Rating.Good, later(2), '2026-03-04');
+  b = applyAnswer(b, 3, Rating.Again, later(3), '2026-03-04');
   await repo.recordAnswer({ progress: a, answer: answerRow(a.itemId, { km: 12.5, maptapScore: 99 }) });
   await repo.recordAnswer({ progress: b, answer: answerRow(b.itemId, { rung: 2, correct: false, rating: 1 }) });
   await repo.recordAnswer({ progress: b, answer: answerRow(b.itemId) });
@@ -65,8 +71,9 @@ describe('export and import', () => {
     await seed();
     const before = await repo.exportProgress(NOW);
     expect(before.format).toBe('geography-trainer-progress');
-    expect(before.version).toBe(2);
+    expect(before.version).toBe(3);
     expect(before.placementsDone).toEqual([]);
+    expect(before.progress[1]).toMatchObject({ rung: 2, highestRung: 3, l3PassDays: ['2026-03-04'], inL3Lapse: true });
     expect(before.exportedAt).toBe(NOW.toISOString());
     expect(before.progress).toHaveLength(2);
     expect(before.answers).toHaveLength(3);
@@ -103,20 +110,23 @@ describe('import rejection leaves the database unchanged', () => {
   type Mutate = (file: Record<string, any>) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
   const cases: [string, Mutate, RegExp][] = [
     ['a wrong format', (f) => (f.format = 'other'), /format/],
-    ['an unsupported version', (f) => (f.version = 3), /version/],
+    ['an unsupported version', (f) => (f.version = 4), /version/],
+    ['a version-2 file', (f) => (f.version = 2), /Unsupported version: 2/],
     ['a non-array progress', (f) => (f.progress = {}), /progress is not an array/],
     ['a non-array answers', (f) => (f.answers = 'x'), /answers is not an array/],
     ['a progress row without itemId', (f) => delete f.progress[0].itemId, /itemId/],
-    ['a progress rung of 5', (f) => (f.progress[0].rung = 5), /rung/],
+    ['a progress rung of 4', (f) => (f.progress[0].rung = 4), /progress\[0\]\.rung is not 1-3/],
+    ['a progress highestRung of 4', (f) => (f.progress[0].highestRung = 4), /progress\[0\]\.highestRung is not 1-3/],
+    ['a card key of 4', (f) => (f.progress[0].cards[4] = f.progress[0].cards[1]), /progress\[0\]\.cards has the key "4"/],
     ['a progress highestRung of 0', (f) => (f.progress[0].highestRung = 0), /highestRung/],
     ['a non-object cards', (f) => (f.progress[0].cards = []), /cards/],
     ['a card key of 7', (f) => (f.progress[0].cards[7] = f.progress[0].cards[1]), /cards/],
     ['a card with a string due', (f) => (f.progress[0].cards[1].due = '2026'), /due/],
     ['a card without reps', (f) => delete f.progress[0].cards[1].reps, /reps/],
     ['a card with a string last_review', (f) => (f.progress[0].cards[1].last_review = 'x'), /last_review/],
-    ['no card for the rung', (f) => ((f.progress[0].rung = 4), (f.progress[0].highestRung = 4)), /no card for its rung/],
-    ['l4PassDays holding a number', (f) => (f.progress[0].l4PassDays = [1]), /l4PassDays/],
-    ['a non-boolean inL4Lapse', (f) => (f.progress[0].inL4Lapse = 0), /inL4Lapse/],
+    ['no card for the rung', (f) => ((f.progress[0].rung = 3), (f.progress[0].highestRung = 3)), /no card for its rung/],
+    ['l3PassDays holding a number', (f) => (f.progress[0].l3PassDays = [1]), /l3PassDays/],
+    ['a non-boolean inL3Lapse', (f) => (f.progress[0].inL3Lapse = 0), /inL3Lapse/],
     ['an undefined introducedAt', (f) => delete f.progress[0].introducedAt, /introducedAt/],
     ['an exportedAt that is not a date', (f) => (f.exportedAt = 'yesterday'), /exportedAt/],
     [
@@ -129,11 +139,11 @@ describe('import rejection leaves the database unchanged', () => {
       /rung is above its highestRung/,
     ],
     ['a card key of "01"', (f) => (f.progress[0].cards['01'] = f.progress[0].cards[1]), /cards has the key "01"/],
-    ['l4PassDays that is not a date', (f) => (f.progress[0].l4PassDays = ['today']), /l4PassDays/],
+    ['l3PassDays that is not a date', (f) => (f.progress[0].l3PassDays = ['today']), /l3PassDays/],
     [
-      'l4PassDays with a repeated day',
-      (f) => (f.progress[0].l4PassDays = ['2026-01-01', '2026-01-01']),
-      /l4PassDays has a repeated day/,
+      'l3PassDays with a repeated day',
+      (f) => (f.progress[0].l3PassDays = ['2026-01-01', '2026-01-01']),
+      /l3PassDays has a repeated day/,
     ],
     ['a fractional reps', (f) => (f.progress[0].cards[1].reps = 1.5), /reps/],
     ['a negative lapses', (f) => (f.progress[0].cards[1].lapses = -1), /lapses/],
@@ -143,7 +153,9 @@ describe('import rejection leaves the database unchanged', () => {
     ['an answer id of 0', (f) => (f.answers[0].id = 0), /answers\[0\]\.id/],
     ['a fractional answer id', (f) => (f.answers[0].id = 1.5), /answers\[0\]\.id/],
     ['an answer without id', (f) => delete f.answers[0].id, /id/],
-    ['an answer rating of 0', (f) => (f.answers[0].rating = 0), /rating/],
+    ['an answer rating of 0', (f) => (f.answers[0].rating = 0), /answers\[0\]\.rating is not 1-4/],
+    ['an answer rating of 5', (f) => (f.answers[0].rating = 5), /answers\[0\]\.rating is not 1-4/],
+    ['an answer rung of 4', (f) => (f.answers[0].rung = 4), /answers\[0\]\.rung is not 1-3/],
     ['an answer rung of 9', (f) => (f.answers[0].rung = 9), /rung/],
     ['a string correct', (f) => (f.answers[0].correct = 'yes'), /correct/],
     ['a string timeMs', (f) => (f.answers[0].timeMs = '5'), /timeMs/],
@@ -152,11 +164,13 @@ describe('import rejection leaves the database unchanged', () => {
     ['a missing dayKey', (f) => delete f.answers[0].dayKey, /dayKey/],
     ['an answer dayKey of "yesterday"', (f) => (f.answers[0].dayKey = 'yesterday'), /dayKey/],
     ['an answer dayKey of 2026-13-45', (f) => (f.answers[0].dayKey = '2026-13-45'), /dayKey/],
-    ['l4PassDays with an impossible date', (f) => (f.progress[0].l4PassDays = ['2026-02-30']), /l4PassDays/],
+    ['l3PassDays with an impossible date', (f) => (f.progress[0].l3PassDays = ['2026-02-30']), /l3PassDays/],
     [
-      'l4PassDays with days at highestRung 1',
-      (f) => ((f.progress[0].rung = 1), (f.progress[0].highestRung = 1), (f.progress[0].l4PassDays = ['2026-01-01'])),
-      /l4PassDays/,
+      'l3PassDays with days at highestRung 2',
+      (f) => (
+        (f.progress[1].rung = 2), (f.progress[1].highestRung = 2), delete f.progress[1].cards[3]
+      ),
+      /progress\[1\]\.l3PassDays has days but highestRung is not 3/,
     ],
     ['an introducedAt of 1e20', (f) => (f.progress[0].introducedAt = 1e20), /introducedAt/],
     ['a card due of 1e20', (f) => (f.progress[0].cards[1].due = 1e20), /due/],
@@ -200,10 +214,11 @@ describe('validated boundary cards', () => {
     const fresh = createProgress('country:peru', NOW);
     const file = {
       format: 'geography-trainer-progress',
-      version: 1,
+      version: 3,
       exportedAt: NOW.toISOString(),
       progress: [bounds, fresh],
       answers: [],
+      placementsDone: [],
     };
     const { progress } = validateProgressFile(JSON.parse(JSON.stringify(file)));
     for (const row of progress) {
@@ -399,7 +414,7 @@ describe('a malformed marker row', () => {
   });
 });
 
-describe('export version 2 and import', () => {
+describe('export version 3 and import', () => {
   it('round-trips the markers, replacing the markers already stored', async () => {
     await seed();
     await repo.finishPlacement(placementKey('countries'), []);
@@ -411,15 +426,20 @@ describe('export version 2 and import', () => {
     expect(await repo.exportProgress(NOW)).toEqual(before);
   });
 
-  it('a version-1 file still imports, replacing the markers with none', async () => {
-    await repo.finishPlacement(placementKey('countries'), []);
-    const v1 = { format: 'geography-trainer-progress', version: 1, exportedAt: NOW.toISOString(), progress: [answered('country:chad')], answers: [] };
-    await repo.importProgress(v1);
-    const after = await repo.exportProgress(NOW);
-    expect(after.version).toBe(2);
-    expect(after.placementsDone).toEqual([]);
-    expect(after.progress).toEqual(v1.progress);
-    expect(validateProgressFile(v1)).toMatchObject({ version: 2, placementsDone: [] });
+  it.each([1, 2])('rejects a version-%i file, leaving the data unchanged', async (version) => {
+    await seed();
+    const good = await repo.exportProgress(NOW);
+    const old = { format: 'geography-trainer-progress', version, exportedAt: NOW.toISOString(), progress: [answered('country:chad')], answers: [], placementsDone: [] };
+    await expect(repo.importProgress(old)).rejects.toThrow(`Unsupported version: ${version}`);
+    expect(await repo.exportProgress(NOW)).toEqual(good);
+  });
+
+  it('accepts an answer rated 4 (Easy)', async () => {
+    await seed();
+    const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
+    file.answers[0].rating = Rating.Easy;
+    await repo.importProgress(file);
+    expect((await repo.exportProgress(NOW)).answers[0]?.rating).toBe(4);
   });
 
   it.each([
@@ -430,7 +450,7 @@ describe('export version 2 and import', () => {
     ['holding an empty region part', ['placement:region:us.']],
     ['holding an empty country id', ['placement:country:']],
     ['holding a duplicate', ['placement:countries', 'placement:countries']],
-  ])('rejects a version-2 file whose placementsDone is %s, leaving the data unchanged', async (_, value) => {
+  ])('rejects a version-3 file whose placementsDone is %s, leaving the data unchanged', async (_, value) => {
     await seed();
     const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
     file.placementsDone = value;

@@ -214,7 +214,7 @@ export function placementSeeds(
 
 /**
  * Whether the item has been studied: answered in a study session. That is `introducedAt` set, or
- * a card past one rep. A passed placement seed is built at L4 with one rep and keeps
+ * a card past one rep. A passed placement seed is built at L3 with one rep and keeps
  * `introducedAt` null (setting it would count the seed against the daily new-item cap), so its
  * first answer in a session shows only as a second rep. A placement seed alone is not studied.
  */

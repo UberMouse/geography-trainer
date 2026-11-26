@@ -5,7 +5,7 @@ export const REGIONS_TIER_MIN_REGIONS = 4;
 /** ...and it has at least this many places. */
 export const REGIONS_TIER_MIN_PLACES = 15;
 
-// Multiple-choice grading (L1, L2), in milliseconds.
+// Multiple-choice grading (L1, the only multiple-choice rung), in milliseconds.
 /** A correct answer faster than this is Easy. */
 export const MC_FAST_MS = 4_000;
 /** A correct answer slower than this is Hard. */
@@ -15,7 +15,7 @@ export const MC_SLOW_MS = 12_000;
 export const MAPTAP_SCORE_KM = 16_250;
 export const MAPTAP_SCORE_DECAY = 3.5;
 
-// Tap grading.
+// Tap grading (L2 and L3).
 /** Inside a country/region: Easy when within this fraction of the feature size of the answer. */
 export const TAP_EASY_FRACTION = 0.25;
 /** Outside a country: Hard when within this many km of its border, else Again. */
@@ -30,9 +30,9 @@ export const PLACE_GOOD_KM = 75;
 export const PLACE_HARD_KM = 200;
 
 // Spaced repetition and the exercise ladder.
-/** An item is mastered once it has passed L4 on this many different local days. */
+/** An item is mastered once it has passed L3 on this many different local days. */
 export const MASTERY_DISTINCT_DAYS = 2;
-/** Stability, in days, of the L4 card a placement test seeds for an item the learner passed. */
+/** Stability, in days, of the L3 card a placement test seeds for an item the learner passed. */
 export const PLACEMENT_SEED_STABILITY_DAYS = 2;
 
 // Sessions.

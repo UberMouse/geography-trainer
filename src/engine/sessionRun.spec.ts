@@ -61,14 +61,14 @@ describe('sessionRun', () => {
     const atL1 = answer(startRun(queueOf(5)), atRung(1), Rating.Again);
     expect(atL1.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 1 });
     expect(atL1.correctInRound).toBe(0);
-    const atL3 = answer(startRun([q(0, 3), q(1), q(2), q(3), q(4)]), atRung(3), Rating.Again);
-    expect(atL3.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 2 });
+    const atL2 = answer(startRun([q(0, 2), q(1), q(2), q(3), q(4)]), atRung(2), Rating.Again);
+    expect(atL2.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 1 });
   });
 
-  it('does not re-queue an L4 pass or an L3 Hard near-miss', () => {
-    const l4 = answer(startRun([q(0, 4), q(1), q(2)]), atRung(4), Rating.Good);
-    expect(ids(l4)).toEqual(['1', '2']);
-    const hard = answer(startRun([q(0, 3), q(1), q(2)]), atRung(3), Rating.Hard);
+  it('does not re-queue an L3 pass or an L2 Hard near-miss', () => {
+    const l3 = answer(startRun([q(0, 3), q(1), q(2)]), atRung(3), Rating.Good);
+    expect(ids(l3)).toEqual(['1', '2']);
+    const hard = answer(startRun([q(0, 2), q(1), q(2)]), atRung(2), Rating.Hard);
     expect(ids(hard)).toEqual(['1', '2']);
     expect(hard.correctInRound).toBe(1);
   });
@@ -102,10 +102,10 @@ describe('sessionRun', () => {
   });
 
   it('ends a round after SESSION_ROUND_SIZE answers while questions remain, and keep going resets', () => {
-    let run = startRun(queueOf(25, 4));
+    let run = startRun(queueOf(25, 3));
     for (let i = 0; i < SESSION_ROUND_SIZE; i++) {
       expect(roundEnded(run)).toBe(false);
-      run = answer(run, atRung(4), Rating.Good);
+      run = answer(run, atRung(3), Rating.Good);
     }
     expect(roundEnded(run)).toBe(true);
     expect(questionsRemain(run)).toBe(true);
@@ -117,24 +117,24 @@ describe('sessionRun', () => {
   });
 
   it('ends a round when the queue empties, with nothing remaining', () => {
-    let run = startRun([q(0, 4), q(1, 4)]);
-    run = answer(run, atRung(4), Rating.Good);
+    let run = startRun([q(0, 3), q(1, 3)]);
+    run = answer(run, atRung(3), Rating.Good);
     expect(roundEnded(run)).toBe(false);
-    run = answer(run, atRung(4), Rating.Again);
+    run = answer(run, atRung(3), Rating.Again);
     expect(roundEnded(run)).toBe(false);
     expect(run.queue).toHaveLength(1);
-    // The lapsed item is back at L3; a Hard there is a near-miss that stays put.
-    run = answer(run, atRung(3), Rating.Hard);
+    // The lapsed item is back at L2; a Hard there is a near-miss that stays put.
+    run = answer(run, atRung(2), Rating.Hard);
     expect(roundEnded(run)).toBe(true);
     expect(questionsRemain(run)).toBe(false);
   });
 
   it('lets a re-queue grow the displayed total up to the round size, never past it', () => {
-    // An L4 Again re-queues: 1 answered + 2 remaining + the item itself = 4.
-    const small = answer(startRun([q(0, 4), q(1, 4), q(2, 4)]), atRung(4), Rating.Again);
+    // An L3 Again re-queues: 1 answered + 2 remaining + the item itself = 4.
+    const small = answer(startRun([q(0, 3), q(1, 3), q(2, 3)]), atRung(3), Rating.Again);
     expect(small.roundTotal).toBe(4);
-    // An L4 pass re-queues nothing: the total stays answered + remaining = 3.
-    const shrunk = answer(startRun([q(0, 4), q(1, 4), q(2, 4)]), atRung(4), Rating.Good);
+    // An L3 pass re-queues nothing: the total stays answered + remaining = 3.
+    const shrunk = answer(startRun([q(0, 3), q(1, 3), q(2, 3)]), atRung(3), Rating.Good);
     expect(shrunk.roundTotal).toBe(3);
     // 19 queued, a climb re-queues: 1 answered + 19 remaining = 20, capped at the round size.
     expect(answer(startRun(queueOf(19)), atRung(1), Rating.Good).roundTotal).toBe(20);

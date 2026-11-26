@@ -11,7 +11,6 @@ import {
   answerPoint,
   mainPart,
   nearPoint,
-  type AreaFeature,
   type IdentifiedFeature,
   type LngLat,
 } from '../maps/geo';
@@ -81,7 +80,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         pointRecord(country, nearPoint(country)),
         features.map((f) => pointRecord(f, nearPoint(f))),
       ),
-      outline: country,
       frame: mainPart(country),
       world: features,
       onGlobe: false,
@@ -120,7 +118,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
           places: f.properties.places,
         })),
       ),
-      outline: region,
       frame,
       world: worldWith(country, regions.features),
       onGlobe: !inFlatFrame(frame, answer),
@@ -139,7 +136,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     }
     const point: LngLat = [place.lng, place.lat];
     const frame = mainPart(country);
-    const outline: AreaFeature = region ?? country;
     const pointOnly = country.properties.pointOnly === true;
     return {
       id: itemId,
@@ -149,7 +145,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       target: { point },
       context: regionFeatures.length > 0 ? regionFeatures : [country],
       candidates: placeCandidates(place, data.places),
-      outline,
       frame,
       world: worldWith(country, regionFeatures),
       // A point-only country's flat map is its featureless disc: show its places on the globe.

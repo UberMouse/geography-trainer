@@ -24,18 +24,18 @@ export async function current(page: Page, testId = 'session-question') {
 }
 
 /**
- * Answers the current question: the named option for a choice question (L1, L2), the globe's centre
- * plus Confirm for a tap (L3, L4); then waits for the reveal.
+ * Answers the current question: the named option for the choice question (L1), the globe's centre
+ * plus Confirm for a tap (L2, L3); then waits for the reveal.
  */
 export async function answer(page: Page, isMobile: boolean, q: { name: string; rung: number }) {
-  if (q.rung <= 2) {
+  if (q.rung === 1) {
     await page
       .getByRole('group', { name: 'Options' })
       .getByRole('button', { name: q.name, exact: true })
       .click();
   } else {
     const canvas = page.getByRole('img', {
-      name: q.rung === 3 ? 'Bordered globe' : 'Bare globe',
+      name: q.rung === 2 ? 'Bordered globe' : 'Bare globe',
       exact: true,
     });
     await expect(canvas).toHaveAttribute('data-rotation', /.+/, WAIT);
@@ -51,7 +51,7 @@ export const next = (page: Page) => page.getByRole('button', { name: 'Next' }).c
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** A progress file in which `country:united-states` is mastered (L4 passed on two different days). */
+/** A progress file in which `country:united-states` is mastered (L3 passed on two different days). */
 export async function writeMasteredUnitedStates(path: string) {
   const now = Date.now();
   const card = {
@@ -67,19 +67,20 @@ export async function writeMasteredUnitedStates(path: string) {
   };
   const progress = {
     itemId: 'country:united-states',
-    rung: 4,
-    highestRung: 4,
-    cards: { 4: card },
-    l4PassDays: ['2026-01-10', '2026-01-20'],
-    inL4Lapse: false,
+    rung: 3,
+    highestRung: 3,
+    cards: { 3: card },
+    l3PassDays: ['2026-01-10', '2026-01-20'],
+    inL3Lapse: false,
     introducedAt: now - 60 * DAY,
   };
   const file = {
     format: 'geography-trainer-progress',
-    version: 1,
+    version: 3,
     exportedAt: new Date(now).toISOString(),
     progress: [progress],
     answers: [],
+    placementsDone: [],
   };
   await writeFile(path, JSON.stringify(file));
 }

@@ -28,7 +28,7 @@ const started = (id: string): ItemProgress =>
 describe('offersPlacement', () => {
   it('offers while no item has been started', () => {
     expect(offersPlacement(curriculum, {})).toBe(true);
-    // A row with no answered card (a fresh or L3-seeded record) is not a started item.
+    // A row with no answered card (a fresh or L2-seeded record) is not a started item.
     expect(offersPlacement(curriculum, { 'country:france': createProgress('country:france', NOW) })).toBe(true);
   });
 
@@ -46,7 +46,7 @@ describe('offersPlacement', () => {
 
   it('stops offering once a passed seed is answered in a session', () => {
     const seed = seedFromPlacement('country:france', 'passed', NOW, '2026-03-04');
-    const studied = applyAnswer(seed, 4, 3, NOW, '2026-03-04');
+    const studied = applyAnswer(seed, 3, 3, NOW, '2026-03-04');
     expect(offersPlacement(curriculum, { 'country:france': studied })).toBe(false);
   });
 

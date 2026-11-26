@@ -33,14 +33,14 @@ function answered(itemId: string, at: Date): ItemProgress {
   return applyAnswer(createProgress(itemId, at), 1, Rating.Good, at, localDayKey(at, 0));
 }
 
-/** Passed L4 on two different days: mastered. */
+/** Passed L3 on two different days: mastered. */
 function mastered(itemId: string, start: Date): ItemProgress {
   let p = createProgress(itemId, start);
-  for (let day = 0; day < 40 && p.l4PassDays.length < 2; day++) {
+  for (let day = 0; day < 40 && p.l3PassDays.length < 2; day++) {
     const now = new Date(start.getTime() + day * DAY);
     p = applyAnswer(p, p.rung, Rating.Good, now, localDayKey(now, 0));
   }
-  expect(p.l4PassDays.length).toBe(2);
+  expect(p.l3PassDays.length).toBe(2);
   return p;
 }
 

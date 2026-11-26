@@ -33,7 +33,7 @@ export interface SessionInput {
 /**
  * Due reviews first (`dueQuestions`). Then new items (`newItems`: no
  * progress, or progress never answered, such as a placement seed) in curriculum order, at most
- * `dailyCap - introducedToday`; each is asked at `dueRung` when it has progress (a seed at L3) and
+ * `dailyCap - introducedToday`; each is asked at `dueRung` when it has progress (a seed at L2) and
  * at L1 otherwise. No item appears twice. The result is then interleaved so no `SESSION_MAX_RUN + 1`
  * questions in a row share a rung whenever some ordering avoids that; otherwise its longest run is
  * the smallest any ordering can reach. Known trade-off: when the due

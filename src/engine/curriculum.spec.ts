@@ -20,14 +20,14 @@ import type { Country, Place, Region } from './types';
 const T0 = new Date('2026-03-01T00:00:00Z');
 const DAY = 86_400_000;
 
-/** An item that has passed L4 on two different days. */
+/** An item that has passed L3 on two different days. */
 function mastered(itemId: string): ItemProgress {
   let p = createProgress(itemId, T0);
-  for (let day = 0; day < 40 && p.l4PassDays.length < 2; day++) {
+  for (let day = 0; day < 40 && p.l3PassDays.length < 2; day++) {
     const now = new Date(T0.getTime() + day * DAY);
     p = applyAnswer(p, p.rung, Rating.Good, now, localDayKey(now, 0));
   }
-  expect(p.l4PassDays.length).toBeGreaterThanOrEqual(2);
+  expect(p.l3PassDays.length).toBeGreaterThanOrEqual(2);
   return p;
 }
 
@@ -190,7 +190,7 @@ describe('unlockedItems', () => {
   it('keeps children unlocked after a lapse on the mastered parent', () => {
     let p = mastered('country:tuvalu');
     p = applyAnswer(p, p.rung, Rating.Again, new Date(T0.getTime() + 50 * DAY), 'later');
-    expect(p.inL4Lapse).toBe(true);
+    expect(p.inL3Lapse).toBe(true);
     expect(ids(unlockedItems(fixture(), { 'country:tuvalu': p }))).toContain('place:funafuti');
   });
 

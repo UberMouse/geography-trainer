@@ -3,10 +3,10 @@ import { NEIGHBOURHOOD_VIEW_KM } from '../maps/view';
 import type { ExerciseItem } from './types';
 
 /**
- * The item in context, as L2 shows it: a country shaded on the globe; a region shaded, or a place
+ * The item in context, as L1 shows it: a country shaded on the globe; a region shaded, or a place
  * dotted, on its country's regions (on the globe when it is outside the country's flat map,
  * `onGlobe`). A point-only item's globe is zoomed to its neighbourhood, to tell it from the
- * options beside it. L1 shows it for a point-only country, whose outline is a featureless disc.
+ * options beside it.
  */
 export default function HighlightPicture({ item }: { item: ExerciseItem }) {
   const { target } = item;

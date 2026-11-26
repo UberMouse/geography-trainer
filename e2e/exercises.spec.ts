@@ -30,9 +30,11 @@ async function tap(page: Page, isMobile: boolean, x: number, y: number) {
 
 const confirm = (page: Page) => page.getByRole('button', { name: 'Confirm' });
 
-test.describe('L1 outline → name', () => {
+test.describe('L1 highlighted → name', () => {
   test('choosing the item is correct', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
+    await expect(page.getByText('Which country is highlighted?')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
     await expect(options(page)).toHaveCount(4);
     // The one status region is there, empty, before the answer, so the verdict is announced.
     await expect(verdict(page)).toHaveCount(1);
@@ -83,14 +85,14 @@ test.describe('L1 outline → name', () => {
   });
 });
 
-test.describe('L3 and L4 name → tap', () => {
-  test('L4: a tap on the answer point, confirmed, is correct with maptap 100', async ({
+test.describe('L2 and L3 name → tap', () => {
+  test('L3: a tap on the answer point of the bare globe, confirmed, is correct with maptap 100', async ({
     page,
     isMobile,
   }) => {
-    await openExercise(page, 'item=country:france&rung=4');
+    await openExercise(page, 'item=country:france&rung=3');
     const answer = await page.getByTestId('item-answer').textContent();
-    await openExercise(page, `item=country:france&rung=4&view=${answer},4`);
+    await openExercise(page, `item=country:france&rung=3&view=${answer},4`);
     const { cx, cy } = await globe(page, 'Bare globe');
     await expect(confirm(page)).toBeDisabled();
     await tap(page, isMobile, cx, cy);
@@ -102,8 +104,8 @@ test.describe('L3 and L4 name → tap', () => {
     await expect(page.getByTestId('last-score')).toHaveText('100');
   });
 
-  test('L3: a tap far from the country, confirmed, is incorrect', async ({ page, isMobile }) => {
-    await openExercise(page, 'item=country:france&rung=3&view=-150,-40,1');
+  test('L2: a tap on the bordered globe far from the country, confirmed, is incorrect', async ({ page, isMobile }) => {
+    await openExercise(page, 'item=country:france&rung=2&view=-150,-40,1');
     const { cx, cy } = await globe(page, 'Bordered globe');
     await tap(page, isMobile, cx, cy);
     await confirm(page).click();
@@ -114,7 +116,7 @@ test.describe('L3 and L4 name → tap', () => {
   });
 
   test('a tap after the answer changes nothing', async ({ page, isMobile }) => {
-    await openExercise(page, 'item=country:france&rung=3&view=-150,-40,1');
+    await openExercise(page, 'item=country:france&rung=2&view=-150,-40,1');
     const { cx, cy } = await globe(page, 'Bordered globe');
     await tap(page, isMobile, cx, cy);
     await confirm(page).click();
@@ -128,7 +130,7 @@ test.describe('L3 and L4 name → tap', () => {
   });
 
   test('Next starts a fresh question with no pin', async ({ page, isMobile }) => {
-    await openExercise(page, 'item=country:france&rung=4&view=-150,-40,1');
+    await openExercise(page, 'item=country:france&rung=3&view=-150,-40,1');
     const { cx, cy } = await globe(page, 'Bare globe');
     await tap(page, isMobile, cx, cy);
     await confirm(page).click();
@@ -140,9 +142,9 @@ test.describe('L3 and L4 name → tap', () => {
 });
 
 test.describe('L1 point-only country', () => {
-  test('shows the highlighted globe, not an outline', async ({ page }) => {
+  test('shows the highlighted globe', async ({ page }) => {
     await openExercise(page, 'item=country:saba&rung=1');
-    await expect(page.getByText('Which country is marked?')).toBeVisible();
+    await expect(page.getByText('Which country is highlighted?')).toBeVisible();
     await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
     await expect(options(page)).toHaveCount(4);
     await option(page, 'Saba').click();
@@ -151,27 +153,19 @@ test.describe('L1 point-only country', () => {
 
   test('a zero-area country shows the globe too', async ({ page }) => {
     await openExercise(page, 'item=country:vatican-city&rung=1');
-    await expect(page.getByText('Which country is marked?')).toBeVisible();
+    await expect(page.getByText('Which country is highlighted?')).toBeVisible();
     await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
   });
 
-  test('a place in a point-only country shows the globe, not an outline', async ({ page }) => {
+  test('a place in a point-only country shows the globe', async ({ page }) => {
     await openExercise(page, 'item=place:the_bottom_netherlands&rung=1');
     await expect(page.getByText('Which place is marked?')).toBeVisible();
     await expect(page.getByRole('img', { name: 'Highlight map' })).toBeVisible();
-    await expect(page.getByRole('img', { name: 'Outline' })).toHaveCount(0);
-  });
-
-  test('a tiny real polygon keeps its outline', async ({ page }) => {
-    await openExercise(page, 'item=country:tuvalu&rung=1');
-    await expect(page.getByText('Which country is this?')).toBeVisible();
-    await expect(page.getByRole('img', { name: 'Outline' })).toBeVisible();
-    await expect(page.getByRole('img', { name: 'Highlight map' })).toHaveCount(0);
   });
 });
 
 test.describe('phone width', () => {
-  for (const rung of [1, 2, 3, 4]) {
+  for (const rung of [1, 2, 3]) {
     for (const item of ['country:france', 'region:france.bretagne', 'place:honolulu_hawaii']) {
       test(`L${rung} ${item} has no horizontal scroll`, async ({ page }) => {
         await page.setViewportSize({ width: 360, height: 800 });

@@ -399,14 +399,14 @@ describe('placement staircase', () => {
 const T0 = new Date('2026-03-01T00:00:00Z');
 const DAY = 86_400_000;
 
-/** An item that has passed L4 on two different days. */
+/** An item that has passed L3 on two different days. */
 function mastered(itemId: string): ItemProgress {
   let p = createProgress(itemId, T0);
-  for (let day = 0; day < 40 && p.l4PassDays.length < 2; day++) {
+  for (let day = 0; day < 40 && p.l3PassDays.length < 2; day++) {
     const now = new Date(T0.getTime() + day * DAY);
     p = applyAnswer(p, p.rung, Rating.Good, now, localDayKey(now, 0));
   }
-  expect(p.l4PassDays.length).toBeGreaterThanOrEqual(2);
+  expect(p.l3PassDays.length).toBeGreaterThanOrEqual(2);
   return p;
 }
 
@@ -519,15 +519,15 @@ describe('isStudied', () => {
     }
   });
 
-  it('is true for a passed seed after one answer at rung 4, whatever the rating', () => {
+  it('is true for a passed seed after one answer at rung 3, whatever the rating', () => {
     const seed = seedFromPlacement('country:a', 'passed', T0, DAY);
-    expect(isStudied(applyAnswer(seed, 4, Rating.Good, T0, DAY))).toBe(true);
-    expect(isStudied(applyAnswer(seed, 4, Rating.Again, T0, DAY))).toBe(true);
+    expect(isStudied(applyAnswer(seed, 3, Rating.Good, T0, DAY))).toBe(true);
+    expect(isStudied(applyAnswer(seed, 3, Rating.Again, T0, DAY))).toBe(true);
   });
 
   it('is true for an untestedAtOrBelow seed after one answer', () => {
     const seed = seedFromPlacement('country:a', 'untestedAtOrBelow', T0, DAY);
-    expect(isStudied(applyAnswer(seed, 3, Rating.Good, T0, DAY))).toBe(true);
+    expect(isStudied(applyAnswer(seed, 2, Rating.Good, T0, DAY))).toBe(true);
   });
 });
 
@@ -558,7 +558,7 @@ describe('canTestOut', () => {
 
   it('is false once a passed-seed child has been studied', () => {
     const seed = seedFromPlacement('region:france.corse', 'passed', T0, '2026-03-04');
-    const studied = applyAnswer(seed, 4, Rating.Good, T0, '2026-03-04');
+    const studied = applyAnswer(seed, 3, Rating.Good, T0, '2026-03-04');
     expect(canTestOut(c, { ...masteredFrance, 'region:france.corse': studied }, 'country:france')).toBe(false);
   });
 
