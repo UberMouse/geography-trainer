@@ -150,6 +150,16 @@ export function isIntroduced(progress: ItemProgress): boolean {
   return Object.values(progress.cards).some((card) => card.reps > 0);
 }
 
+/**
+ * Whether the item has been studied: answered in a study session. That is `introducedAt` set, or
+ * a card past one rep. A passed or likely-known placement seed is built at L3 with one rep and
+ * keeps `introducedAt` null (setting it would count the seed against the daily new-item cap), so
+ * its first answer in a session shows only as a second rep. A placement seed alone is not studied.
+ */
+export function isStudied(progress: ItemProgress): boolean {
+  return progress.introducedAt !== null || Object.values(progress.cards).some((c) => c.reps > 1);
+}
+
 /** True once L3 has been passed on enough different days; a later lapse never undoes it. */
 export function isMastered(progress: ItemProgress): boolean {
   return progress.l3PassDays.length >= MASTERY_DISTINCT_DAYS;

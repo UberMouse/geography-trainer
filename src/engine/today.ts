@@ -3,7 +3,7 @@
 import { DAILY_NEW_CAP } from './config';
 import type { Curriculum } from './curriculum';
 import { buildSession, dueQuestions } from './session';
-import { isIntroduced, isMastered, localDayKey, type ItemProgress } from './srs';
+import { isMastered, isStudied, localDayKey, type ItemProgress } from './srs';
 
 type Progress = Readonly<Record<string, ItemProgress>>;
 
@@ -46,7 +46,7 @@ export function todayNumbers(
     const p = progress[id];
     if (!p) continue;
     if (isMastered(p)) learned++;
-    else if (isIntroduced(p)) learning++;
+    else if (isStudied(p)) learning++;
   }
   return {
     due: dueQuestions({ curriculum, progress, now }).length,

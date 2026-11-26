@@ -1,9 +1,9 @@
 import { Button, Stack, Text } from '@mantine/core';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import type { LngLat } from '../maps/geo';
 import { tapResult } from './result';
 import Reveal from './Reveal';
-import type { ExerciseProps } from './types';
+import type { ExerciseViewProps } from './Exercise';
 import { useQuestion } from './useQuestion';
 import { useQuestionGlobe } from './useQuestionGlobe';
 
@@ -19,7 +19,7 @@ export default function TapExercise({
   onNext,
   opening,
   note,
-}: ExerciseProps & { rung: 2 | 3; note?: ReactNode }) {
+}: ExerciseViewProps & { rung: 2 | 3 }) {
   const [pin, setPin] = useState<LngLat | null>(null);
   const { result, answer } = useQuestion(onAnswer);
   useQuestionGlobe({ item, rung, opening, pin, answered: result !== null, onTap: setPin });

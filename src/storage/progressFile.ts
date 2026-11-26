@@ -1,7 +1,7 @@
 // The export/import file format and the validation of a parsed file. Pure, no storage.
 
 import { S_MIN } from 'ts-fsrs';
-import { isIntroduced, type ItemProgress } from '../engine/srs';
+import { isStudied, type ItemProgress } from '../engine/srs';
 import type { AnswerRow } from './db';
 import { isPlacementKey } from './placementKeys';
 
@@ -173,13 +173,13 @@ export interface TierCounts {
 }
 
 /**
- * How many countries, regions and places have been started (answered at least once) among these
+ * How many countries, regions and places have been started (answered in a study session: a placement seed alone is not) among these
  * progress rows.
  */
 export function startedByTier(progress: Iterable<ItemProgress>): TierCounts {
   const counts: TierCounts = { countries: 0, regions: 0, places: 0 };
   for (const row of progress) {
-    if (!isIntroduced(row)) continue;
+    if (!isStudied(row)) continue;
     if (row.itemId.startsWith('country:')) counts.countries += 1;
     else if (row.itemId.startsWith('region:')) counts.regions += 1;
     else if (row.itemId.startsWith('place:')) counts.places += 1;

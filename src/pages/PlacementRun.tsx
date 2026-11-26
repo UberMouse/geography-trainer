@@ -176,10 +176,11 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
     const after = answerPlacement(asking!.state, question.itemId, earned);
     setAnswered(after);
     setCredit(earned);
-    if (earned !== 1) return;
-    // A pass is stored at once, so quitting partway keeps it.
+    if (earned === 0) return;
+    // A pass or a close miss is stored at once, so quitting partway keeps it.
     const now = new Date();
-    progressStore.seedProgress([seedFromPlacement(question.itemId, 'passed', now, dayKeyOf(now))]).then(
+    const outcome = earned === 1 ? 'passed' : 'close';
+    progressStore.seedProgress([seedFromPlacement(question.itemId, outcome, now, dayKeyOf(now))]).then(
       () => undefined,
       (error: unknown) => {
         console.error('[placement] could not save answer', question.itemId, error);
@@ -229,7 +230,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           note={
             credit === 0.5 && (
               <Text c="yellow" data-testid="placement-close">
-                Close: that counts as roughly knowing where it is.
+                Close: that shows you roughly know where it is.
               </Text>
             )
           }

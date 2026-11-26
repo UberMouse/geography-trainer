@@ -255,6 +255,31 @@ describe('placement ability estimate', () => {
     }
   });
 
+  it('sends nothing to L3 confirmation on close misses alone: at best it starts at L2', () => {
+    const { result } = run(makeItems(25), 1, () => 0.5);
+    expect(result.estimate).toBeGreaterThan(0);
+    const outcomes = Object.values(result.outcomes);
+    expect(outcomes).not.toContain('likelyKnown');
+    expect(outcomes).toContain('untestedAtOrBelow');
+  });
+
+  it('only confirms levels at or below the highest one passed outright', () => {
+    // Passes at level 2 and below, close above: no level-3+ item is confirmed in review.
+    const items = makeItems(25);
+    const { result } = run(items, 2, (level) => (level <= 2 ? 1 : 0.5));
+    for (const i of items) {
+      if (result.outcomes[i.itemId] === 'likelyKnown') expect(i.level).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('places a level when a small pool runs out before PLACEMENT_MIN_TO_PLACE answers', () => {
+    const items = makeItems(25).filter((i) => i.level <= 5 && Number(i.itemId.slice(1)) % 25 === 0);
+    expect(items.length).toBeLessThan(PLACEMENT_MIN_TO_PLACE);
+    const { result, asked } = run(items, 1, () => 1);
+    expect(asked.length).toBe(items.length);
+    expect(result.estimate).toBeGreaterThan(0);
+  });
+
   it('finished early with few answers, places only what it asked', () => {
     const rng = mulberry32(6);
     let state = startPlacement(makeItems(6), rng);
@@ -306,7 +331,18 @@ describe('worldArea', () => {
     expect(worldArea([105, 35])).toBe('east-south-asia');
     expect(worldArea([134, -25])).toBe('oceania');
     expect(worldArea([178, -18])).toBe('oceania');
-    expect(worldArea([0, -80])).toBe('oceania');
+    expect(worldArea([0, -80])).toBe('antarctica');
+    // Edges the code review found, at real country centres.
+    expect(worldArea([-145, -13])).toBe('oceania'); // French Polynesia
+    expect(worldArea([-130, -25])).toBe('oceania'); // Pitcairn
+    expect(worldArea([-84, 10])).toBe('north-america'); // Costa Rica
+    expect(worldArea([-80, 8.5])).toBe('north-america'); // Panama
+    expect(worldArea([-74, 5])).toBe('south-america'); // Colombia
+    expect(worldArea([10, 35.2])).toBe('africa'); // Tunisia
+    expect(worldArea([14.4, 35.9])).toBe('europe'); // Malta
+    expect(worldArea([35, 32])).toBe('west-central-asia'); // Palestine
+    expect(worldArea([59, -20])).toBe('africa'); // Mauritius
+    expect(worldArea([73, 3])).toBe('west-central-asia'); // Maldives
     expect(worldArea([39, 15])).toBe('africa');
     expect(worldArea([47, 15])).toBe('west-central-asia');
     expect(worldArea(null)).toBe('unknown');

@@ -1,7 +1,7 @@
 // The country -> region -> place tree, which items are unlocked, and the order new items arrive in.
 
 import { DIFFICULTY_LEVELS, DIFFICULTY_MEAN_LEVEL_WEIGHT } from './config';
-import { isIntroduced, isMastered, type ItemProgress } from './srs';
+import { isIntroduced, isMastered, isStudied, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
 export type Tier = 'country' | 'region' | 'place';
@@ -259,7 +259,7 @@ export interface SubtreeProgress {
   /** Descendants of the item (children, grandchildren), not the item itself. */
   total: number;
   mastered: number;
-  /** Introduced and not mastered. */
+  /** Studied (answered in a session, see `isStudied`) and not mastered: a placement seed alone is not. */
   learning: number;
   /** Descendants that are not locked. */
   unlocked: number;
@@ -267,7 +267,7 @@ export interface SubtreeProgress {
 
 export interface TierCount {
   total: number;
-  /** Introduced and not mastered. */
+  /** Studied (answered in a session, see `isStudied`) and not mastered: a placement seed alone is not. */
   learning: number;
   /** Mastered. */
   learned: number;
@@ -288,11 +288,11 @@ function stateOf(item: CurriculumItem, progress: ProgressMap): ItemState {
   }
   const own = progress[item.id];
   if (own && isMastered(own)) return 'mastered';
-  if (own && isIntroduced(own)) return 'learning';
+  if (own && isStudied(own)) return 'learning';
   return 'new';
 }
 
-/** Locked while the parent is not mastered; else mastered, learning (introduced) or new. Throws for an unknown id. */
+/** Locked while the parent is not mastered; else mastered, learning (studied, see `isStudied`) or new. Throws for an unknown id. */
 export function itemState(curriculum: Curriculum, progress: ProgressMap, itemId: string): ItemState {
   return stateOf(itemOrThrow(curriculum, itemId), progress);
 }
@@ -329,7 +329,7 @@ export function tierCounts(curriculum: Curriculum, progress: ProgressMap): Recor
     const own = progress[item.id];
     if (!own) continue;
     if (isMastered(own)) count.learned++;
-    else if (isIntroduced(own)) count.learning++;
+    else if (isStudied(own)) count.learning++;
   }
   return out;
 }

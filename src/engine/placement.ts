@@ -26,7 +26,7 @@ import {
 } from './config';
 import { unlockedBy, type Curriculum, type Tier } from './curriculum';
 import { isPass } from './grading';
-import { isMastered, seedFromPlacement, type ItemProgress, type PlacementOutcome } from './srs';
+import { isMastered, isStudied, seedFromPlacement, type ItemProgress, type PlacementOutcome } from './srs';
 
 export interface PlacementItem {
   itemId: string;
@@ -73,12 +73,18 @@ export interface PlacementResult {
 export function worldArea(center: readonly [number, number] | null): string {
   if (!center) return 'unknown';
   const [lng, lat] = center;
-  if (lat < -60 || lng < -150 || lng > 150 || (lng > 110 && lat < -10)) return 'oceania';
-  if (lng < -30) return lat >= 13 ? 'north-america' : 'south-america';
+  if (lat < -60) return 'antarctica';
+  // The Pacific: either side of the antimeridian, Australasia, and the eastern Pacific islands.
+  if (lng < -150 || lng > 150 || (lng > 110 && lat < -10) || (lng < -110 && lat < 0)) return 'oceania';
+  // The Americas, with Central America (down to Panama) in the north.
+  if (lng < -30) return lat >= 13 || (lat >= 7 && lng < -77) ? 'north-america' : 'south-america';
+  // North Africa below the Mediterranean (Tunisia included, Malta not), east to Egypt.
+  if (lng < 33 && lat < 35.5) return 'africa';
   if (lng < 45 && lat >= 35) return 'europe';
-  if (lng < 35 && lat < 35) return 'africa';
+  // The Horn, Eritrea and the Indian Ocean islands off Africa.
   if (lng < 43 && lat < 20) return 'africa';
   if (lng < 52 && lat < 12) return 'africa';
+  if (lat < 0 && lng < 80) return 'africa';
   if (lng < 75) return 'west-central-asia';
   return 'east-south-asia';
 }
@@ -202,15 +208,20 @@ export function answerPlacement(state: PlacementState, itemId: string, credit: P
  * items are `passed` (credit 1), `close` (0.5) or `failed` (0). An item never answered (a pending
  * question included) is placed by the probability the learner knows it, averaged over the
  * posterior: `likelyKnown` at PLACEMENT_LIKELY_KNOWN or more, `untestedAtOrBelow` at
- * PLACEMENT_PROBABLY_KNOWN or more, else `aboveEstimate`. Until PLACEMENT_MIN_TO_PLACE answers
- * (a test finished early) the estimate is mostly the prior, so nothing untested is placed: every
- * untested item is `aboveEstimate` and the estimate 0. Items with a non-finite level are always
+ * PLACEMENT_PROBABLY_KNOWN or more, else `aboveEstimate`; but `likelyKnown` (skipping L1 and L2)
+ * needs a level at or below the highest one passed outright, so close misses alone start items at
+ * L2 at best. A test finished early, with unasked items left and fewer than
+ * PLACEMENT_MIN_TO_PLACE answers, is mostly the prior, so nothing untested is placed: every
+ * untested item is `aboveEstimate` and the estimate 0. A pool that ran out is not early. Items with a non-finite level are always
  * `aboveEstimate`. The estimate is the posterior mean rounded and clamped to 0-8, and 0 when no
  * answer earned credit.
  */
 export function finishPlacement(state: PlacementState): PlacementResult {
   const anyCredit = state.answers.some((a) => a.credit > 0);
-  const enough = state.answers.length >= PLACEMENT_MIN_TO_PLACE;
+  const asked = new Set(state.answers.map((a) => a.itemId));
+  const ranOut = state.items.every((i) => asked.has(i.itemId));
+  const enough = ranOut || state.answers.length >= PLACEMENT_MIN_TO_PLACE;
+  const highestPassed = Math.max(-Infinity, ...state.answers.filter((a) => a.credit === 1).map((a) => a.level));
   const { mean } = abilityOf(state.answers);
   const estimate = anyCredit && enough
     ? Math.min(PLACEMENT_MAX_LEVEL, Math.max(PLACEMENT_NO_ESTIMATE, Math.round(mean)))
@@ -227,7 +238,7 @@ export function finishPlacement(state: PlacementState): PlacementResult {
       continue;
     }
     const p = enough ? predictive(post, level) : 0;
-    if (p >= PLACEMENT_LIKELY_KNOWN) {
+    if (p >= PLACEMENT_LIKELY_KNOWN && level <= highestPassed) {
       outcomes[itemId] = 'likelyKnown';
       confidence[itemId] = p;
     } else {
@@ -295,15 +306,8 @@ export function placementSeeds(
   return seeds;
 }
 
-/**
- * Whether the item has been studied: answered in a study session. That is `introducedAt` set, or
- * a card past one rep. A passed or likely-known placement seed is built at L3 with one rep and
- * keeps `introducedAt` null (setting it would count the seed against the daily new-item cap), so
- * its first answer in a session shows only as a second rep. A placement seed alone is not studied.
- */
-export function isStudied(progress: ItemProgress): boolean {
-  return progress.introducedAt !== null || Object.values(progress.cards).some((c) => c.reps > 1);
-}
+/** Re-exported: whether an item has been answered in a study session (see `isStudied` in srs). */
+export { isStudied };
 
 /**
  * Whether the item can be tested out of: mastered, with children, at least one of which has no
