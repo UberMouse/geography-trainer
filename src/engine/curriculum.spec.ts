@@ -73,7 +73,7 @@ function fixture(): Curriculum {
 const ids = (items: { id: string }[]) => items.map((i) => i.id);
 
 describe('buildCurriculum', () => {
-  it('namespaces ids and wires country -> region -> place, or country -> place', () => {
+  it('[CUR-03, CUR-C04] namespaces ids and wires country -> region -> place, or country -> place', () => {
     const c = fixture();
     expect(c.items.get('country:france')!.children).toEqual([
       'region:france.bretagne',
@@ -86,12 +86,12 @@ describe('buildCurriculum', () => {
     expect(c.items.get('country:france')!.parent).toBeNull();
   });
 
-  it('keeps ids of different tiers from colliding', () => {
+  it('[CUR-05, CUR-C04] keeps ids of different tiers from colliding', () => {
     const c = buildCurriculum([country('x', 1, false)], [], [place('x', 'x', null, 1)]);
     expect(c.items.size).toBe(2);
   });
 
-  it("bands countries among countries and regions among their country's, and counts places per country", () => {
+  it("[CUR-20, CUR-C03] bands countries among countries and regions among their country's, and counts places per country", () => {
     const c = fixture();
     expect(c.items.get('place:brest')!.difficulty).toBe(3);
     // germany (2 places, mean 1.5), france (3, mean 3), tuvalu (1, mean 3): bands 1, 3, 6 of 8.
@@ -105,7 +105,7 @@ describe('buildCurriculum', () => {
     expect(c.countryPlaceCount.get('country:france')).toBe(3);
   });
 
-  it('gives a country and a region the spherical mean of its places as its centre', () => {
+  it('[CUR-07] gives a country and a region the spherical mean of its places as its centre', () => {
     const c = buildCurriculum(
       [country('fiji', 2, false)],
       [],
@@ -121,7 +121,7 @@ describe('buildCurriculum', () => {
     expect(c.items.get('place:a')!.center).toEqual([179, -17]);
   });
 
-  it('leaves out regions with no places, including those of a country without a regions tier', () => {
+  it('[CUR-03, CUR-C05] leaves out regions with no places, including those of a country without a regions tier', () => {
     const c = buildCurriculum(
       [country('france', 1, true), country('tuvalu', 1, false)],
       [region('france.a', 'france', 1), region('france.empty', 'france', 0), region('tuvalu.x', 'tuvalu', 0)],
@@ -134,7 +134,7 @@ describe('buildCurriculum', () => {
     expect(c.items.size).toBe(5);
   });
 
-  it('throws on a place with an unknown country or a missing region', () => {
+  it('[CUR-06, CUR-C05] throws on a place with an unknown country or a missing region', () => {
     const cs = [country('france', 1, true)];
     const rs = [region('france.a', 'france', 1)];
     expect(() => buildCurriculum(cs, rs, [place('p', 'spain', null, 1)])).toThrow(/unknown country/);
@@ -142,7 +142,7 @@ describe('buildCurriculum', () => {
     expect(() => buildCurriculum(cs, rs, [place('p', 'france', 'france.zzz', 1)])).toThrow(/region/);
   });
 
-  it('throws on a place whose region belongs to another country', () => {
+  it('[CUR-06] throws on a place whose region belongs to another country', () => {
     const cs = [country('france', 1, true), country('germany', 1, true)];
     const rs = [region('france.a', 'france', 1), region('germany.bayern', 'germany', 1)];
     expect(() => buildCurriculum(cs, rs, [place('p', 'france', 'germany.bayern', 1)])).toThrow(
@@ -151,7 +151,7 @@ describe('buildCurriculum', () => {
   });
 });
 
-describe('buildCurriculum duplicates', () => {
+describe('[CUR-06] buildCurriculum duplicates', () => {
   it('throws on a duplicate country id', () => {
     expect(() => buildCurriculum([country('x', 0, false), country('x', 0, false)], [], [])).toThrow(
       /Duplicate country/,
@@ -174,11 +174,11 @@ describe('buildCurriculum duplicates', () => {
 });
 
 describe('unlockedItems', () => {
-  it('unlocks every country and nothing else at the start', () => {
+  it('[CUR-01, CUR-C06] unlocks every country and nothing else at the start', () => {
     expect(ids(unlockedItems(fixture(), {}))).toEqual(['country:france', 'country:germany', 'country:tuvalu']);
   });
 
-  it("mastering France unlocks its regions but not Germany's", () => {
+  it("[CUR-08] mastering France unlocks its regions but not Germany's", () => {
     const got = ids(unlockedItems(fixture(), { 'country:france': mastered('country:france') }));
     expect(got).toContain('region:france.bretagne');
     expect(got).toContain('region:france.corse');
@@ -187,17 +187,17 @@ describe('unlockedItems', () => {
     expect(got).not.toContain('place:rennes');
   });
 
-  it('does not unlock children of an item that is in progress but not mastered', () => {
+  it('[CUR-10] does not unlock children of an item that is in progress but not mastered', () => {
     const got = ids(unlockedItems(fixture(), { 'country:france': createProgress('country:france', T0) }));
     expect(got).not.toContain('region:france.bretagne');
   });
 
-  it('mastering a country with no regions tier unlocks its places', () => {
+  it('[CUR-08] mastering a country with no regions tier unlocks its places', () => {
     const got = ids(unlockedItems(fixture(), { 'country:tuvalu': mastered('country:tuvalu') }));
     expect(got).toContain('place:funafuti');
   });
 
-  it('mastering a region unlocks its places', () => {
+  it('[CUR-09] mastering a region unlocks its places', () => {
     const got = ids(
       unlockedItems(fixture(), {
         'country:france': mastered('country:france'),
@@ -209,14 +209,14 @@ describe('unlockedItems', () => {
     expect(got).not.toContain('place:ajaccio');
   });
 
-  it('keeps children unlocked after a lapse on the mastered parent', () => {
+  it('[CUR-11] keeps children unlocked after a lapse on the mastered parent', () => {
     let p = mastered('country:tuvalu');
     p = applyAnswer(p, p.rung, Rating.Again, new Date(T0.getTime() + 50 * DAY), 'later');
     expect(p.inL3Lapse).toBe(true);
     expect(ids(unlockedItems(fixture(), { 'country:tuvalu': p }))).toContain('place:funafuti');
   });
 
-  it('filters places by type but never countries or regions', () => {
+  it('[CUR-12] filters places by type but never countries or regions', () => {
     const progress = {
       'country:france': mastered('country:france'),
       'region:france.bretagne': mastered('region:france.bretagne'),
@@ -230,7 +230,7 @@ describe('unlockedItems', () => {
   });
 });
 
-describe('place-type filter and regions', () => {
+describe('[CUR-12] place-type filter and regions', () => {
   const cur = buildCurriculum(
     [country('france', 3, true)],
     [region('france.isles', 'france', 1), region('france.towns', 'france', 2)],
@@ -258,14 +258,14 @@ describe('place-type filter and regions', () => {
 });
 
 describe('newItems', () => {
-  it('excludes items that have been answered', () => {
+  it('[CUR-18] excludes items that have been answered', () => {
     const progress = {
       'country:france': applyAnswer(createProgress('country:france', T0), 1, Rating.Good, T0, localDayKey(T0, 0)),
     };
     expect(ids(newItems(fixture(), progress))).not.toContain('country:france');
   });
 
-  it('keeps unanswered progress as new: a placement seed without a pass', () => {
+  it('[CUR-18, CUR-C06] keeps unanswered progress as new: a placement seed without a pass', () => {
     const progress = {
       'country:france': seedFromPlacement('country:france', 'untestedAtOrBelow', T0, '2026-03-01'),
       'country:germany': seedFromPlacement('country:germany', 'passed', T0, '2026-03-01'),
@@ -275,7 +275,7 @@ describe('newItems', () => {
     expect(got).not.toContain('country:germany');
   });
 
-  it('orders by difficulty, then country place count descending, then id', () => {
+  it('[CUR-19, CUR-C06] orders by difficulty, then country place count descending, then id', () => {
     const c = buildCurriculum(
       [country('a', 1, false), country('c', 3, false), country('b', 3, false)],
       [],
@@ -294,7 +294,7 @@ describe('newItems', () => {
     expect(ids(newItems(c, {}))).toEqual(['country:b', 'country:c', 'country:a']);
   });
 
-  it('applies the place-type filter to unlocked places', () => {
+  it('[CUR-12] applies the place-type filter to unlocked places', () => {
     const progress = {
       'country:france': mastered('country:france'),
       'region:france.bretagne': mastered('region:france.bretagne'),
@@ -304,7 +304,7 @@ describe('newItems', () => {
     expect(got).not.toContain('place:rennes');
   });
 
-  it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
+  it('[CUR-19] sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
     const progress = { 'country:france': mastered('country:france') };
     const got = ids(newItems(fixture(), progress, { placeTypes: new Set(['city', 'monument', 'capital']) }));
     // Difficulties: bretagne 1 (france has 3 places), germany 1 (2 places), corse 5, tuvalu 6
@@ -319,7 +319,7 @@ describe('newItems', () => {
 });
 
 describe('bandDifficulty', () => {
-  it('cuts the ranking into 8 equal bands, easiest first, and gives an item with no places Infinity', () => {
+  it('[CUR-20, CUR-C03] cuts the ranking into 8 equal bands, easiest first, and gives an item with no places Infinity', () => {
     const stats = new Map<string, { count: number; meanLevel: number }>(
       Array.from({ length: 16 }, (_, i) => [`c${String(i).padStart(2, '0')}`, { count: 16 - i, meanLevel: 3 }] as const),
     );
@@ -332,7 +332,7 @@ describe('bandDifficulty', () => {
     expect(bands.get('empty')).toBe(Infinity);
   });
 
-  it('weighs place levels too: fewer, harder places rank harder', () => {
+  it('[CUR-20] weighs place levels too: fewer, harder places rank harder', () => {
     const bands = bandDifficulty(
       new Map([
         ['famous', { count: 10, meanLevel: 3 }],
@@ -345,7 +345,7 @@ describe('bandDifficulty', () => {
 
 describe('regionsFromPlaces', () => {
   const cs = [country('france', 0, true), country('tuvalu', 0, false)];
-  it('lists each region once in first-seen order, skipping null regions and regionless countries', () => {
+  it('[CUR-03, CUR-C05] lists each region once in first-seen order, skipping null regions and regionless countries', () => {
     const ps = [
       place('a', 'france', 'france.corse', 1),
       place('b', 'france', null, 1),
@@ -361,7 +361,7 @@ describe('regionsFromPlaces', () => {
 });
 
 describe('the committed data', () => {
-  it('builds a curriculum', () => {
+  it('[CUR-20] builds a curriculum', () => {
     const geoms = (
       realCountries as unknown as {
         objects: { countries: { geometries: { id: string; properties: { hasRegions: boolean } }[] } };
@@ -389,7 +389,7 @@ describe('the committed data', () => {
 });
 
 describe('itemState', () => {
-  it('is locked until the parent is mastered, then new, learning or mastered', () => {
+  it('[CUR-14, CUR-C07] is locked until the parent is mastered, then new, learning or mastered', () => {
     const c = fixture();
     const franceDone = { 'country:france': mastered('country:france') };
     expect(itemState(c, {}, 'country:france')).toBe('new');
@@ -404,7 +404,7 @@ describe('itemState', () => {
     expect(itemState(c, { 'country:germany': fresh }, 'country:germany')).toBe('new');
   });
 
-  it("unlocks a regionless country's places directly, and a region's places once it is mastered", () => {
+  it("[CUR-14] unlocks a regionless country's places directly, and a region's places once it is mastered", () => {
     const c = fixture();
     expect(itemState(c, {}, 'place:funafuti')).toBe('locked');
     expect(itemState(c, { 'country:tuvalu': mastered('country:tuvalu') }, 'place:funafuti')).toBe('new');
@@ -413,13 +413,13 @@ describe('itemState', () => {
     expect(itemState(c, p, 'place:ajaccio')).toBe('locked');
   });
 
-  it('throws for an unknown id', () => {
+  it('[CUR-C07] throws for an unknown id', () => {
     expect(() => itemState(fixture(), {}, 'country:nowhere')).toThrow(Error);
   });
 });
 
 describe('subtreeProgress and masteredShare', () => {
-  it('counts every descendant, with unlocked meaning not locked', () => {
+  it('[CUR-15, CUR-C07] counts every descendant, with unlocked meaning not locked', () => {
     const c = fixture();
     const p = {
       'country:france': mastered('country:france'),
@@ -438,7 +438,7 @@ describe('subtreeProgress and masteredShare', () => {
     });
   });
 
-  it('is empty for a place, with a share of 0, and throws for an unknown id', () => {
+  it('[CUR-15] is empty for a place, with a share of 0, and throws for an unknown id', () => {
     const s = subtreeProgress(fixture(), {}, 'place:rennes');
     expect(s).toEqual({ total: 0, mastered: 0, learning: 0, unlocked: 0 });
     expect(masteredShare(s)).toBe(0);
@@ -447,7 +447,7 @@ describe('subtreeProgress and masteredShare', () => {
 });
 
 describe('tierCounts', () => {
-  it('counts per tier, learning apart from learned, and ignores ids outside the curriculum', () => {
+  it('[CUR-16, CUR-C07] counts per tier, learning apart from learned, and ignores ids outside the curriculum', () => {
     const c = fixture();
     const started = createProgress('region:france.corse', T0);
     const learning = applyAnswer(started, started.rung, Rating.Good, T0, localDayKey(T0, 0));
@@ -465,7 +465,7 @@ describe('tierCounts', () => {
 });
 
 describe('unlockedBy', () => {
-  it('gives the children and their tier, null without children', () => {
+  it('[CUR-17, CUR-C07] gives the children and their tier, null without children', () => {
     const c = fixture();
     expect(unlockedBy(c, 'country:france')).toEqual({
       tier: 'region',
@@ -478,7 +478,7 @@ describe('unlockedBy', () => {
     expect(() => unlockedBy(c, 'country:nowhere')).toThrow(Error);
   });
 
-  it("master France: its regions are new, Germany's stay locked", () => {
+  it("[CUR-08, CUR-14] master France: its regions are new, Germany's stay locked", () => {
     const c = fixture();
     const p = { 'country:france': mastered('country:france') };
     for (const id of unlockedBy(c, 'country:france')!.childIds) expect(itemState(c, p, id)).toBe('new');
