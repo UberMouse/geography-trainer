@@ -113,7 +113,7 @@ test('a missed tap is incorrect, with its km and a low score', async ({ page, is
   // L2, or L3 when the L1 answer was fast enough to skip a rung.
   expect(q.rung).toBeGreaterThan(1);
   await answer(page, isMobile, q, { miss: true });
-  await expect(page.getByRole('status')).toHaveText(/^Incorrect · Again · it is /);
+  await expect(page.getByRole('status')).toHaveText(/^Incorrect · it is /);
   expect(Number((await page.getByTestId('reveal-km').innerText()).replace(/[^\d.]/g, ''))).toBeGreaterThan(
     10_000,
   );

@@ -2,7 +2,7 @@ import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { DATA } from './fixtures';
 import { buildExerciseItem } from './item';
-import { choiceResult, distanceText, formatKm, tapResult } from './result';
+import { choiceResult, distanceText, formatKm, tapResult, verdictText } from './result';
 
 const KM_PER_DEG = (Math.PI * 6371) / 180;
 
@@ -62,6 +62,16 @@ describe('tapResult on a place', () => {
     expect(r).toMatchObject({ rating: Rating.Good, correct: true });
     // round(100 · exp(-3.5 · 55.6 / 16250)) = round(98.8)
     expect(r.maptapScore).toBe(99);
+  });
+});
+
+describe('verdictText', () => {
+  it('words each outcome without the scheduler\'s ratings', () => {
+    expect(verdictText({ correct: true, rating: Rating.Easy })).toEqual({ text: 'Correct · spot on', tone: 'right' });
+    expect(verdictText({ correct: true, rating: Rating.Good })).toEqual({ text: 'Correct', tone: 'right' });
+    expect(verdictText({ correct: true, rating: Rating.Hard })).toEqual({ text: 'Correct · slow', tone: 'right' });
+    expect(verdictText({ correct: false, rating: Rating.Hard })).toEqual({ text: 'Incorrect · near miss', tone: 'near' });
+    expect(verdictText({ correct: false, rating: Rating.Again })).toEqual({ text: 'Incorrect', tone: 'wrong' });
   });
 });
 

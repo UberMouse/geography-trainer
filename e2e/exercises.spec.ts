@@ -101,7 +101,7 @@ test.describe('L1 highlighted → name', () => {
       .filter({ hasNotText: /^France$/ })
       .first();
     await wrong.click();
-    await expect(verdict(page)).toHaveText(/^Incorrect · Again · it is France/);
+    await expect(verdict(page)).toHaveText(/^Incorrect · it is France/);
     await expect(wrong).toHaveAttribute('data-mark', 'wrong');
     await expect(option(page, 'France')).toHaveAttribute('data-mark', 'correct');
     await expect(page.getByTestId('last-rating')).toHaveText('Again');
@@ -192,7 +192,7 @@ test.describe('L2 and L3 name → tap', () => {
     const far: LngLat = [-150, -40];
     await tapGlobe(page, isMobile, far);
     await confirm(page).click();
-    await expect(verdict(page)).toHaveText(/^Incorrect · Again/);
+    await expect(verdict(page)).toHaveText(/^Incorrect · it is /);
     await expect(page.getByTestId('last-correct')).toHaveText('false');
     const score = Number(await page.getByTestId('reveal-score').textContent());
     expect(score).toBeLessThan(50);

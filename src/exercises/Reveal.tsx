@@ -1,11 +1,13 @@
 import { Button, Stack, Text } from '@mantine/core';
 import type { ReactNode } from 'react';
-import { RATING_LABEL, distanceText } from './result';
+import { distanceText, verdictText } from './result';
 import type { ExerciseItem, ExerciseResult } from './types';
 
+const TONE_COLOUR = { right: 'green', near: 'yellow', wrong: 'red' } as const;
+
 /**
- * The verdict after an answer: correct or not, the rating, a tap's km off and maptap score, and
- * Next. Before the answer (`result` null) only its empty status region is there, so a screen
+ * The reveal after an answer: the verdict in plain words (`verdictText`), a tap's distance and
+ * maptap score, and Next. Before the answer (`result` null) only its empty status region is there, so a screen
  * reader announces the verdict when it fills in.
  */
 export default function Reveal({
@@ -25,10 +27,9 @@ export default function Reveal({
       <Text role="status">
         {result && (
           <>
-            <Text span fw={700} c={result.correct ? 'green' : 'red'}>
-              {result.correct ? 'Correct' : 'Incorrect'}
-            </Text>{' '}
-            · {RATING_LABEL[result.rating]}
+            <Text span fw={700} c={TONE_COLOUR[verdictText(result).tone]}>
+              {verdictText(result).text}
+            </Text>
             {!result.correct && <> · it is {item.name}</>}
           </>
         )}
