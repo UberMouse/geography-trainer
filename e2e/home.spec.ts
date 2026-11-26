@@ -1,6 +1,16 @@
 import { writeFile } from 'node:fs/promises';
 import { expect, test, type Page } from './test';
-import { answer, current, next, question, summary, WAIT } from './sessionHelpers';
+import {
+  answer,
+  current,
+  importProgress,
+  next,
+  question,
+  summary,
+  WAIT,
+  writeMasteredUnitedStates,
+  writeUnitedStatesOnePassFromMastery,
+} from './sessionHelpers';
 
 // Sessions load the world's map data and draw globes: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
@@ -99,6 +109,93 @@ test('[SCR-21] a file that is not JSON shows an alert and changes nothing', asyn
   await expect(page.getByRole('button', { name: 'Replace' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Back to Home' }).click();
   expect(await numbers(page)).toEqual(before);
+});
+
+test('[SCR-05, SCR-07, SCR-08, SCR-C03] a fresh Home offers the placement test, shows its legend and links on', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const offer = page.getByRole('link', { name: 'Take the placement test' });
+  await expect(offer).toHaveAttribute('href', '/placement', WAIT);
+  await expect(page.getByText(/12–20 questions/)).toBeVisible();
+
+  // Home's world has no locked countries: new, learning, mastered, and the complete colour.
+  const legend = page.getByRole('list', { name: 'Legend' }).getByRole('listitem');
+  await expect(legend).toHaveCount(4);
+  await expect(legend.first()).toHaveText('New');
+  await expect(legend.filter({ hasText: 'Locked' })).toHaveCount(0);
+
+  await expect(page.getByRole('link', { name: 'See your progress' })).toHaveAttribute('href', '/progress');
+  await expect(page.getByRole('main').getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+});
+
+test('[SCR-03, SCR-05] once the only question is answered, Home has nothing to study', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('one-question.json');
+  await writeUnitedStatesOnePassFromMastery(file);
+  await importProgress(page, file);
+  await expect(page.getByRole('link', { name: 'Start (1 to study)' })).toBeVisible(WAIT);
+  // Items studied in a session: the placement offer is gone.
+  await expect(page.getByRole('link', { name: 'Take the placement test' })).toHaveCount(0);
+
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  await expect(summary(page)).toBeVisible(WAIT);
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.goto('/');
+  await expect(page.getByText('There is nothing to study right now.')).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: /^Start/ })).toHaveCount(0);
+});
+
+const DAY = 24 * 60 * 60 * 1000;
+
+test("[SCR-04] Home's numbers follow the clock when the tab gains focus", async ({ page }, testInfo) => {
+  // The United States mastered, its review due in 30 days.
+  const file = testInfo.outputPath('mastered-us.json');
+  await writeMasteredUnitedStates(file);
+  await importProgress(page, file);
+  const due = page.getByTestId('today-due');
+  await expect(due).toHaveText('0');
+
+  await page.clock.setFixedTime(Date.now() + 31 * DAY);
+  // The e2e specs have no DOM types, so no `window`.
+  await page.evaluate(() =>
+    (globalThis as unknown as { dispatchEvent(e: Event): boolean }).dispatchEvent(new Event('focus')),
+  );
+  await expect(due).toHaveText('1', WAIT);
+});
+
+test("[SCR-04, SCR-C03] Home's numbers refresh within a minute", async ({ page }, testInfo) => {
+  const file = testInfo.outputPath('mastered-us.json');
+  await writeMasteredUnitedStates(file);
+  await page.clock.install();
+  await importProgress(page, file);
+  const due = page.getByTestId('today-due');
+  await expect(due).toHaveText('0');
+
+  // Paused, then a month on: the page's clock moves, but no timer has fired yet.
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(now + 1_000);
+  await page.clock.setSystemTime(now + 31 * DAY);
+  await expect(due).toHaveText('0');
+  await page.clock.runFor(60_000);
+  await expect(due).toHaveText('1', WAIT);
+});
+
+test('[SCR-25, SCR-C11] a Home that fails to load offers Retry', async ({ page }) => {
+  let fail = true;
+  await page.route('**/data/countries.topo.json', (route) =>
+    fail ? route.fulfill({ status: 500, body: '' }) : route.continue(),
+  );
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('HTTP 500', WAIT);
+  fail = false;
+  await page.getByRole('button', { name: 'Retry' }).click();
+  await expect(newToday(page)).toHaveText('0 of 15 new today', WAIT);
 });
 
 test('[SCR-26] Home does not scroll horizontally on a phone', async ({ page, isMobile }) => {

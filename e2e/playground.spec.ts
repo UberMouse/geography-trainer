@@ -1,4 +1,4 @@
-import { globeHooked, viewport } from './globeHook';
+import { globeHooked, hook, viewport } from './globeHook';
 import { expect, test, type Page } from './test';
 
 // Each test loads the world's map data and draws on the globe: slow on a loaded machine.
@@ -31,6 +31,49 @@ test('[SCR-30, SCR-C13] a rung other than 1, 2 or 3 falls back to L1', async ({ 
     await expect(page.getByRole('combobox', { name: 'Rung' })).toHaveValue('1');
     await expect(page.getByRole('group', { name: 'Options' })).toBeVisible();
   }
+});
+
+test('[SCR-30, SCR-C13] an unknown item is named, with a way back to France', async ({ page }) => {
+  await page.goto('/playground?item=country:atlantis');
+  await expect(page.getByRole('alert')).toContainText('country:atlantis', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Show country:france' }).click();
+  await expect(page.getByTestId('item-id')).toHaveText('country:france', { timeout: 30_000 });
+});
+
+test('[SCR-30] an answer fills the last result', async ({ page }) => {
+  await openExercises(page);
+  await expect(page.getByTestId('last-rating')).toHaveText('–');
+  await page.getByRole('group', { name: 'Options' }).getByRole('button').first().click();
+  await expect(page.getByTestId('last-rating')).not.toHaveText('–');
+  await expect(page.getByTestId('last-correct')).toHaveText(/^(true|false)$/);
+});
+
+test('[SCR-31, SCR-C13] the Globe tab puts the globe in each mode it picks', async ({ page }) => {
+  await page.goto('/playground?mode=globe');
+  await expect(page.getByRole('heading', { name: 'Globe playground' })).toBeVisible({ timeout: 30_000 });
+  await globeHooked(page);
+  const mode = page.locator('[data-mode]');
+  await expect(mode).toHaveAttribute('data-mode', 'countryBorders');
+
+  const pick = async (label: string) => {
+    await page.getByRole('combobox', { name: 'Mode', exact: true }).click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+  };
+  await pick('Bare');
+  await expect(mode).toHaveAttribute('data-mode', 'bare');
+  await pick('Highlight');
+  await expect(mode).toHaveAttribute('data-mode', 'highlight');
+  await expect(page.getByRole('radiogroup', { name: 'Highlight target' })).toBeVisible();
+  await pick('Progress');
+  await expect(mode).toHaveAttribute('data-mode', 'progress');
+  // Demo fills on the world's countries.
+  await expect
+    .poll(async () => Object.keys((await hook.progress(page))?.fills ?? {}).length)
+    .toBeGreaterThan(0);
+
+  await page.getByRole('link', { name: 'Exercises' }).click();
+  await expect(page).toHaveURL(/mode=exercises/);
+  await expect(page.getByTestId('item-id')).toBeVisible({ timeout: 30_000 });
 });
 
 test('[SCR-26] the Exercises tab has no horizontal scroll at phone width', async ({ page }) => {
