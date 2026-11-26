@@ -90,7 +90,7 @@ export async function importProgress(page: Page, path: string) {
 const DAY = 24 * 60 * 60 * 1000;
 
 /** A progress row at `rung` with one card, last reviewed 5 days ago and due `dueInDays` from now. */
-function progressRow(
+export function progressRow(
   itemId: string,
   rung: number,
   {
@@ -122,7 +122,8 @@ function progressRow(
   };
 }
 
-async function writeProgressFile(path: string, progress: ReturnType<typeof progressRow>[]) {
+/** A progress file in the export format Settings imports, holding `progress` and nothing else. */
+export async function writeProgressFile(path: string, progress: ReturnType<typeof progressRow>[]) {
   const file = {
     format: 'geography-trainer-progress',
     version: 3,

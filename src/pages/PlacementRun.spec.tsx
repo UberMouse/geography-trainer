@@ -35,7 +35,9 @@ function render(pool: PlacementItem[], items: ReadonlyMap<string, ExerciseItem>,
 }
 
 /** Text as React renders it into HTML. */
-const html = (text: string) => text.replace(/'/g, '&#x27;');
+/** `text` escaped as renderToString escapes text content. */
+const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
+const html = (text: string) => text.replace(/[&<>"']/g, (c) => ESCAPES[c]!);
 const homeLink = (label: string) => new RegExp(`<a[^>]*href="/"[^>]*>${label}</a>`);
 
 describe('PlacementRun', () => {
