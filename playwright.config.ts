@@ -7,6 +7,9 @@ const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: 'e2e',
+  // A run holds one build slot (scripts/slot.sh), so it stays a bounded load on the machine;
+  // its browsers inherit that slot instead of each taking their own.
+  workers: 4,
   use: { baseURL },
   webServer: {
     command: `npm run dev -- --port ${port} --strictPort`,

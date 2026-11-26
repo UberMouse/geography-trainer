@@ -27,7 +27,15 @@ These scripts are the contract every skill and agent relies on: keep their names
 | `npm run verify` | typecheck, lint, test, test:e2e, stopping at the first failure |
 | `npm run build:data` | regenerate `public/data/` from maptap's list (network; rarely run) |
 
-Filtered runs: `npx vitest run <paths>`, `npx playwright test <spec> --grep '<name>'`.
+Filtered runs: `npm test -- <paths>`, `npm run test:e2e -- <spec> --grep '<name>'`,
+`npm run lint -- <files>`.
+
+The heavy scripts (build, typecheck, lint, test, test:e2e, build:data) wait for a slot from the
+machine-wide build semaphore (`kx-build-slot`, from the user's dotfiles) via `scripts/slot.sh`,
+which just runs the command where `kx-build-slot` isn't installed (CI). Vitest and Playwright
+are capped at 4 workers each. So run checks through these npm scripts, never bare
+`npx vitest`/`npx playwright`/`npx eslint`/`npx tsc`, which would skip the queue. A wait
+before output starts is a queued job, not a hang.
 
 ## Layout and rules
 

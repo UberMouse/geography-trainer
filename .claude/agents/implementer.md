@@ -31,9 +31,12 @@ Read only what the task needs: prefer `rg`/`sed -n` ranges over whole large file
 Every call re-reads your whole context, so send the reads and searches you already know you need
 as parallel tool calls in one turn.
 
-Run tests filtered: `npx vitest run <spec paths>` and `npx playwright test <spec> --grep
+Run tests filtered: `npm test -- <spec paths>` and `npm run test:e2e -- <spec> --grep
 '<name>'`. Your gate is the one your brief names; without one, it is `npm run typecheck`,
-`npx eslint <the files you changed>`, and the specs for what you changed. `npm run verify` is
+`npm run lint -- <the files you changed>`, and the specs for what you changed. Always go
+through these npm scripts, never bare `npx vitest`/`npx playwright`/`npx eslint`/`npx tsc`:
+the scripts wait for a build slot (`scripts/slot.sh`) so parallel worktrees don't overload the
+machine. `npm run verify` is
 the conductor's whole-repo gate, not yours.
 
 Never end your turn on your own background work. If a shell or Monitor you started (a dev

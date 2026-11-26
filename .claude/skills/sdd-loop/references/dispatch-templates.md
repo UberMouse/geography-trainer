@@ -28,11 +28,14 @@ text is sent as written, except `[CONDUCTOR …]` notes and sections marked "omi
 The scripts are defined in `package.json` (CLAUDE.md lists them). Per task, nothing wider:
 
 1. `npm run typecheck` exits 0.
-2. `npx eslint <the files you changed>` reports nothing.
-3. `npx vitest run <the spec files for what you changed>` passes. A `src/engine/` change always
+2. `npm run lint -- <the files you changed>` reports nothing.
+3. `npm test -- <the spec files for what you changed>` passes. A `src/engine/` change always
    has a spec beside it.
-4. Only when the task changes something a user sees: `npx playwright test <spec> --grep '<name>'`
+4. Only when the task changes something a user sees: `npm run test:e2e -- <spec> --grep '<name>'`
    for the e2e case that covers it.
+
+Run them through these npm scripts, never bare `npx`: each script waits for a build slot
+(`scripts/slot.sh`), which is what keeps parallel worktrees from overloading the machine.
 
 `npm run verify` (everything, every spec) is the conductor's gate in §4, not a task's.
 

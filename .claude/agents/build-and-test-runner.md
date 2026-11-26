@@ -48,10 +48,14 @@ The scripts are defined in `package.json`; CLAUDE.md lists them.
 |---|---|
 | everything (the conductor's gate) | `npm run verify` |
 | types | `npm run typecheck` |
-| lint | `npm run lint` (never `--fix`) |
-| unit tests | `npm test` (all), `npx vitest run <paths>` (some) |
-| e2e | `npm run test:e2e` (all), `npx playwright test <spec> --grep '<name>'` (some) |
+| lint | `npm run lint` (all), `npm run lint -- <files>` (some); never `--fix` |
+| unit tests | `npm test` (all), `npm test -- <paths>` (some) |
+| e2e | `npm run test:e2e` (all), `npm run test:e2e -- <spec> --grep '<name>'` (some) |
 | production build | `npm run build` |
+
+Use these npm scripts, never bare `npx`: each waits for a build slot (`scripts/slot.sh`) so
+parallel worktrees don't overload the machine. A quiet stretch before output starts is the job
+queueing for a slot, not a hang.
 
 `npm run verify` stops at the first failing step: say which step failed and that the later ones
 did not run. Vitest and Playwright print their failures in full; Playwright also writes
