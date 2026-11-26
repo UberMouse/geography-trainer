@@ -9,8 +9,10 @@ design sections above it say what each step builds.
 ## Stack
 
 Vite + React + TypeScript, one npm package, static site, no backend. Progress lives in the
-browser (IndexedDB via Dexie) with JSON export/import. Maps are d3-geo (orthographic globe on a
-canvas, other maps in SVG) with topojson. Unit tests are Vitest; e2e tests are Playwright.
+browser (IndexedDB via Dexie) with JSON export/import. The map is one MapLibre globe (globe
+projection, EOX Sentinel-2 cloudless imagery) shared by every screen; boundaries are topojson, and
+d3-geo does the spherical maths. The UI is Mantine components. Unit tests are Vitest; e2e tests
+are Playwright.
 
 ## Commands
 
@@ -47,7 +49,8 @@ before output starts is a queued job, not a hang.
   version with a migration, and export/import round-trips every progress field (progress,
   answers, finished placement tests). Device settings such as the daily new-item limit stay
   out of the export file on purpose: an import leaves them as they are.
-- `src/maps/` holds the d3-geo components; `src/exercises/` the four exercise types;
+- `src/maps/` holds the globe, its layers and `geo.ts` (the spherical maths); `src/exercises/`
+  the three exercise types (L1 multiple choice, L2 tap with borders, L3 tap on the bare globe);
   `src/pages/` the screens.
 - `scripts/build-data/` generates `public/data/` from `https://maptap.gg/data/master_locations_v2.js`.
   **Never `eval`, `require` or `import` maptap's file**: slice out the JSON array literal and
