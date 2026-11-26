@@ -49,32 +49,42 @@ export function parseSpecFile(file: string, text: string, tier: Tier): SpecEntry
   const entries: SpecEntry[] = [];
   const lines = text.split('\n');
   let current: SpecEntry | null = null;
-  let inFence: string | null = null;
+  /** The heading level (number of #) of the current entry. */
+  let currentLevel = 0;
+  /** The open fence: its marker (``` or ~~~, at its length) and info string. */
+  let fence: { marker: string; lang: string } | null = null;
   let fenceHasScenario = false;
 
   lines.forEach((raw, i) => {
     const line = raw.trimEnd();
-    const fence = /^\s*(```+|~~~+)\s*(\S*)/.exec(line);
     if (fence) {
-      if (inFence === null) {
-        inFence = fence[2] ?? '';
-        fenceHasScenario = false;
-      } else {
-        if (current && inFence === 'gherkin' && fenceHasScenario) current.hasScenario = true;
-        inFence = null;
-      }
+      // Only a run of the same character, at least as long and with nothing after it, closes.
+      const close = /^\s*(`{3,}|~{3,})$/.exec(line);
+      if (close && close[1]![0] === fence.marker[0] && close[1]!.length >= fence.marker.length) {
+        if (current && fence.lang === 'gherkin' && fenceHasScenario) current.hasScenario = true;
+        fence = null;
+      } else if (/^\s*Scenario( Outline)?:/.test(line)) fenceHasScenario = true;
       return;
     }
-    if (inFence !== null) {
-      if (/^\s*Scenario( Outline)?:/.test(line)) fenceHasScenario = true;
+    const open = /^\s*(`{3,}|~{3,})\s*(\S*)/.exec(line);
+    if (open) {
+      fence = { marker: open[1]!, lang: open[2] ?? '' };
+      fenceHasScenario = false;
       return;
     }
-    if (/^#{1,6}\s/.test(line)) {
+    const heading = /^(#{1,6})\s/.exec(line);
+    if (heading) {
+      const level = heading[1]!.length;
       const m = HEADING.exec(line);
-      current = m
-        ? { id: m[1]!, tier, title: (m[2] ?? '').trim(), file, line: i + 1, up: [], hasScenario: false }
-        : null;
-      if (current) entries.push(current);
+      if (m) {
+        current = { id: m[1]!, tier, title: (m[2] ?? '').trim(), file, line: i + 1, up: [], hasScenario: false };
+        currentLevel = level;
+        entries.push(current);
+      } else if (level <= currentLevel) {
+        // A heading at the entry's level or above ends it; a deeper one (#### Notes) is inside it.
+        current = null;
+        currentLevel = 0;
+      }
       return;
     }
     if (!current) return;
@@ -83,7 +93,8 @@ export function parseSpecFile(file: string, text: string, tier: Tier): SpecEntry
       current.up.push(...(up[1]!.match(ID_IN_TEXT) ?? []));
       return;
     }
-    const verified = /^\s*Verified:\s*([a-z:]+)\s*(?:[—–-]+|:)?\s*(.*)$/.exec(line);
+    // The kind is a word, or two joined by a colon (build:data); a colon after it is a separator.
+    const verified = /^\s*Verified:\s*([a-z]+(?::[a-z]+)?)\s*(?:[—–-]+|:)?\s*(.*)$/.exec(line);
     if (verified) current.verified = { kind: verified[1]!, reason: verified[2]!.trim() };
   });
   return entries;

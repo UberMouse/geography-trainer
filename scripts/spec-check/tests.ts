@@ -47,6 +47,7 @@ function calleeChain(expr: ts.Expression): { root: string; members: string[] } |
   let e: ts.Expression = expr;
   for (;;) {
     if (ts.isCallExpression(e)) e = e.expression; // it.each(rows)(title, fn)
+    else if (ts.isTaggedTemplateExpression(e)) e = e.tag; // it.each`table`(title, fn)
     else if (ts.isPropertyAccessExpression(e)) {
       members.unshift(e.name.text);
       e = e.expression;
@@ -59,27 +60,41 @@ function isFunction(node: ts.Node | undefined): boolean {
   return !!node && (ts.isArrowFunction(node) || ts.isFunctionExpression(node));
 }
 
+/**
+ * A callback passed by name (`it(title, runCase)`, `it(title, cases.slow)`). Counting these
+ * means a test can't slip past the checker by not being an inline function; a Playwright
+ * in-body skip (`test.skip(isMobile, 'reason')`) still doesn't count, as its second argument
+ * is a string.
+ */
+function isCallbackReference(node: ts.Node): boolean {
+  return ts.isIdentifier(node) || ts.isPropertyAccessExpression(node);
+}
+
 function titleText(node: ts.Expression, source: ts.SourceFile): string {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
   return node.getText(source);
 }
 
 export function findTests(file: string, text: string): TestCase[] {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  // A .ts file parsed as TSX reads `<T>(x: T) => …` as JSX and can lose the tests after it.
+  const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
   const cases: TestCase[] = [];
 
   const visit = (node: ts.Node, describes: string[]): void => {
     if (ts.isCallExpression(node)) {
       const chain = calleeChain(node.expression);
       // The callback can sit before a timeout (`it(title, fn, 30_000)`) or after options
-      // (`it(title, { timeout }, fn)`), so take the first function after the title.
-      const fn = node.arguments.slice(1).find(isFunction);
+      // (`it(title, { timeout }, fn)`), so take the first function after the title, else a
+      // callback passed by name.
+      const rest = node.arguments.slice(1);
+      const fn = rest.find(isFunction) ?? rest.find(isCallbackReference);
       const first = node.arguments[0];
       if (chain && ROOTS.has(chain.root) && !chain.members.some((m) => NOT_DECLARATIONS.has(m)) && first && fn) {
         const title = titleText(first, source);
         const isDescribe = chain.root === 'describe' || chain.members.includes('describe');
         if (isDescribe) {
-          ts.forEachChild(fn, (child) => visit(child, [...describes, title]));
+          if (isFunction(fn)) ts.forEachChild(fn, (child) => visit(child, [...describes, title]));
           return;
         }
         const titles = [...describes, title];

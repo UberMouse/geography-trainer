@@ -73,6 +73,31 @@ describe('[TLG-01] spec:check reads the spec tiers', () => {
   });
 });
 
+describe('[TLG-01] spec:check reads markdown robustly', () => {
+  const parse = (body: string) => parseSpecFile('spec/features/s.md', body, 1);
+
+  it('keeps reading an entry under a deeper non-ID heading, and ends it at the same level', () => {
+    const [a, b] = parse(
+      '### SES-01 A\n#### Notes\nUp: PRD-01\n```gherkin\nScenario: a\n```\n### Other\nUp: PRD-02\n### SES-02 B\n',
+    );
+    expect(a).toMatchObject({ id: 'SES-01', up: ['PRD-01'], hasScenario: true });
+    expect(b).toMatchObject({ id: 'SES-02', up: [] });
+  });
+
+  it('closes a fence only on a matching marker, so a sample inside it is not an entry', () => {
+    const entries = parse('### SES-01 A\nUp: PRD-01\n~~~markdown\n```\n### SES-99 Sample\n```\n~~~\n````\n```\n````\n');
+    expect(entries.map((e) => e.id)).toEqual(['SES-01']);
+  });
+
+  it('accepts a colon between the Verified: kind and its reason, and build:data as a kind', () => {
+    const [a, b] = parse(
+      '### SES-01 A\nVerified: typecheck: the types enforce it\n### SES-02 B\nVerified: build:data — console output\n',
+    );
+    expect(a!.verified).toEqual({ kind: 'typecheck', reason: 'the types enforce it' });
+    expect(b!.verified).toEqual({ kind: 'build:data', reason: 'console output' });
+  });
+});
+
 describe('[TLG-02] spec:check reads test titles', () => {
   it('finds tests with their describe chain, skipping hooks, steps and in-body skips', () => {
     const found = findTests('x.spec.ts', TESTS);
@@ -90,6 +115,19 @@ describe('[TLG-02] spec:check reads test titles', () => {
       `it('[SES-01] slow', () => {}, 30_000);\nit('[SES-02] opts', { timeout: 5 }, () => {});\nit('untagged', async () => {}, 9);`,
     );
     expect(found.map((t) => t.titles[0])).toEqual(['[SES-01] slow', '[SES-02] opts', 'untagged']);
+  });
+
+  it('finds a test with a named callback or a tagged-template table', () => {
+    const found = findTests(
+      'x.spec.ts',
+      'it(\'named\', runCase);\nit.each`\n  a | b\n  ${1} | ${2}\n`(\'table $a\', ({ a }) => {});\ntest.skip(isMobile, \'phone only\');',
+    );
+    expect(found.map((t) => t.titles[0])).toEqual(['named', 'table $a']);
+  });
+
+  it('parses a .ts file as TypeScript, so a generic arrow does not hide the tests after it', () => {
+    const text = 'const byId = <T extends { id: string }>(a: T, b: T) => a.id < b.id;\nit(\'[SES-01] after\', () => {});';
+    expect(findTests('x.spec.ts', text).map((t) => t.titles[0])).toEqual(['[SES-01] after']);
   });
 
   it('cites only bracketed IDs', () => {
