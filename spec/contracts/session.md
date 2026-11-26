@@ -142,10 +142,12 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
   returned.
 - When the queue is empty, the result is also null when an id in `run.asks` has no progress, and
   the page builds a fresh session instead of the resumed one when `dueQuestions` (curriculum,
-  progress, now) is not empty. With no queued question left to check against, these notice that an
-  answer could not be recorded (SES-15), that a review has come due since, and most resets and
-  imports in another tab: the session is then rebuilt from the progress as it is. New items,
-  including those the round unlocked, do not count, so the summary keeps its unlock lines.
+  progress, now) holds an item not in `run.asks`. With no queued question left to check against,
+  these notice that a new item's answer could not be recorded (SES-15), that a review has come due
+  since, and most resets and imports in another tab: the session is then rebuilt from the progress
+  as it is. The round's own items do not count, since their learning steps come due within minutes
+  of the round, and nor do new items, including those the round unlocked, so the summary keeps its
+  unlock lines. `dueQuestions` is only consulted when the queue is empty.
 - `loadSessionRun`, `saveSessionRun` and `clearSessionRun` swallow storage errors: a load that
   throws is null, a save or clear that throws does nothing.
 
