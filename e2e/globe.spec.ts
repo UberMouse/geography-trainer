@@ -304,6 +304,20 @@ test('a tap in the space beside the globe is not a tap', async ({ page, isMobile
   await expect(lastTap).toHaveText('none');
 });
 
+test('a tap on a reveal marker is not a tap on the globe', async ({ page, isMobile }) => {
+  const { lastTap } = await readyGlobe(page);
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
+  await expect(lastTap).not.toHaveText('none');
+  const tapped = await lastTap.textContent();
+  await page.getByRole('switch', { name: 'Show reveal' }).check();
+  // The tap's marker, then the answer's.
+  const answer = page.locator('.maplibregl-marker').nth(1);
+  await expect(answer).toBeVisible();
+  await (isMobile ? answer.tap() : answer.click());
+  await nextFrame(page);
+  await expect(lastTap).toHaveText(tapped!);
+});
+
 test('a lost WebGL context shows the message until the context comes back', async ({ page }) => {
   await readyGlobe(page);
   const canvas = page.locator('canvas.maplibregl-canvas');
@@ -322,9 +336,15 @@ test('a lost WebGL context shows the message until the context comes back', asyn
       canvasEl.loseContextExt[name]();
     }, call);
   const message = page.getByRole('alert').filter({ hasText: "This browser can't draw the globe" });
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-country-borders');
   await context('loseContext');
   await expect(message).toBeVisible();
+  // A mode change while the context is lost is drawn once it comes back.
+  await pickMode(page, 'Bare');
   await context('restoreContext');
   await expect(message).toHaveCount(0);
   await expect(canvas).toBeVisible();
+  // Until the restored style has loaded, the hook may throw or list the old layers.
+  const layerIds = () => hook.layerIds(page).catch(() => null);
+  await expect.poll(layerIds).toEqual([]);
 });
