@@ -1,5 +1,6 @@
 import { hook } from './globeHook';
-import { answer, current, next, question, tapGlobe, WAIT } from './sessionHelpers';
+import { writeMasteredTexas } from './placementHelpers';
+import { answer, current, importProgress, next, question, tapGlobe, WAIT } from './sessionHelpers';
 import { expect, test, type Page } from './test';
 
 // Placement loads the world's map data and draws up to 20 globes: slow on a loaded machine.
@@ -117,4 +118,46 @@ test('[PLC-19] Quit in the middle of a question leaves Home with no pin, and tap
   await tapGlobe(page, isMobile, q.answer);
   await page.waitForTimeout(500);
   expect((await hook.markers(page)).filter((m) => m.kind === 'pin')).toEqual([]);
+});
+
+test("[PLC-02, PLC-06, PLC-18, PLC-20, PLC-22] a test-out of Texas's places: a close miss is noted, focus follows, and the finished test hides its link", async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('mastered-texas.json');
+  await writeMasteredTexas(file);
+  await importProgress(page, file);
+
+  const drill = '/progress/united-states/united-states.texas';
+  const link = page.getByRole('link', { name: "Test out of Texas's places" });
+  await page.goto(drill);
+  await link.click(WAIT);
+  await expect(page).toHaveURL(/\/placement\/united-states\/united-states\.texas$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText("Test out of Texas's places", WAIT);
+
+  // One degree of latitude north of the place: about 111 km, a miss within the 200 km close distance.
+  const first = await current(page, TEST_ID);
+  expect(first.itemId).toMatch(/^place:/);
+  await tapGlobe(page, isMobile, [first.answer[0], first.answer[1] + 1]);
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByTestId('placement-close')).toBeVisible(WAIT);
+  await next(page);
+
+  const second = await current(page, TEST_ID);
+  await expect(question(page, TEST_ID)).toBeFocused();
+  await answer(page, isMobile, second);
+  await expect(page.getByTestId('placement-close')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Finish now' }).click();
+  await expect(done(page)).toBeVisible(WAIT);
+  await expect(done(page)).toBeFocused();
+  await expect(page.getByText(/^1 place you got right /)).toBeVisible();
+  await expect(page.getByText(/^1 place you were close on /)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start studying' })).toBeVisible(WAIT);
+  if (isMobile) await noHorizontalScroll(page);
+
+  await page.goto(drill);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Texas', WAIT);
+  await expect(page.getByTestId('drill-list').locator('li').first()).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: /Test out of/ })).toHaveCount(0);
 });
