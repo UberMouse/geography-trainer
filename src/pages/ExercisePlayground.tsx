@@ -292,7 +292,6 @@ function Run({
         <span data-testid="item-answer">
           {lng.toFixed(2)},{lat.toFixed(2)}
         </span>
-        {item.onGlobe && ' · on the globe'}
       </p>
       <Exercise
         key={`${seed}:${round}`}

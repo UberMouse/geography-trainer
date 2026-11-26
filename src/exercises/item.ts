@@ -9,10 +9,8 @@ import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
 import {
   answerPoint,
-  inFrame,
   mainPart,
   nearPoint,
-  type IdentifiedFeature,
   type LngLat,
 } from '../maps/geo';
 import type { ExerciseItem } from './types';
@@ -62,10 +60,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     }
     return regions;
   };
-  /** Every country, with `country` swapped for its regions when given. */
-  const worldWith = (country: CountryFeature, regions: IdentifiedFeature[]): IdentifiedFeature[] =>
-    regions.length === 0 ? features : [...features.filter((f) => f !== country), ...regions];
-
   if (tier === 'country') {
     const country = features.find((f) => f.id === id);
     if (!country) throw new Error(`Unknown item "${itemId}"`);
@@ -75,7 +69,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       name: country.properties.name,
       countryId: itemId,
       target: { feature: country, answer: answerPoint(country) },
-      context: features,
       candidates: countryCandidates(
         pointRecord(country, nearPoint(country)),
         features.map((f) => pointRecord(f, nearPoint(f))),
@@ -86,8 +79,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         target: { kind: 'country', feature: country, countries: features },
       },
       bordersMode: { kind: 'countryBorders', countries: features },
-      world: features,
-      onGlobe: false,
       pointOnly: country.properties.pointOnly === true,
     };
   }
@@ -115,7 +106,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         answer,
         ...(twins.length > 0 && { alsoInside: twins }),
       },
-      context: regions.features,
       candidates: regionCandidates(
         pointRecord(region, answer),
         regions.features.map((f) => ({
@@ -129,8 +119,6 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         target: { kind: 'region', feature: region, country, regions: regions.features },
       },
       bordersMode: { kind: 'regionBorders', country, regions: regions.features },
-      world: worldWith(country, regions.features),
-      onGlobe: !inFrame(frame, answer),
       pointOnly: false,
     };
   }
@@ -155,14 +143,10 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       name: place.name,
       countryId: countryItemId(country.id),
       target: { point },
-      context: regionFeatures.length > 0 ? regionFeatures : [country],
       candidates: placeCandidates(place, data.places),
       frame,
       highlightMode: { kind: 'highlight', target: { kind: 'place', place, country, regions } },
       bordersMode: { kind: 'regionBorders', country, regions },
-      world: worldWith(country, regionFeatures),
-      // A point-only country's flat map is its featureless disc: show its places on the globe.
-      onGlobe: pointOnly || !inFrame(frame, point),
       pointOnly,
     };
   }

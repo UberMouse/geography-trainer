@@ -10,7 +10,6 @@ import {
   type AreaFeature,
   type LngLat,
 } from '../../src/maps/geo';
-import { MAP_SIZE, fitFlat, outlineFrame } from '../../src/maps/view';
 
 const dir = new URL('../../public/data/', import.meta.url);
 
@@ -164,25 +163,6 @@ describe('answer points of the committed countries and regions', () => {
     }
     const outside = all.filter((f) => !geoContains(mainPart(f), answerPoint(f))).map((f) => f.id);
     expect(outside).toEqual([]);
-  });
-});
-
-describe('outline of every place', () => {
-  it('frames every place inside its outline view', { timeout: 300_000 }, async () => {
-    const { features } = await loadCountries();
-    const places = await loadPlaces();
-    const outsideFrame: string[] = [];
-    for (const place of places) {
-      const country = features.find((f) => f.id === place.country)!;
-      // As `src/exercises/item.ts` picks a place item's outline: its region when it has one.
-      const region = place.region
-        ? (await loadRegions(country.id)).features.find((f) => f.id === place.region)
-        : undefined;
-      const point: LngLat = [place.lng, place.lat];
-      const at = fitFlat(outlineFrame(region ?? country, point))(point);
-      if (!at || !at.every((v) => v >= 0 && v <= MAP_SIZE)) outsideFrame.push(place.id);
-    }
-    expect(outsideFrame).toEqual([]);
   });
 });
 

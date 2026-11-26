@@ -1,20 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  geoArea,
-  geoAzimuthalEqualArea,
-  geoCentroid,
-  geoContains,
-  geoEquirectangular,
-  geoMercator,
-  geoOrthographic,
-} from 'd3-geo';
+import { geoArea, geoCentroid, geoContains } from 'd3-geo';
 import {
   POINT_FEATURE_RADIUS_KM,
   answerPoint,
-  clusterAt,
   ensureArea,
   inFrame,
-  isOnFarSide,
   mainPart,
   measureTap,
   type AreaFeature,
@@ -261,30 +251,6 @@ describe('mainPart', () => {
   });
 });
 
-describe('clusterAt', () => {
-  const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
-
-  it('returns the cluster holding the point, with id and properties', () => {
-    const far = clusterAt(f, [40.5, 0.5]);
-    expect(far.id).toBe('x');
-    expect(far.properties).toBe(f.properties);
-    expect(far.geometry).toEqual({ type: 'MultiPolygon', coordinates: [[ring(40, 0, 41, 1)]] });
-    expect(clusterAt(f, [5, 0]).geometry).toEqual({
-      type: 'MultiPolygon',
-      coordinates: [[ring(0, -5, 10, 5)]],
-    });
-  });
-
-  it('falls back to the nearest cluster for a point in none', () => {
-    expect(clusterAt(f, [45, 0]).geometry).toEqual(clusterAt(f, [40.5, 0.5]).geometry);
-    expect(clusterAt(f, [-3, 0]).geometry).toEqual(clusterAt(f, [5, 0]).geometry);
-  });
-
-  it('returns a single-cluster feature itself', () => {
-    expect(clusterAt(square, [50, 50])).toBe(square);
-  });
-});
-
 describe('inFrame', () => {
   // 10 x 10 degrees, clockwise.
   const frame = poly([
@@ -448,20 +414,5 @@ describe('ensureArea', () => {
       geometry: { type: 'MultiPolygon', coordinates: [[[[NaN, NaN]]]] },
     };
     expect(() => ensureArea(f)).toThrow(/nowhere/);
-  });
-});
-
-describe('isOnFarSide', () => {
-  it('hides points beyond 90 degrees of the globe centre, not flat-map points', () => {
-    const globe = geoOrthographic().rotate([-2, -46]);
-    expect(isOnFarSide(globe, [2, 46])).toBe(false);
-    expect(isOnFarSide(globe, [140, -30])).toBe(true);
-    expect(isOnFarSide(geoAzimuthalEqualArea(), [140, -30])).toBe(false);
-  });
-
-  it('treats a projection with no clipping (clip angle 0) as flat', () => {
-    expect(geoMercator().clipAngle()).toBe(0);
-    expect(isOnFarSide(geoMercator().rotate([-2, -46]), [140, -30])).toBe(false);
-    expect(isOnFarSide(geoEquirectangular().rotate([-2, -46]), [140, -30])).toBe(false);
   });
 });

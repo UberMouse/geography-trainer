@@ -2,7 +2,7 @@ import type { Grade } from 'ts-fsrs';
 import type { Tier } from '../engine/curriculum';
 import type { Candidate } from '../engine/distractors';
 import type { Rung } from '../engine/srs';
-import type { AreaFeature, IdentifiedFeature, TapTarget } from '../maps/geo';
+import type { AreaFeature, TapTarget } from '../maps/geo';
 import type { GlobeMode } from '../maps/globeLayers';
 
 /** Everything an exercise needs about one item, built by `buildExerciseItem`. */
@@ -16,17 +16,12 @@ export interface ExerciseItem {
   /** A country or region: its feature and answer point; a place: its point. */
   target: TapTarget;
   /**
-   * The features the L1 and L2 maps draw: every country for a country; for a region or place,
-   * its country's regions, or the country alone when it has no regions tier.
-   */
-  context: IdentifiedFeature[];
-  /**
    * Every other same-tier item a wrong option may be drawn from (see `buildExerciseItem`). It may
    * be empty: a region whose country has no other region with places has none, so a session
    * should not ask such an item at L1, the multiple-choice rung.
    */
   candidates: Candidate[];
-  /** The country's main part, which the flat maps fit to and L2's camera frames. */
+  /** The country's main part, which L2's camera fits for a region or place. */
   frame: AreaFeature;
   /**
    * L1's globe: the item shaded (a place dotted) with its tier's context borders: every country's
@@ -35,17 +30,9 @@ export interface ExerciseItem {
   highlightMode: GlobeMode;
   /** L2's globe: every country's border for a country, else its country's region borders. */
   bordersMode: GlobeMode;
-  /** Every country, with the item's country drawn as its regions when it has them: the globes. */
-  world: IdentifiedFeature[];
   /**
-   * A region or place outside its country's flat map (France's Réunion, Alaska): L1 and L2 show
-   * it on the globe instead.
-   */
-  onGlobe: boolean;
-  /**
-   * A point-only country (no area of its own) or a place in one: L1 zooms its globe to the
-   * neighbourhood, and a place has `onGlobe` set because its country's flat map is a featureless
-   * disc.
+   * A point-only country (no area of its own) or a place in one: the camera shows its
+   * neighbourhood instead of fitting it (L1 for the country, L2 for the place).
    */
   pointOnly: boolean;
 }

@@ -6,7 +6,6 @@ import {
   geoCircle,
   geoContains,
   geoDistance,
-  type GeoProjection,
 } from 'd3-geo';
 import type { Feature, Geometry, MultiPoint, MultiPolygon, Point, Polygon } from 'geojson';
 import type { TapInput } from '../engine/grading';
@@ -31,7 +30,7 @@ export type TapTarget =
 
 /**
  * The radius in km of the disc `ensureArea` gives a feature with no area and no `radiusKm`
- * property: small enough that the ring marker shows it, big enough to tap once zoomed in.
+ * property: small, but big enough to tap once zoomed in.
  */
 export const POINT_FEATURE_RADIUS_KM = 2;
 
@@ -226,19 +225,6 @@ export function mainPart<F extends AreaFeature>(feature: F): F {
   const part = computeMainPart(feature);
   mainParts.set(feature, part);
   return part;
-}
-
-/**
- * The cluster of the feature (see `mainPart`) that holds `point`, else the one nearest to it, as a
- * feature with the same id and properties. The feature itself when it has one cluster.
- */
-export function clusterAt<F extends AreaFeature>(feature: F, point: LngLat): F {
-  const clusters = clustersOf(feature);
-  if (clusters.length === 1) return feature;
-  const holding = clusters.find((c) => geoContains(c.feature, point));
-  if (holding) return holding.feature as F;
-  const km = (c: Cluster) => kmToBoundary(c.feature, point);
-  return clusters.reduce((m, c) => (km(c) < km(m) ? c : m)).feature as F;
 }
 
 /** The square, and its padding, that `inFrame` fits a frame into. */
@@ -500,17 +486,4 @@ export function measureTap(target: TapTarget, tap: LngLat): TapMeasurement {
     // The main part, like the answer point: a far part (Alaska) is not the country's size.
     featureSizeKm: Math.sqrt(geoArea(mainPart(target.feature))) * EARTH_RADIUS_KM,
   };
-}
-
-/**
- * Whether `at` is on the hidden side of an orthographic projection (one clipped to a hemisphere), where
- * drawing it would show it through the globe. Flat projections never hide a point.
- */
-export function isOnFarSide(projection: GeoProjection, at: LngLat): boolean {
-  // Only a projection clipped to a hemisphere (clip angle about 90 degrees or less) hides the far
-  // side; d3 reports no clipping (Mercator, equirectangular) as a clip angle of 0.
-  const clip = projection.clipAngle?.();
-  if (!clip || clip > 90.001) return false;
-  const [lambda, phi] = projection.rotate();
-  return geoDistance(at, [-lambda, -phi]) > Math.PI / 2;
 }

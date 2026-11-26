@@ -1,5 +1,4 @@
 :root {
-  --bg: #121212;
   --link: #8ab4ff;
   color-scheme: dark;
 }
@@ -17,71 +16,6 @@ a {
   color: var(--link);
 }
 
-/* Maps */
-
-:root {
-  --map-ocean: #16283a;
-  --map-land: #3b3a35;
-  --map-border: #9a9a9a;
-  --map-highlight: #d97706;
-  --map-reveal: #22c55e;
-  --map-point: #8ab4ff;
-  --map-pin: #f87171;
-}
-
-.map,
-.globe {
-  display: block;
-  width: 100%;
-  max-width: 480px;
-  aspect-ratio: 1;
-}
-
-.globe canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* Touch drives the map, not the page: no browser scroll or zoom on these surfaces. */
-.map-interactive {
-  touch-action: none;
-  cursor: grab;
-  user-select: none;
-}
-
-.map-ocean {
-  fill: var(--map-ocean);
-}
-
-.map-land {
-  fill: var(--map-land);
-  stroke: var(--map-border);
-  stroke-width: 0.75;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-highlight {
-  fill: var(--map-highlight);
-}
-
-.map-reveal {
-  fill: var(--map-reveal);
-}
-
-.map-point {
-  fill: var(--map-point);
-  stroke: var(--bg);
-  stroke-width: 1.5;
-}
-
-.map-pin {
-  fill: var(--map-pin);
-  stroke: var(--bg);
-  stroke-width: 1.5;
-}
-
 /* Playground (dev only) */
 
 .playground-controls {
@@ -89,12 +23,6 @@ a {
   flex-wrap: wrap;
   gap: 8px 24px;
   align-items: center;
-}
-
-.playground-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 16px;
 }
 
 /* A select is as wide as its longest option: keep long place names inside the page. */
@@ -108,23 +36,6 @@ a {
 .playground-controls select {
   min-width: 0;
   max-width: 100%;
-}
-
-.playground-panel h2 {
-  margin: 8px 0;
-  font-size: 1rem;
-}
-
-/* A ring around a target too small to see. */
-.map-ring {
-  fill: none;
-  stroke: var(--map-highlight);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-ring-reveal {
-  stroke: var(--map-reveal);
 }
 
 /* Playground, sessions */
