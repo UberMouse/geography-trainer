@@ -506,6 +506,8 @@ Scenario: pages do not repeat the bar
   Then it has no links of its own to Home, Progress or Settings
     But a session or a test keeps its own way out, which says where it leads: its link out
       while it runs, and a link back on its summary, its result or its nothing-to-ask message
+    And a page keeps its link back up a level: a drill-down page's, a not-found address's and
+      an unavailable test-out's link back to the world or to the country (SCR-13, SCR-14, PLC-23)
 
 Scenario: phone width
   Given a phone-width screen
