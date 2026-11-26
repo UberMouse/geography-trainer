@@ -70,7 +70,7 @@ function longestRun(rungs: number[]): number {
 describe('buildSession', () => {
   const cur = fixture(30);
 
-  it('puts due reviews first, most overdue first, then new items at L1 in curriculum order', () => {
+  it('[SES-01, SES-04] puts due reviews first, most overdue first, then new items at L1 in curriculum order', () => {
     const progress = {
       [cid(5)]: dueProgress(cid(5), 1, 1),
       [cid(6)]: dueProgress(cid(6), 1, 5),
@@ -86,7 +86,7 @@ describe('buildSession', () => {
     expect(fresh[0]?.itemId).toBe(cid(0));
   });
 
-  it('asks a due item at its current rung and skips items not yet due', () => {
+  it('[SES-02, SES-03] asks a due item at its current rung and skips items not yet due', () => {
     const progress = {
       [cid(1)]: dueProgress(cid(1), 2, 1),
       [cid(2)]: dueProgress(cid(2), 3, -2),
@@ -95,7 +95,7 @@ describe('buildSession', () => {
     expect(q).toEqual([{ itemId: cid(1), rung: 2 }]);
   });
 
-  it('includes an item due exactly now and excludes one due a millisecond later', () => {
+  it('[SES-02] includes an item due exactly now and excludes one due a millisecond later', () => {
     const at = (id: string, offsetMs: number): ItemProgress => {
       const p = dueProgress(id, 1, 0);
       const card = p.cards[p.rung]!;
@@ -106,7 +106,7 @@ describe('buildSession', () => {
     expect(q).toEqual([{ itemId: cid(1), rung: 1 }]);
   });
 
-  it('orders items with equal due times by item id, not curriculum order', () => {
+  it('[SES-01] orders items with equal due times by item id, not curriculum order', () => {
     // The easier countries come first in the curriculum but have the larger ids.
     const countries = ['z', 'y', 'x'].map((id) => ({ id, name: id, places: 1, hasRegions: false }));
     const rev = buildCurriculum(
@@ -121,7 +121,7 @@ describe('buildSession', () => {
     expect(q.map((x) => x.itemId)).toEqual([...ids].sort());
   });
 
-  it('leaves out a locked item that has due progress', () => {
+  it('[SES-05] leaves out a locked item that has due progress', () => {
     const locked = buildCurriculum(
       [{ id: 'big', name: 'big', places: 20, hasRegions: false }],
       [],
@@ -138,7 +138,7 @@ describe('buildSession', () => {
     expect(q).toEqual([]);
   });
 
-  it('caps new items at dailyCap minus introducedToday', () => {
+  it('[SES-03] caps new items at dailyCap minus introducedToday', () => {
     const count = (introducedToday: number, dailyCap?: number) =>
       buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday, dailyCap, rng }).length;
     expect(count(0)).toBe(15);
@@ -147,14 +147,14 @@ describe('buildSession', () => {
     expect(count(0, 0)).toBe(0);
   });
 
-  it('returns an empty queue when nothing is due and the cap is reached or exceeded', () => {
+  it('[SES-03] returns an empty queue when nothing is due and the cap is reached or exceeded', () => {
     const run = (introducedToday: number) =>
       buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday, rng });
     expect(run(15)).toEqual([]);
     expect(run(40)).toEqual([]);
   });
 
-  it('never includes locked items', () => {
+  it('[SES-05] never includes locked items', () => {
     const locked = buildCurriculum(
       [{ id: 'big', name: 'big', places: 20, hasRegions: false }],
       [],
@@ -165,7 +165,7 @@ describe('buildSession', () => {
     expect(q.some((x) => x.itemId === placeItemId('x0'))).toBe(false);
   });
 
-  it('leaves out filtered place types, due and new', () => {
+  it('[SES-06] leaves out filtered place types, due and new', () => {
     const c = buildCurriculum(
       [{ id: 'a', name: 'a', places: 3, hasRegions: false }],
       [],
@@ -188,7 +188,7 @@ describe('buildSession', () => {
     expect(cities).toEqual([placeItemId('c'), placeItemId('d')]);
   });
 
-  it('breaks up runs of one rung when the mix allows, deterministically', () => {
+  it('[SES-07, SES-C02] breaks up runs of one rung when the mix allows, deterministically', () => {
     const progress: Record<string, ItemProgress> = {};
     for (let i = 0; i < 6; i++) progress[cid(i)] = dueProgress(cid(i), i < 3 ? 3 : 2, 1 + i);
     const input = { curriculum: cur, progress, now: NOW, introducedToday: 0, rng };
@@ -198,7 +198,7 @@ describe('buildSession', () => {
     expect(buildSession({ ...input, dailyCap: 2 })).toEqual(q);
   });
 
-  it('caps placement-seeded items as new, asked at L2, and asks nothing twice', () => {
+  it('[SES-04, SES-05] caps placement-seeded items as new, asked at L2, and asks nothing twice', () => {
     const progress: Record<string, ItemProgress> = {};
     for (let i = 0; i < 30; i++) progress[cid(i)] = seedFromPlacement(cid(i), 'untestedAtOrBelow', NOW, localDayKey(NOW, 0));
     const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, rng });
@@ -207,7 +207,7 @@ describe('buildSession', () => {
     expect(new Set(q.map((x) => x.itemId)).size).toBe(15);
   });
 
-  it('leaves a passed seed out until it is due, then reviews it at L3', () => {
+  it('[SES-04] leaves a passed seed out until it is due, then reviews it at L3', () => {
     const progress = { [cid(1)]: seedFromPlacement(cid(1), 'passed', NOW, localDayKey(NOW, 0)) };
     const at = (days: number) =>
       buildSession({
@@ -222,7 +222,7 @@ describe('buildSession', () => {
     expect(at(2)).toEqual([{ itemId: cid(1), rung: 3 }]);
   });
 
-  it('avoids a long run when a better order exists', () => {
+  it('[SES-07] avoids a long run when a better order exists', () => {
     // Two due L2 reviews ahead of four new L1 items: a greedy order gave 2,2,1,1,1,1.
     const progress = { [cid(0)]: dueProgress(cid(0), 2, 2), [cid(1)]: dueProgress(cid(1), 2, 1) };
     const q = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0, dailyCap: 4, rng });
@@ -230,7 +230,7 @@ describe('buildSession', () => {
     expect(longestRun(q.map((x) => x.rung))).toBeLessThanOrEqual(2);
   });
 
-  it('spreads the minority rung when a run of 2 is impossible', () => {
+  it('[SES-07] spreads the minority rung when a run of 2 is impossible', () => {
     // 3 due L2 reviews ahead of 15 new L1 items: the best longest run is ceil(15 / 4) = 4.
     const progress: Record<string, ItemProgress> = {};
     for (let i = 0; i < 3; i++) {
@@ -245,7 +245,7 @@ describe('buildSession', () => {
     expect(rungs.lastIndexOf(2)).toBeGreaterThan(8);
   });
 
-  it('reaches the smallest achievable longest run (at least 2) for every mix', () => {
+  it('[SES-07, SES-C02] reaches the smallest achievable longest run (at least 2) for every mix', () => {
     // Shortest longest-run over all distinct orderings of a multiset of rungs.
     const best = (left: number[], last = 0, run = 0): number => {
       if (left.length === 0) return run;
@@ -277,13 +277,13 @@ describe('buildSession', () => {
     // Brute force: ~0.5 s alone, but it timed out at the 5 s default on a heavily loaded machine.
   }, 30_000);
 
-  it('keeps a single-rung queue intact when there is nothing to interleave with', () => {
+  it('[SES-07] keeps a single-rung queue intact when there is nothing to interleave with', () => {
     const q = buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday: 0, rng });
     expect(longestRun(q.map((x) => x.rung))).toBe(DAILY_NEW_CAP);
   });
 });
 
-describe('dueQuestions', () => {
+describe('[SES-C02] dueQuestions', () => {
   const cur = fixture(10);
 
   it('lists due reviews only, most overdue first, ties by id, without new items', () => {

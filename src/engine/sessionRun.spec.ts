@@ -43,21 +43,21 @@ function answer(run: SessionRun, before: ItemProgress, rating: Grade): SessionRu
 }
 
 describe('sessionRun', () => {
-  it('starts with the whole queue, zero counts and a total capped at the round size', () => {
+  it('[SES-C04] starts with the whole queue, zero counts and a total capped at the round size', () => {
     const run = startRun(queueOf(5));
     expect(run).toMatchObject({ answered: 0, answeredInRound: 0, correctInRound: 0, roundTotal: 5 });
     expect(startRun(queueOf(30)).roundTotal).toBe(SESSION_ROUND_SIZE);
     expect(roundEnded(startRun([]))).toBe(true);
   });
 
-  it('re-queues a climb at the next rung, SESSION_REQUEUE_GAP questions later', () => {
+  it('[SES-11] re-queues a climb at the next rung, SESSION_REQUEUE_GAP questions later', () => {
     const run = answer(startRun(queueOf(6)), atRung(1), Rating.Good);
     expect(ids(run)).toEqual(['1', '2', '3', '0', '4', '5']);
     expect(run.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 2 });
     expect(run).toMatchObject({ answered: 1, answeredInRound: 1, correctInRound: 1, roundTotal: 7 });
   });
 
-  it('re-queues an Again, including at L1, at its dropped rung', () => {
+  it('[SES-11] re-queues an Again, including at L1, at its dropped rung', () => {
     const atL1 = answer(startRun(queueOf(5)), atRung(1), Rating.Again);
     expect(atL1.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 1 });
     expect(atL1.correctInRound).toBe(0);
@@ -65,7 +65,7 @@ describe('sessionRun', () => {
     expect(atL2.queue[SESSION_REQUEUE_GAP]).toEqual({ itemId: 'country:c0', rung: 1 });
   });
 
-  it('does not re-queue an L3 pass or an L2 Hard near-miss', () => {
+  it('[SES-11] does not re-queue an L3 pass or an L2 Hard near-miss', () => {
     const l3 = answer(startRun([q(0, 3), q(1), q(2)]), atRung(3), Rating.Good);
     expect(ids(l3)).toEqual(['1', '2']);
     const hard = answer(startRun([q(0, 2), q(1), q(2)]), atRung(2), Rating.Hard);
@@ -73,12 +73,12 @@ describe('sessionRun', () => {
     expect(hard.correctInRound).toBe(1);
   });
 
-  it('puts the item at the end when fewer than SESSION_REQUEUE_GAP questions remain', () => {
+  it('[SES-11] puts the item at the end when fewer than SESSION_REQUEUE_GAP questions remain', () => {
     expect(ids(answer(startRun(queueOf(3)), atRung(1), Rating.Good))).toEqual(['1', '2', '0']);
     expect(ids(answer(startRun(queueOf(1)), atRung(1), Rating.Good))).toEqual(['0']);
   });
 
-  it('stops re-queuing once an item has been answered SESSION_MAX_ASKS_PER_ITEM times', () => {
+  it('[SES-12] stops re-queuing once an item has been answered SESSION_MAX_ASKS_PER_ITEM times', () => {
     let run = startRun([q(0)]);
     for (let n = 1; n < SESSION_MAX_ASKS_PER_ITEM; n++) {
       run = answer(run, atRung(1), Rating.Again);
@@ -89,7 +89,7 @@ describe('sessionRun', () => {
     expect(run.asks['country:c0']).toBe(SESSION_MAX_ASKS_PER_ITEM);
   });
 
-  it('never holds two pending questions for one item, over a long run', () => {
+  it('[SES-12] never holds two pending questions for one item, over a long run', () => {
     let run = startRun(queueOf(8));
     let steps = 0;
     while (run.queue.length > 0 && steps < 500) {
@@ -101,7 +101,7 @@ describe('sessionRun', () => {
     expect(Math.max(...Object.values(run.asks))).toBeLessThanOrEqual(SESSION_MAX_ASKS_PER_ITEM);
   });
 
-  it('ends a round after SESSION_ROUND_SIZE answers while questions remain, and keep going resets', () => {
+  it('[SES-13] ends a round after SESSION_ROUND_SIZE answers while questions remain, and keep going resets', () => {
     let run = startRun(queueOf(25, 3));
     for (let i = 0; i < SESSION_ROUND_SIZE; i++) {
       expect(roundEnded(run)).toBe(false);
@@ -116,7 +116,7 @@ describe('sessionRun', () => {
     expect(next.queue).toEqual(run.queue);
   });
 
-  it('ends a round when the queue empties, with nothing remaining', () => {
+  it('[SES-13] ends a round when the queue empties, with nothing remaining', () => {
     let run = startRun([q(0, 3), q(1, 3)]);
     run = answer(run, atRung(3), Rating.Good);
     expect(roundEnded(run)).toBe(false);
@@ -129,7 +129,7 @@ describe('sessionRun', () => {
     expect(questionsRemain(run)).toBe(false);
   });
 
-  it('lets a re-queue grow the displayed total up to the round size, never past it', () => {
+  it('[SES-C04] lets a re-queue grow the displayed total up to the round size, never past it', () => {
     // An L3 Again re-queues: 1 answered + 2 remaining + the item itself = 4.
     const small = answer(startRun([q(0, 3), q(1, 3), q(2, 3)]), atRung(3), Rating.Again);
     expect(small.roundTotal).toBe(4);
@@ -141,7 +141,7 @@ describe('sessionRun', () => {
     expect(answer(startRun(queueOf(40)), atRung(1), Rating.Good).roundTotal).toBe(20);
   });
 
-  it('does not mutate its inputs', () => {
+  it('[SES-C04] does not mutate its inputs', () => {
     const queue = queueOf(5);
     const run = startRun(queue);
     const runSnapshot = JSON.stringify(run);
@@ -154,7 +154,7 @@ describe('sessionRun', () => {
     expect(queue).toEqual(queueOf(5));
   });
 
-  describe('skipCurrent', () => {
+  describe('[SES-15, SES-C04] skipCurrent', () => {
     it('removes the head without a re-queue and leaves the round counts alone', () => {
       const run = startRun(queueOf(4));
       const next = skipCurrent(run);

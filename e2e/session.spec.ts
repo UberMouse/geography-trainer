@@ -18,7 +18,7 @@ const MODE = { 1: 'highlight', 3: 'bare' } as const;
 const mode = (page: Page) => page.locator('[data-mode]');
 const options = (page: Page) => page.getByRole('group', { name: 'Options' }).getByRole('button');
 
-test('from Home, a session asks L1, L2 and L3 on the globe, with the reveal’s km and score', async ({
+test('[SES-10] from Home, a session asks L1, L2 and L3 on the globe, with the reveal’s km and score', async ({
   page,
   isMobile,
 }) => {
@@ -56,7 +56,7 @@ test('from Home, a session asks L1, L2 and L3 on the globe, with the reveal’s 
   expect([...seen].sort()).toEqual([1, 2, 3]);
 });
 
-test('a correct, unhurried L1 answer brings the same item back at L2 within the next 4 questions', async ({
+test('[SES-11] a correct, unhurried L1 answer brings the same item back at L2 within the next 4 questions', async ({
   page,
   isMobile,
 }) => {
@@ -77,7 +77,7 @@ test('a correct, unhurried L1 answer brings the same item back at L2 within the 
   expect(seenAtL2).toBe(true);
 });
 
-test('a round ends in a summary, and progress survives a reload', async ({ page, isMobile }) => {
+test('[SES-13, SES-22, SES-25] a round ends in a summary, and progress survives a reload', async ({ page, isMobile }) => {
   await page.goto('/session');
   const first = await current(page);
   for (let i = 0; i < 25 && !(await summary(page).isVisible()); i++) {
@@ -101,7 +101,7 @@ test('a round ends in a summary, and progress survives a reload', async ({ page,
   expect(again.rung === 1 && again.itemId === first.itemId).toBe(false);
 });
 
-test('a reload mid-round carries on at the next question, with the round counted as before', async ({
+test('[SES-25] a reload mid-round carries on at the next question, with the round counted as before', async ({
   page,
   isMobile,
 }) => {
@@ -121,7 +121,7 @@ test('a reload mid-round carries on at the next question, with the round counted
   expect(await current(page)).toEqual(before);
 });
 
-test('a missed tap is incorrect, with its km and a low score', async ({ page, isMobile }) => {
+test('[SES-10] a missed tap is incorrect, with its km and a low score', async ({ page, isMobile }) => {
   await page.goto('/session');
   let q = await current(page);
   await answer(page, isMobile, q);
@@ -143,7 +143,7 @@ test('a missed tap is incorrect, with its km and a low score', async ({ page, is
   await expect(page.getByTestId('reveal-score')).toHaveText(/^\d$/);
 });
 
-test('test-out opens from the link on a round summary', async ({ page, isMobile }, testInfo) => {
+test('[SES-24, SES-18] test-out opens from the link on a round summary', async ({ page, isMobile }, testInfo) => {
   const file = testInfo.outputPath('us-one-pass-from-mastery.json');
   await writeUnitedStatesOnePassFromMastery(file);
   await importProgress(page, file);
@@ -166,7 +166,7 @@ test('test-out opens from the link on a round summary', async ({ page, isMobile 
   await expect(mode(page)).toHaveAttribute('data-mode', 'bare');
 });
 
-test('at phone width, all 4 options of an L1 question show without scrolling', async ({
+test('[SES-19] at phone width, all 4 options of an L1 question show without scrolling', async ({
   page,
   isMobile,
 }) => {
@@ -188,7 +188,7 @@ test('at phone width, all 4 options of an L1 question show without scrolling', a
   }
 });
 
-test('without WebGL an L1 question can still be answered', async ({ page }) => {
+test('[SES-20] without WebGL an L1 question can still be answered', async ({ page }) => {
   await page.addInitScript(() => {
     const canvas = (
       globalThis as unknown as {

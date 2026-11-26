@@ -7,7 +7,7 @@ import { buildCurriculum } from '../engine/curriculum';
 import type { Country, Place } from '../engine/types';
 import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
 
-describe('questionSeed', () => {
+describe('[SES-17] questionSeed', () => {
   it('is stable, and differs by item, by position and by salt', () => {
     expect(questionSeed('country:france', 3, 7)).toBe(questionSeed('country:france', 3, 7));
     expect(questionSeed('country:france', 3, 7)).not.toBe(questionSeed('country:france', 4, 7));
@@ -16,7 +16,7 @@ describe('questionSeed', () => {
   });
 });
 
-describe('questionHeader', () => {
+describe('[SES-14, SES-C07] questionHeader', () => {
   const questions = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ itemId: `country:c${i}`, rung: 1 as const }));
 
@@ -36,7 +36,7 @@ describe('questionHeader', () => {
   });
 });
 
-describe('answerEntry', () => {
+describe('[SES-16, SES-C06] answerEntry', () => {
   const question = { itemId: 'country:france', rung: 1 as const };
   const result: ExerciseResult = { rating: Rating.Good, correct: true, timeMs: 1234 };
   const now = new Date('2026-03-10T23:30:00Z');
@@ -123,7 +123,7 @@ describe('the full tree', () => {
   };
   const nameOf = (id: string) => names[id] ?? id;
 
-  describe('countriesNeedingRegions', () => {
+  describe('[SES-C07] countriesNeedingRegions', () => {
     const q = (itemId: string) => ({ itemId, rung: 1 as const });
 
     it('names the owner of each region question and each place under a region, once', () => {
@@ -147,7 +147,7 @@ describe('the full tree', () => {
     });
   });
 
-  describe('unlockLines', () => {
+  describe('[SES-23, SES-C07] unlockLines', () => {
     it('says regions for a regions-tier country, places for the rest and a region', () => {
       expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
         { id: 'country:fr', text: "Unlocked: France's regions" },

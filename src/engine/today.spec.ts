@@ -47,7 +47,7 @@ function mastered(itemId: string, start: Date): ItemProgress {
 describe('today', () => {
   const NOW = new Date('2026-03-10T12:00:00Z');
 
-  it('has nothing done and a full-cap session on a fresh state', () => {
+  it('[SES-09] has nothing done and a full-cap session on a fresh state', () => {
     expect(introducedToday(cur, {}, NOW, 0)).toBe(0);
     expect(todayNumbers(cur, {}, NOW, 0)).toEqual({
       due: 0,
@@ -59,7 +59,7 @@ describe('today', () => {
     });
   });
 
-  it('counts newToday by local day: a non-zero offset moves the day boundary', () => {
+  it('[SES-08, SES-C03] counts newToday by local day: a non-zero offset moves the day boundary', () => {
     const at = new Date('2026-03-10T20:00:00Z');
     const progress = { [cid(0)]: answered(cid(0), at), [cid(1)]: answered(cid(1), at) };
     // UTC: 23:00Z on the 10th is the same day as 20:00Z.
@@ -74,7 +74,7 @@ describe('today', () => {
     expect(introducedToday(cur, progress, new Date('2026-03-11T13:00:00Z'), -720)).toBe(0);
   });
 
-  it('feeds the same introducedToday into the session length', () => {
+  it('[SES-09, SES-C03] feeds the same introducedToday into the session length', () => {
     const progress: Record<string, ItemProgress> = {};
     for (let i = 0; i < 4; i++)
       progress[cid(i)] = answered(cid(i), new Date(NOW.getTime() - 60_000));
@@ -87,7 +87,7 @@ describe('today', () => {
     expect(t.sessionLength).toBe(DAILY_NEW_CAP);
   });
 
-  it('counts due reviews, and learning versus learned', () => {
+  it('[SES-09] counts due reviews, and learning versus learned', () => {
     const later = new Date(NOW.getTime() + 2 * DAY);
     const progress = {
       [cid(0)]: answered(cid(0), NOW),
@@ -102,7 +102,7 @@ describe('today', () => {
     expect(t.newToday).toBe(0);
   });
 
-  it('ignores progress rows for ids outside the curriculum', () => {
+  it('[SES-09, SES-C03] ignores progress rows for ids outside the curriculum', () => {
     const progress = {
       'region:gone': answered('region:gone', NOW),
       'place:x': mastered('place:x', NOW),
@@ -117,7 +117,7 @@ describe('today', () => {
   });
 });
 
-describe('today across tiers', () => {
+describe('[SES-09] today across tiers', () => {
   const NOW = new Date('2026-03-10T12:00:00Z');
   const cs: Country[] = [
     { id: 'rc', name: 'rc', places: 2, hasRegions: true },

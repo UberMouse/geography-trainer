@@ -24,7 +24,7 @@ function midRun(): { run: SessionRun; progress: Record<string, ReturnType<typeof
 const saved = (dayKey: string, run: unknown) => JSON.stringify({ dayKey, run });
 
 describe('parseSavedRun', () => {
-  it('resumes a run saved today, queue and counts as they were', () => {
+  it('[SES-25, SES-C05] resumes a run saved today, queue and counts as they were', () => {
     const { run, progress } = midRun();
     expect(run.queue).toEqual([
       { itemId: 'country:peru', rung: 1 },
@@ -33,7 +33,7 @@ describe('parseSavedRun', () => {
     expect(parseSavedRun(saved(DAY, run), DAY, progress, known)).toEqual(run);
   });
 
-  it('starts afresh for nothing saved, another day, bad JSON or a malformed run', () => {
+  it('[SES-26, SES-C05] starts afresh for nothing saved, another day, bad JSON or a malformed run', () => {
     const { run, progress } = midRun();
     expect(parseSavedRun(null, DAY, progress, known)).toBeNull();
     expect(parseSavedRun(saved('2026-02-28', run), DAY, progress, known)).toBeNull();
@@ -43,12 +43,12 @@ describe('parseSavedRun', () => {
     expect(parseSavedRun(saved(DAY, { ...run, itemTotal: undefined }), DAY, progress, known)).toBeNull();
   });
 
-  it('starts afresh when nothing is left to ask', () => {
+  it('[SES-26] starts afresh when nothing is left to ask', () => {
     const { run, progress } = midRun();
     expect(parseSavedRun(saved(DAY, { ...run, queue: [] }), DAY, progress, known)).toBeNull();
   });
 
-  it('starts afresh when the progress can no longer answer a queued question', () => {
+  it('[SES-26] starts afresh when the progress can no longer answer a queued question', () => {
     const { run } = midRun();
     // Reset since: France has no row, so its L2 question cannot be answered.
     expect(parseSavedRun(saved(DAY, run), DAY, {}, known)).toBeNull();
