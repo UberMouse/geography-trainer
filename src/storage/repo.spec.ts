@@ -43,7 +43,7 @@ async function seed() {
   await repo.recordAnswer({ progress: b, answer: answerRow(b.itemId) });
 }
 
-describe('recordAnswer', () => {
+describe('[STO-01, STO-C08] recordAnswer', () => {
   it('writes the progress row and the answer row', async () => {
     const progress = answered('country:france');
     await repo.recordAnswer({ progress, answer: answerRow('country:france', { km: 3 }) });
@@ -66,8 +66,8 @@ describe('recordAnswer', () => {
   });
 });
 
-describe('export and import', () => {
-  it('round-trips every field of every row, ids and optional fields included', async () => {
+describe('[STO-C08] export and import', () => {
+  it('[STO-08, STO-C02, STO-C03] round-trips every field of every row, ids and optional fields included', async () => {
     await seed();
     const before = await repo.exportProgress(NOW);
     expect(before.format).toBe('geography-trainer-progress');
@@ -88,7 +88,7 @@ describe('export and import', () => {
     expect(after).toEqual(before);
   });
 
-  it('import replaces: rows not in the file are gone, unknown item ids are kept', async () => {
+  it('[STO-09] import replaces: rows not in the file are gone, unknown item ids are kept', async () => {
     await seed();
     const file = await repo.exportProgress(NOW);
     const stranger = { ...answered('place:atlantis'), itemId: 'place:atlantis' };
@@ -106,7 +106,7 @@ describe('export and import', () => {
   });
 });
 
-describe('import rejection leaves the database unchanged', () => {
+describe('[STO-10, STO-C04] import rejection leaves the database unchanged', () => {
   type Mutate = (file: Record<string, any>) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
   const cases: [string, Mutate, RegExp][] = [
     ['a wrong format', (f) => (f.format = 'other'), /format/],
@@ -205,7 +205,7 @@ describe('import rejection leaves the database unchanged', () => {
   });
 });
 
-describe('validated boundary cards', () => {
+describe('[STO-13, STO-C04] validated boundary cards', () => {
   it('a card at the scheduler bounds, and a New card, survive validation and applyAnswer', () => {
     const base = answered('country:france');
     const rung = base.rung;
@@ -227,7 +227,7 @@ describe('validated boundary cards', () => {
   });
 });
 
-describe('startedByTier', () => {
+describe('[STO-C09] startedByTier', () => {
   it('counts introduced rows per tier', () => {
     const fresh = createProgress('country:chad', NOW);
     expect(
@@ -250,7 +250,7 @@ describe('startedByTier', () => {
   });
 });
 
-describe('seedProgress', () => {
+describe('[STO-06, STO-C08] seedProgress', () => {
   it('adds rows and leaves a stored row untouched', async () => {
     const stored = answered('country:france');
     await repo.recordAnswer({ progress: stored, answer: answerRow(stored.itemId) });
@@ -263,7 +263,7 @@ describe('seedProgress', () => {
     });
   });
 
-  it('an exported file after seeding round-trips through import', async () => {
+  it('[STO-08] an exported file after seeding round-trips through import', async () => {
     await repo.seedProgress([createProgress('country:peru', NOW), answered('country:chad')]);
     const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
     await repo.importProgress(file);
@@ -272,7 +272,7 @@ describe('seedProgress', () => {
   });
 });
 
-describe('the version-2 upgrade', () => {
+describe('[STO-16, STO-C01] the version-2 upgrade', () => {
   it('keeps every progress and answers row and starts with no settings or markers', async () => {
     const name = `upgrade-${counter}`;
     const progress = [answered('country:france'), answered('country:peru')];
@@ -300,7 +300,7 @@ describe('the version-2 upgrade', () => {
   });
 });
 
-describe('settings', () => {
+describe('[STO-15, STO-C05] settings', () => {
   it('reads 15 when none is stored, then what was saved', async () => {
     expect(await repo.loadSettings()).toEqual({ dailyNewCap: 15 });
     await repo.saveDailyNewCap(30);
@@ -326,7 +326,7 @@ describe('settings', () => {
     db.close();
   });
 
-  it('settings are not in the export, survive an import and a reset', async () => {
+  it('[STO-07, STO-09, STO-14] settings are not in the export, survive an import and a reset', async () => {
     await repo.saveDailyNewCap(25);
     const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
     expect(JSON.stringify(file)).not.toContain('25');
@@ -337,7 +337,7 @@ describe('settings', () => {
   });
 });
 
-describe('finishPlacement', () => {
+describe('[STO-06, STO-C08] finishPlacement', () => {
   it('writes the seed rows (add-if-absent) and the marker', async () => {
     const stored = answered('country:france');
     await repo.recordAnswer({ progress: stored, answer: answerRow(stored.itemId) });
@@ -389,7 +389,7 @@ describe('finishPlacement', () => {
   });
 });
 
-describe('resetProgress', () => {
+describe('[STO-14, STO-C08] resetProgress', () => {
   it('clears progress, answers and markers and keeps settings', async () => {
     await seed();
     await repo.finishPlacement(placementKey('countries'), []);
@@ -401,7 +401,7 @@ describe('resetProgress', () => {
   });
 });
 
-describe('a malformed marker row', () => {
+describe('[STO-07] a malformed marker row', () => {
   it('is left out of the export and of loadFinishedTests, and the export re-imports', async () => {
     await repo.finishPlacement(placementKey('countries'), []);
     const raw = new GeographyDb(`test-${counter}`);
@@ -414,8 +414,8 @@ describe('a malformed marker row', () => {
   });
 });
 
-describe('export version 3 and import', () => {
-  it('round-trips the markers, replacing the markers already stored', async () => {
+describe('[STO-C03] export version 3 and import', () => {
+  it('[STO-08, STO-09] round-trips the markers, replacing the markers already stored', async () => {
     await seed();
     await repo.finishPlacement(placementKey('countries'), []);
     await repo.finishPlacement(placementKey('region:us.tx'), []);
@@ -426,7 +426,7 @@ describe('export version 3 and import', () => {
     expect(await repo.exportProgress(NOW)).toEqual(before);
   });
 
-  it.each([1, 2])('rejects a version-%i file, leaving the data unchanged', async (version) => {
+  it.each([1, 2])('[STO-11] rejects a version-%i file, leaving the data unchanged', async (version) => {
     await seed();
     const good = await repo.exportProgress(NOW);
     const old = { format: 'geography-trainer-progress', version, exportedAt: NOW.toISOString(), progress: [answered('country:chad')], answers: [], placementsDone: [] };
@@ -436,7 +436,7 @@ describe('export version 3 and import', () => {
     expect(await repo.exportProgress(NOW)).toEqual(good);
   });
 
-  it('accepts an answer rated 4 (Easy)', async () => {
+  it('[STO-C04] accepts an answer rated 4 (Easy)', async () => {
     await seed();
     const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
     file.answers[0].rating = Rating.Easy;
@@ -452,7 +452,7 @@ describe('export version 3 and import', () => {
     ['holding an empty region part', ['placement:region:us.']],
     ['holding an empty country id', ['placement:country:']],
     ['holding a duplicate', ['placement:countries', 'placement:countries']],
-  ])('rejects a version-3 file whose placementsDone is %s, leaving the data unchanged', async (_, value) => {
+  ])('[STO-10, STO-C04] rejects a version-3 file whose placementsDone is %s, leaving the data unchanged', async (_, value) => {
     await seed();
     const file = JSON.parse(JSON.stringify(await repo.exportProgress(NOW)));
     file.placementsDone = value;

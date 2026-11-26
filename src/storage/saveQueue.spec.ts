@@ -14,8 +14,8 @@ function controlledWriter() {
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('createSaveQueue', () => {
-  it('writes strictly in order: a write starts only after the previous one settled', async () => {
+describe('[STO-C06] createSaveQueue', () => {
+  it('[STO-01] writes strictly in order: a write starts only after the previous one settled', async () => {
     const { write, started, settlers } = controlledWriter();
     const queue = createSaveQueue(write);
     queue.push('a');
@@ -32,7 +32,7 @@ describe('createSaveQueue', () => {
     expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
   });
 
-  it('on a failure stops, keeps later entries waiting and retry resumes from the failed one', async () => {
+  it('[STO-02] on a failure stops, keeps later entries waiting and retry resumes from the failed one', async () => {
     const written: string[] = [];
     let failNext = true;
     const queue = createSaveQueue(async (entry: string) => {
@@ -100,7 +100,7 @@ describe('createSaveQueue', () => {
     expect(queue.getState()).toEqual({ unsaved: 0, failed: false });
   });
 
-  it('a retry that fails again stops at that entry and keeps the failed state', async () => {
+  it('[STO-02] a retry that fails again stops at that entry and keeps the failed state', async () => {
     const written: string[] = [];
     let failures = 2;
     const queue = createSaveQueue(async (entry: string) => {
@@ -142,7 +142,7 @@ describe('createSaveQueue', () => {
     expect(seen).toEqual(['1', '0']);
   });
 
-  it('reports failure to subscribers and keeps it through a retry until the write succeeds', async () => {
+  it('[STO-02, STO-03] reports failure to subscribers and keeps it through a retry until the write succeeds', async () => {
     let fail = true;
     const queue = createSaveQueue(async () => {
       if (fail) throw new Error('x');

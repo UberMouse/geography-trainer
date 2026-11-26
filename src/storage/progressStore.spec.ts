@@ -44,8 +44,8 @@ function flaky(failures: number): ProgressRepo {
   };
 }
 
-describe('createProgressStore', () => {
-  it('loadProgress started right after a push returns the pushed progress', async () => {
+describe('[STO-C07] createProgressStore', () => {
+  it('[STO-05] loadProgress started right after a push returns the pushed progress', async () => {
     const store = createProgressStore(repo);
     const pushed = entry('country:france');
     store.answers.push(pushed);
@@ -54,7 +54,7 @@ describe('createProgressStore', () => {
     expect(await repo.loadProgress()).toHaveProperty('country:france');
   });
 
-  it('loadProgress resolves on a failing queue and includes the unsaved progress', async () => {
+  it('[STO-05] loadProgress resolves on a failing queue and includes the unsaved progress', async () => {
     const store = createProgressStore(flaky(1));
     const pushed = entry('country:peru');
     store.answers.push(pushed);
@@ -64,7 +64,7 @@ describe('createProgressStore', () => {
     expect(await repo.loadProgress()).toEqual({});
   });
 
-  it('importProgress waits for a queued write and is not overwritten by it', async () => {
+  it('[STO-12] importProgress waits for a queued write and is not overwritten by it', async () => {
     const source = createRepo(`store-source-${counter}`);
     try {
       await source.recordAnswer(entry('country:peru'));
@@ -79,7 +79,7 @@ describe('createProgressStore', () => {
     }
   });
 
-  it('an invalid import leaves the unsaved entries in place', async () => {
+  it('[STO-12] an invalid import leaves the unsaved entries in place', async () => {
     const store = createProgressStore(flaky(1));
     store.answers.push(entry('country:france'));
     await store.answers.whenSettled();
@@ -88,14 +88,14 @@ describe('createProgressStore', () => {
     expect(store.answers.unsavedEntries()).toHaveLength(1);
   });
 
-  it('exportProgress waits for a queued write', async () => {
+  it('[STO-07] exportProgress waits for a queued write', async () => {
     const store = createProgressStore(repo);
     store.answers.push(entry('country:france'));
     const file = await store.exportProgress(NOW);
     expect(file.progress.map((p) => p.itemId)).toEqual(['country:france']);
   });
 
-  it('exportProgress retries a failed queue and includes the entry once it saves', async () => {
+  it('[STO-07] exportProgress retries a failed queue and includes the entry once it saves', async () => {
     const store = createProgressStore(flaky(1));
     store.answers.push(entry('country:peru'));
     await store.answers.whenSettled();
@@ -104,7 +104,7 @@ describe('createProgressStore', () => {
     expect(file.progress.map((p) => p.itemId)).toEqual(['country:peru']);
   });
 
-  it('exportProgress resolves without an entry that keeps failing', async () => {
+  it('[STO-07] exportProgress resolves without an entry that keeps failing', async () => {
     const store = createProgressStore(flaky(Infinity));
     store.answers.push(entry('country:peru'));
     const file = await store.exportProgress(NOW);
@@ -112,7 +112,7 @@ describe('createProgressStore', () => {
     expect(store.answers.getState()).toEqual({ unsaved: 1, failed: true });
   });
 
-  it('a failed importProgress puts the dropped entries back in the queue', async () => {
+  it('[STO-12] a failed importProgress puts the dropped entries back in the queue', async () => {
     const source = createRepo(`store-source-${counter}`);
     try {
       await source.recordAnswer(entry('country:peru'));
@@ -133,7 +133,7 @@ describe('createProgressStore', () => {
     }
   });
 
-  it('a failed importProgress on a failed queue restores the dropped entries first, still failed', async () => {
+  it('[STO-12] a failed importProgress on a failed queue restores the dropped entries first, still failed', async () => {
     const source = createRepo(`store-source-${counter}`);
     try {
       await source.recordAnswer(entry('country:peru'));
@@ -158,7 +158,7 @@ describe('createProgressStore', () => {
     }
   });
 
-  it('a retry during the import does not write the old entry over it', async () => {
+  it('[STO-12] a retry during the import does not write the old entry over it', async () => {
     const source = createRepo(`store-source-${counter}`);
     try {
       await source.recordAnswer(entry('country:peru'));
@@ -181,7 +181,7 @@ describe('createProgressStore', () => {
   });
 });
 
-describe('seedProgress', () => {
+describe('[STO-06, STO-C07] seedProgress', () => {
   it('waits for a queued answer and never overwrites it', async () => {
     const store = createProgressStore(repo);
     const pushed = entry('country:france');
@@ -192,7 +192,7 @@ describe('seedProgress', () => {
     expect(stored).toHaveProperty('country:peru');
   });
 
-  it('makes loadProgress wait for a seed write in flight, and a failed one does not reject it', async () => {
+  it('[STO-05] makes loadProgress wait for a seed write in flight, and a failed one does not reject it', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
     const store = createProgressStore({
@@ -224,8 +224,8 @@ describe('seedProgress', () => {
   });
 });
 
-describe('settings, markers and reset through the store', () => {
-  it('reads the default limit, saves a valid one, rejects an invalid one without writing', async () => {
+describe('[STO-C07] settings, markers and reset through the store', () => {
+  it('[STO-15] reads the default limit, saves a valid one, rejects an invalid one without writing', async () => {
     const store = createProgressStore(repo);
     expect(await store.loadSettings()).toEqual({ dailyNewCap: 15 });
     await store.saveDailyNewCap(20);
@@ -233,7 +233,7 @@ describe('settings, markers and reset through the store', () => {
     expect(await store.loadSettings()).toEqual({ dailyNewCap: 20 });
   });
 
-  it('finishPlacement writes seeds and the marker; a read started at once sees both', async () => {
+  it('[STO-06] finishPlacement writes seeds and the marker; a read started at once sees both', async () => {
     const store = createProgressStore(repo);
     const row = createProgress('country:peru', NOW);
     const finished = store.finishPlacement('placement:countries', [row]);
@@ -243,7 +243,7 @@ describe('settings, markers and reset through the store', () => {
     expect(progress['country:peru']).toEqual(row);
   });
 
-  it('a failed finishPlacement rejects and stores neither', async () => {
+  it('[STO-06] a failed finishPlacement rejects and stores neither', async () => {
     const store = createProgressStore({
       ...repo,
       finishPlacement: () => Promise.reject(new Error('disk full')),
@@ -252,7 +252,7 @@ describe('settings, markers and reset through the store', () => {
     expect(await repo.loadFinishedTests()).toEqual([]);
   });
 
-  it('resetProgress clears progress and markers, keeps settings, drops unsaved answers', async () => {
+  it('[STO-14] resetProgress clears progress and markers, keeps settings, drops unsaved answers', async () => {
     const store = createProgressStore(flaky(Infinity));
     await store.saveDailyNewCap(30);
     await store.finishPlacement('placement:countries', []);
@@ -264,7 +264,7 @@ describe('settings, markers and reset through the store', () => {
     expect(await store.loadSettings()).toEqual({ dailyNewCap: 30 });
   });
 
-  it('a marker finished right after a reset was started survives it', async () => {
+  it('[STO-14] a marker finished right after a reset was started survives it', async () => {
     const store = createProgressStore(repo);
     await store.finishPlacement('placement:countries', []);
     const reset = store.resetProgress();
@@ -273,7 +273,7 @@ describe('settings, markers and reset through the store', () => {
     expect(await store.loadFinishedTests()).toEqual(new Set(['placement:region:us.tx']));
   });
 
-  it('a read started right after a reset waits for it', async () => {
+  it('[STO-14] a read started right after a reset waits for it', async () => {
     const store = createProgressStore(repo);
     await store.finishPlacement('placement:countries', []);
     const reset = store.resetProgress();
@@ -281,7 +281,7 @@ describe('settings, markers and reset through the store', () => {
     await reset;
   });
 
-  it('a failed reset changes nothing, queued unsaved answers included', async () => {
+  it('[STO-14] a failed reset changes nothing, queued unsaved answers included', async () => {
     const store = createProgressStore({
       ...flaky(1),
       resetProgress: () => Promise.reject(new Error('blocked')),
