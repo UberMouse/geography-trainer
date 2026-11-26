@@ -5,11 +5,12 @@ import {
   importProgress,
   next,
   question,
+  seedSummarySavedRun,
   summary,
   WAIT,
+  writeMasteredUnitedStatesWithFewDue,
   writeTexasOnePassFromMastery,
   writeUnitedStatesOnePassFromMastery,
-  writeUnitedStatesOnePassWithMoreDue,
 } from './sessionHelpers';
 import { expect, test, type Page } from './test';
 
@@ -127,9 +128,11 @@ test('[SES-25, SES-C05] a reload on a summary with questions left keeps its unlo
   page,
   isMobile,
 }, testInfo) => {
-  const file = testInfo.outputPath('us-one-pass-with-more-due.json');
-  await writeUnitedStatesOnePassWithMoreDue(file);
+  const file = testInfo.outputPath('us-mastered-with-few-due.json');
+  await writeMasteredUnitedStatesWithFewDue(file);
   await importProgress(page, file);
+  // Round one ended at its summary with three questions left: seeded, not played through.
+  await seedSummarySavedRun(page);
   await page.getByRole('link', { name: /^Start/ }).click();
 
   const unlock = page.getByText("Unlocked: United States's regions");
@@ -145,8 +148,7 @@ test('[SES-25, SES-C05] a reload on a summary with questions left keeps its unlo
     await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
   };
 
-  await answerToSummary();
-  await expect(summary(page)).toHaveText('Round done: 20 of 20 right');
+  await expect(summary(page)).toHaveText('Round done: 20 of 20 right', WAIT);
   await expect(unlock).toBeVisible();
   await expect(testOut).toBeVisible();
   await expect(keepGoing).toBeVisible();

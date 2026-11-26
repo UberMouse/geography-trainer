@@ -210,34 +210,60 @@ export async function writeTexasOnePassFromMastery(path: string) {
   ]);
 }
 
-/** Countries due for review (none of them in `INTRODUCED_TODAY`), to fill a session past one round. */
-const DUE_COUNTRIES = [
-  'afghanistan', 'algeria', 'angola', 'austria', 'bangladesh', 'belgium', 'benin', 'bolivia',
-  'bulgaria', 'cameroon', 'colombia', 'croatia', 'cuba', 'denmark', 'ecuador', 'ethiopia',
-  'finland', 'ghana', 'greece', 'guatemala', 'hungary', 'indonesia', 'iran',
-];
+/** The countries `writeMasteredUnitedStatesWithFewDue` leaves due, with the rung each is due at. */
+const FEW_DUE = [
+  { id: 'afghanistan', rung: 2 },
+  { id: 'algeria', rung: 3 },
+  { id: 'angola', rung: 2 },
+] as const;
 
 /**
- * A progress file whose session is 24 questions, so round one ends with questions left:
- * `country:united-states` due at L3 and the most overdue (so asked in round one), one pass from
- * mastery, then 23 other countries due at L2 and L3. Today's 15 new items are used up by countries
+ * A progress file with `country:united-states` mastered and three other countries due now, the
+ * state `seedSummarySavedRun` saves a summary for. Today's 15 new items are used up by countries
  * that are not yet due.
  */
-export async function writeUnitedStatesOnePassWithMoreDue(path: string) {
+export async function writeMasteredUnitedStatesWithFewDue(path: string) {
   await writeProgressFile(path, [
     progressRow('country:united-states', 3, {
-      dueInDays: -10,
-      l3PassDays: ['2026-01-10'],
+      dueInDays: 30,
+      l3PassDays: ['2026-01-10', '2026-01-20'],
       introducedAt: Date.now() - 60 * DAY,
     }),
-    ...DUE_COUNTRIES.map((id, i) =>
-      progressRow(`country:${id}`, i % 2 === 0 ? 2 : 3, {
-        dueInDays: -1,
-        introducedAt: Date.now() - 60 * DAY,
-      }),
+    ...FEW_DUE.map(({ id, rung }) =>
+      progressRow(`country:${id}`, rung, { dueInDays: -1, introducedAt: Date.now() - 60 * DAY }),
     ),
     ...INTRODUCED_TODAY.map((id) =>
       progressRow(`country:${id}`, 1, { dueInDays: 30, introducedAt: Date.now() }),
     ),
   ]);
+}
+
+/**
+ * Saves (SES-C05) the run of a session whose first round just ended at its summary, 20 of 20
+ * right, with the `FEW_DUE` countries still queued and the United States unlocked by it. The page
+ * must already be on the app's origin, and the session not yet open: the Session page reads this
+ * once, as it mounts. The local day is worked out in the page, as the app does.
+ */
+export async function seedSummarySavedRun(page: Page) {
+  const run = {
+    queue: FEW_DUE.map(({ id, rung }) => ({ itemId: `country:${id}`, rung })),
+    answered: 20,
+    answeredInRound: 20,
+    correctInRound: 20,
+    asks: Object.fromEntries(
+      ['united-states', ...FEW_DUE.map(({ id }) => id)].map((id) => [`country:${id}`, 1]),
+    ),
+    roundTotal: 20,
+    itemTotal: FEW_DUE.length + 1,
+  };
+  await page.evaluate(
+    (saved) => {
+      const now = new Date();
+      const dayKey = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 10);
+      sessionStorage.setItem('geography-trainer:session-run', JSON.stringify({ dayKey, ...saved }));
+    },
+    { run, mastered: ['country:united-states'], testable: ['country:united-states'] },
+  );
 }
