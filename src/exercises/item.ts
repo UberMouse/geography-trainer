@@ -9,12 +9,12 @@ import type { Place } from '../engine/types';
 import type { CountriesData, CountryFeature, RegionsData } from '../data/loaders';
 import {
   answerPoint,
+  inFrame,
   mainPart,
   nearPoint,
   type IdentifiedFeature,
   type LngLat,
 } from '../maps/geo';
-import { inFlatFrame } from '../maps/view';
 import type { ExerciseItem } from './types';
 
 export { distinctCandidates } from '../engine/distractors';
@@ -130,7 +130,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       },
       bordersMode: { kind: 'regionBorders', country, regions: regions.features },
       world: worldWith(country, regions.features),
-      onGlobe: !inFlatFrame(frame, answer),
+      onGlobe: !inFrame(frame, answer),
       pointOnly: false,
     };
   }
@@ -162,7 +162,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       bordersMode: { kind: 'regionBorders', country, regions },
       world: worldWith(country, regionFeatures),
       // A point-only country's flat map is its featureless disc: show its places on the globe.
-      onGlobe: pointOnly || !inFlatFrame(frame, point),
+      onGlobe: pointOnly || !inFrame(frame, point),
       pointOnly,
     };
   }

@@ -13,6 +13,7 @@ import {
   answerPoint,
   clusterAt,
   ensureArea,
+  inFrame,
   isOnFarSide,
   mainPart,
   measureTap,
@@ -281,6 +282,27 @@ describe('clusterAt', () => {
 
   it('returns a single-cluster feature itself', () => {
     expect(clusterAt(square, [50, 50])).toBe(square);
+  });
+});
+
+describe('inFrame', () => {
+  // 10 x 10 degrees, clockwise.
+  const frame = poly([
+    [0, 40],
+    [0, 50],
+    [10, 50],
+    [10, 40],
+    [0, 40],
+  ]);
+
+  it('is true for a point inside the frame and one just off its coast', () => {
+    expect(inFrame(frame, [5, 45])).toBe(true);
+    expect(inFrame(frame, [10.2, 45])).toBe(true);
+  });
+
+  it('is false for a point far outside the frame, or round the back of the globe', () => {
+    expect(inFrame(frame, [55, -21])).toBe(false);
+    expect(inFrame(frame, [-175, -45])).toBe(false);
   });
 });
 

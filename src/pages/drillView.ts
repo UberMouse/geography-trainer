@@ -11,8 +11,7 @@ import {
 } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
-import type { AreaFeature, LngLat } from '../maps/geo';
-import { fitFlat, MAP_SIZE } from '../maps/view';
+import { inFrame, type AreaFeature, type LngLat } from '../maps/geo';
 import { STATE_LABELS } from './progressView';
 
 export type DrillRoute =
@@ -92,22 +91,17 @@ export function childRows(
 }
 
 /**
- * Splits `items` by whether `at(item)` falls in the flat map fitted to `frame` (`fitFlat`), the
- * test the exercises use for `onGlobe`: `onMap` is drawn, `off` is named under the map.
+ * Splits `items` by whether `at(item)` lies near `frame` (`inFrame`), the country's main part:
+ * `onMap` is drawn, `off` is named in the column.
  */
 export function splitByFrame<T>(
   frame: AreaFeature,
   items: readonly T[],
   at: (item: T) => LngLat,
 ): { onMap: T[]; off: T[] } {
-  const project = fitFlat([frame]);
   const onMap: T[] = [];
   const off: T[] = [];
-  for (const item of items) {
-    const p = project(at(item));
-    const inside = !!p && p.every((v) => Number.isFinite(v) && v >= 0 && v <= MAP_SIZE);
-    (inside ? onMap : off).push(item);
-  }
+  for (const item of items) (inFrame(frame, at(item)) ? onMap : off).push(item);
   return { onMap, off };
 }
 

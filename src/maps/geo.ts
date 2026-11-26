@@ -1,5 +1,6 @@
 import {
   geoArea,
+  geoAzimuthalEqualArea,
   geoBounds,
   geoCentroid,
   geoCircle,
@@ -238,6 +239,31 @@ export function clusterAt<F extends AreaFeature>(feature: F, point: LngLat): F {
   if (holding) return holding.feature as F;
   const km = (c: Cluster) => kmToBoundary(c.feature, point);
   return clusters.reduce((m, c) => (km(c) < km(m) ? c : m)).feature as F;
+}
+
+/** The square, and its padding, that `inFrame` fits a frame into. */
+const FRAME_SIZE = 480;
+const FRAME_PADDING = 16;
+
+/**
+ * Whether `point` lies near `frame`: inside the square that an azimuthal equal-area projection
+ * centred on the frame's centroid shows when fitted to the frame with a little padding. A
+ * country's main part as the frame sets its outlying regions and places (overseas, far islands)
+ * apart.
+ */
+export function inFrame(frame: AreaFeature, point: LngLat): boolean {
+  const [lng, lat] = geoCentroid(frame);
+  const project = geoAzimuthalEqualArea()
+    .rotate([-lng, -lat])
+    .fitExtent(
+      [
+        [FRAME_PADDING, FRAME_PADDING],
+        [FRAME_SIZE - FRAME_PADDING, FRAME_SIZE - FRAME_PADDING],
+      ],
+      { type: 'FeatureCollection', features: [frame] },
+    );
+  const p = project(point);
+  return !!p && p.every((v) => Number.isFinite(v) && v >= 0 && v <= FRAME_SIZE);
 }
 
 const answerPoints = new WeakMap<AreaFeature, LngLat>();
