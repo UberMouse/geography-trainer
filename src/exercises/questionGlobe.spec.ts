@@ -134,8 +134,22 @@ describe('questionReveal', () => {
 });
 
 describe('revealCamera', () => {
-  it('frames the tap and the answer point together', () => {
+  it('frames the tap and the answer point together for a place', () => {
     expect(revealCamera(place, [10, 40])).toEqual({ kind: 'pair', a: [10, 40], b: [2, 47] });
+  });
+
+  it('frames the outline too for a country or region, so it shows whole', () => {
+    if (!('feature' in country.target)) throw new Error('the fixture country has an outline');
+    const { feature } = country.target;
+    const [lng, lat] = answerPoint(feature);
+    const tap: LngLat = [lng + 3, lat];
+    expect(revealCamera(country, tap)).toEqual({ kind: 'pair', a: tap, b: [lng, lat], feature });
+  });
+
+  it('shows the whole globe for a far miss: halfway between, or on the answer when nearly opposite', () => {
+    // [2, 47] to [60, 20]: about 5,300 km.
+    expect(revealCamera(place, [60, 20])).toEqual({ kind: 'world', at: midpoint([60, 20], [2, 47]) });
+    expect(revealCamera(place, [-170, -40])).toEqual({ kind: 'world', at: [2, 47] });
   });
 });
 

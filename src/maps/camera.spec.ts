@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pairBounds, spanZoom } from './camera';
+import { pairBounds, spanZoom, unionBounds } from './camera';
 import { EARTH_RADIUS_KM } from './geo';
 import { MAX_ZOOM } from './globeLayers';
 
@@ -67,5 +67,41 @@ describe('pairBounds', () => {
       [10, 20],
       [10, 20],
     ]);
+  });
+});
+
+describe('unionBounds', () => {
+  it('holds both boxes', () => {
+    expect(
+      unionBounds(
+        [
+          [0, 40],
+          [10, 50],
+        ],
+        [
+          [5, 30],
+          [20, 45],
+        ],
+      ),
+    ).toEqual([
+      [0, 30],
+      [20, 50],
+    ]);
+  });
+
+  it('joins boxes either side of the antimeridian across it, not round the world', () => {
+    // Fiji-like bounds (east above 180) and a tap just west of the line in the -180 form.
+    const [[w], [e]] = unionBounds(
+      [
+        [177, -20],
+        [181, -16],
+      ],
+      [
+        [-178, -18],
+        [-178, -18],
+      ],
+    );
+    expect(w).toBe(177);
+    expect(e).toBe(182);
   });
 });

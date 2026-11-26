@@ -3,7 +3,7 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { NEIGHBOURHOOD_VIEW_KM, pairBounds, spanZoom } from './camera';
+import { NEIGHBOURHOOD_VIEW_KM, pairBounds, spanZoom, unionBounds } from './camera';
 import type { AreaFeature, LngLat } from './geo';
 import classes from './Globe.module.css';
 import {
@@ -30,8 +30,9 @@ export interface GlobeHandle {
   flyTo(at: LngLat, zoom: number): void;
   /** Fly to centre `at`, showing about `km` of ground across the globe's shorter side. */
   flyToSpan(at: LngLat, km: number): void;
-  /** Fly to frame both points, never closer than `NEIGHBOURHOOD_VIEW_KM` across. */
-  fitPoints(a: LngLat, b: LngLat): void;
+  /** Fly to frame both points (and `feature`'s main part, when given), never closer than
+   * `NEIGHBOURHOOD_VIEW_KM` across, with room around them for the pins and the name. */
+  fitPoints(a: LngLat, b: LngLat, feature?: AreaFeature): void;
   /** Fly to the opening view's zoom, the whole sphere, centred on `at` (by default where it starts). */
   worldView(at?: LngLat): void;
   /** Stop a camera flight where it has reached (and drop one held for the opening jump). */
@@ -95,6 +96,8 @@ const START: LngLat = [0, 20];
 /** A tap whose point, unprojected and projected back, moves more than this is off the globe. */
 const OFF_GLOBE_PX = 2;
 const FIT_PADDING = 40;
+/** The reveal's margin: wider, so a pin and the name beside it clear the globe's edges. */
+const REVEAL_PADDING = 72;
 /** How far from a progress dot's centre, in CSS px, a tap is on the dot as drawn. */
 const DOT_DRAWN_PX = PROGRESS_DOT_RADIUS + 2;
 /** How far from a progress dot's centre, in CSS px, a tap inside no feature still lands on it. */
@@ -406,8 +409,9 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     if (!reveal?.tap) return;
     const shown = shownMarkers.current;
     const added = [
-      new maplibregl.Marker({ color: '#fa5252' }).setLngLat(reveal.tap.at).addTo(map),
-      new maplibregl.Marker({ color: '#40c057' }).setLngLat(reveal.tap.answer).addTo(map),
+      // Hidden, not faded, on the far side: a faint pin there looks like it is on the near side.
+      new maplibregl.Marker({ color: '#fa5252', opacityWhenCovered: '0' }).setLngLat(reveal.tap.at).addTo(map),
+      new maplibregl.Marker({ color: '#40c057', opacityWhenCovered: '0' }).setLngLat(reveal.tap.answer).addTo(map),
     ];
     for (const m of added) shown.set(m, { kind: 'reveal', text: '' });
     return () =>
@@ -462,10 +466,10 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       flyTo: (at, zoom) => move((map) => map.flyTo({ center: at, zoom })),
       flyToSpan: (at, km) =>
         move((map) => map.flyTo({ center: at, zoom: spanZoom(km, shortSide(), at[1]) })),
-      fitPoints: (a, b) =>
+      fitPoints: (a, b, feature) =>
         move((map) =>
-          map.fitBounds(pairBounds(a, b), {
-            padding: FIT_PADDING,
+          map.fitBounds(feature ? unionBounds(pairBounds(a, b), featureBounds(feature)) : pairBounds(a, b), {
+            padding: REVEAL_PADDING,
             maxZoom: spanZoom(NEIGHBOURHOOD_VIEW_KM, shortSide(), (a[1] + b[1]) / 2),
           }),
         ),

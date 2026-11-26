@@ -15,7 +15,7 @@ export function moveCamera(camera: GlobeCamera, move: CameraMove): void {
     case 'span':
       return camera.flyToSpan(move.at, move.km);
     case 'pair':
-      return camera.fitPoints(move.a, move.b);
+      return camera.fitPoints(move.a, move.b, move.feature);
     case 'world':
       return camera.worldView(move.at);
     case 'stay':

@@ -16,8 +16,8 @@ export type CameraMove =
   | { kind: 'fit'; feature: AreaFeature }
   /** Fly to centre `at`, showing about `km` across. */
   | { kind: 'span'; at: LngLat; km: number }
-  /** Fly to frame both points together. */
-  | { kind: 'pair'; a: LngLat; b: LngLat }
+  /** Fly to frame both points together, and `feature`'s main part too when given. */
+  | { kind: 'pair'; a: LngLat; b: LngLat; feature?: AreaFeature }
   /** Fly to the whole sphere at the opening view's zoom, centred on `at` (else where it starts). */
   | { kind: 'world'; at?: LngLat }
   /** Stop any flight where it has reached, and stay there. */
@@ -60,4 +60,24 @@ export function pairBounds(a: LngLat, b: LngLat): [LngLat, LngLat] {
         [west, south],
         [east, north],
       ];
+}
+
+/**
+ * The smallest [[west, south], [east, north]] bounds holding both `a` and `b` (each in the
+ * east-above-180 form of `pairBounds` and `featureBounds`): `b` is tried shifted a turn either
+ * way, so bounds either side of the antimeridian join across it, not round the world.
+ */
+export function unionBounds(a: [LngLat, LngLat], b: [LngLat, LngLat]): [LngLat, LngLat] {
+  let best: [LngLat, LngLat] | null = null;
+  for (const shift of [0, -360, 360]) {
+    const west = Math.min(a[0][0], b[0][0] + shift);
+    const east = Math.max(a[1][0], b[1][0] + shift);
+    if (!best || east - west < best[1][0] - best[0][0]) {
+      best = [
+        [west, Math.min(a[0][1], b[0][1])],
+        [east, Math.max(a[1][1], b[1][1])],
+      ];
+    }
+  }
+  return best!;
 }

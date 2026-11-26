@@ -1,7 +1,7 @@
 // What a question shows on the shared globe and where it moves the camera, as plain data.
 import type { Rung } from '../engine/srs';
 import { NEIGHBOURHOOD_VIEW_KM, type CameraMove } from '../maps/camera';
-import { answerPoint, midpoint, targetPoint, type LngLat } from '../maps/geo';
+import { answerPoint, distanceKm, midpoint, targetPoint, type LngLat } from '../maps/geo';
 import type { GlobeMarker } from '../maps/Globe';
 import type { GlobeMode, Reveal } from '../maps/globeLayers';
 import type { ExerciseItem } from './types';
@@ -56,9 +56,24 @@ export function questionReveal(item: ExerciseItem, tap?: LngLat): Reveal {
   };
 }
 
-/** The camera after a tap's answer: framing the tap and the answer point together. */
+/** Beyond this a tap and its answer are framed by the whole globe, not by fitting both. */
+export const REVEAL_WORLD_KM = 5_000;
+/** Beyond this they cannot both sit well on the near side, so the globe centres on the answer. */
+export const REVEAL_FAR_SIDE_KM = 9_000;
+
+/**
+ * The camera after a tap's answer. Within REVEAL_WORLD_KM: framing the tap, the answer point and
+ * the target's outline (for a country or region) together, so the country shows whole. Further:
+ * the whole globe, centred halfway between them, or on the answer beyond REVEAL_FAR_SIDE_KM, where
+ * fitting both would leave a pin on the globe's edge.
+ */
 export function revealCamera(item: ExerciseItem, tap: LngLat): CameraMove {
-  return { kind: 'pair', a: tap, b: targetPoint(item.target) };
+  const answer = targetPoint(item.target);
+  const km = distanceKm(tap, answer);
+  if (km > REVEAL_FAR_SIDE_KM) return { kind: 'world', at: answer };
+  if (km > REVEAL_WORLD_KM) return { kind: 'world', at: midpoint(tap, answer) };
+  const { target } = item;
+  return 'feature' in target ? { kind: 'pair', a: tap, b: answer, feature: target.feature } : { kind: 'pair', a: tap, b: answer };
 }
 
 /**

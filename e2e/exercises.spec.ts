@@ -183,7 +183,7 @@ test.describe('L2 and L3 name → tap', () => {
     );
   });
 
-  test('L2: a far tap on the bordered globe, confirmed, is incorrect; the reveal frames both', async ({
+  test('L2: a far tap on the bordered globe, confirmed, is incorrect; the reveal shows the whole globe on the answer', async ({
     page,
     isMobile,
   }) => {
@@ -196,10 +196,33 @@ test.describe('L2 and L3 name → tap', () => {
     await expect(page.getByTestId('last-correct')).toHaveText('false');
     const score = Number(await page.getByTestId('reveal-score').textContent());
     expect(score).toBeLessThan(50);
-    // The camera ends between the tap and the answer, not on either.
+    // Nearly opposite France: both cannot sit on the near side, so the whole globe, on the answer.
     const view = await settled(page);
-    expect(near(view.center, far, 10)).toBe(false);
+    expect(near(view.center, await itemAnswer(page), 1)).toBe(true);
+    expect(view.zoom).toBeLessThan(2);
+  });
+
+  test('L2: a miss a few thousand km off frames the tap and the whole country together', async ({
+    page,
+    isMobile,
+  }) => {
+    await openExercise(page, 'item=country:france&rung=2');
+    const moscow: LngLat = [37.6, 55.75];
+    await tapGlobe(page, isMobile, moscow);
+    await confirm(page).click();
+    await expect(verdict(page)).toHaveText(/^Incorrect · it is /);
+    // The camera ends between the tap and France, with both on screen.
+    const view = await settled(page);
+    expect(near(view.center, moscow, 10)).toBe(false);
     expect(near(view.center, await itemAnswer(page), 10)).toBe(false);
+    const slot = (await page.getByTestId('globe-slot').boundingBox())!;
+    for (const at of [moscow, await itemAnswer(page)]) {
+      const { x, y } = await hook.project(page, at);
+      expect(x).toBeGreaterThan(slot.x);
+      expect(x).toBeLessThan(slot.x + slot.width);
+      expect(y).toBeGreaterThan(slot.y);
+      expect(y).toBeLessThan(slot.y + slot.height);
+    }
   });
 
   test('a tap after the answer changes nothing', async ({ page, isMobile }) => {
