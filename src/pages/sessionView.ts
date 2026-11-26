@@ -93,6 +93,20 @@ export function countriesNeedingRegions(
   return [...needed];
 }
 
+/** What the current round has mastered: the unlock lines' ids, and those with a Test out link. */
+export interface RoundMastery {
+  mastered: readonly string[];
+  testable: readonly string[];
+}
+
+/** `round` with `itemId` added as mastered, and as testable when `testOut` (answer order kept). */
+export function withMastered(round: RoundMastery, itemId: string, testOut: boolean): RoundMastery {
+  return {
+    mastered: [...round.mastered, itemId],
+    testable: testOut ? [...round.testable, itemId] : round.testable,
+  };
+}
+
 /**
  * The round summary's lines for the items mastered in the round, each with the mastered item's
  * id: "Unlocked: France's regions", "Unlocked: Brittany's places (France)". A region's line names

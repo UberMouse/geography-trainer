@@ -181,3 +181,31 @@ export async function writeUnitedStatesOnePassFromMastery(path: string) {
     ),
   ]);
 }
+
+/**
+ * A progress file whose session is two questions: `region:united-states.texas` due at L3, one pass
+ * from mastery, then `country:argentina` due at L3 (a country elsewhere). The United States is
+ * mastered, which introduces its regions. Today's 15 new items are used up by other countries.
+ */
+export async function writeTexasOnePassFromMastery(path: string) {
+  await writeProgressFile(path, [
+    progressRow('country:united-states', 3, {
+      dueInDays: 30,
+      l3PassDays: ['2026-01-10', '2026-01-20'],
+      introducedAt: Date.now() - 60 * DAY,
+    }),
+    progressRow('region:united-states.texas', 3, {
+      dueInDays: -2,
+      l3PassDays: ['2026-01-10'],
+      introducedAt: Date.now() - 60 * DAY,
+    }),
+    progressRow('country:argentina', 3, {
+      dueInDays: -1,
+      l3PassDays: ['2026-01-10'],
+      introducedAt: Date.now() - 60 * DAY,
+    }),
+    ...INTRODUCED_TODAY.map((id) =>
+      progressRow(`country:${id}`, 1, { dueInDays: 30, introducedAt: Date.now() }),
+    ),
+  ]);
+}

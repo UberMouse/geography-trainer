@@ -9,10 +9,20 @@ import type { ItemProgress } from '../engine/srs';
 
 const KEY = 'geography-trainer:session-run';
 
-interface SavedRun {
-  dayKey: string;
+/** What a reload resumes: the run, and what the round has mastered (the summary's unlock lines and Test out links). */
+export interface SavedSession {
   run: SessionRun;
+  /** Ids of the items that passed from not mastered to mastered in the current round, in answer order. */
+  mastered: readonly string[];
+  /** Those of `mastered` whose unlock line links to a test-out, as judged when each was mastered. */
+  testable: readonly string[];
 }
+
+interface SavedRun extends SavedSession {
+  dayKey: string;
+}
+
+const isIdList = (v: unknown): v is string[] => Array.isArray(v) && v.every((id) => typeof id === 'string');
 
 const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
 
@@ -37,17 +47,18 @@ function isRun(r: unknown): r is SessionRun {
 }
 
 /**
- * The run saved as `text` for `dayKey`, or null: for another day, malformed, with nothing left to
- * ask, or with a question the progress can no longer answer (an item `isKnown` rejects, or a rung
- * with no card: progress was reset or imported since). An item with no progress row can only be
- * asked at L1.
+ * The session saved as `text` for `dayKey`, or null: for another day, malformed, with nothing left
+ * to ask and nothing answered, or with a question the progress can no longer answer (an item
+ * `isKnown` rejects, or a rung with no card: progress was reset or imported since). An item with no
+ * progress row can only be asked at L1. An empty queue after answers is the day's last summary and
+ * is returned. A missing `mastered` or `testable` reads as empty.
  */
 export function parseSavedRun(
   text: string | null,
   dayKey: string,
   progress: Readonly<Record<string, ItemProgress>>,
   isKnown: (itemId: string) => boolean,
-): SessionRun | null {
+): SavedSession | null {
   if (text === null) return null;
   let saved: unknown;
   try {
@@ -56,14 +67,17 @@ export function parseSavedRun(
     return null;
   }
   if (typeof saved !== 'object' || saved === null) return null;
-  const { dayKey: savedDay, run } = saved as Partial<SavedRun>;
-  if (savedDay !== dayKey || !isRun(run) || run.queue.length === 0) return null;
+  const { dayKey: savedDay, run, mastered = [], testable = [] } = saved as Partial<SavedRun>;
+  if (savedDay !== dayKey || !isRun(run)) return null;
+  if (run.queue.length === 0 && run.answered === 0) return null;
+  if (!isIdList(mastered) || !isIdList(testable)) return null;
+  if (!mastered.every(isKnown) || !testable.every((id) => mastered.includes(id))) return null;
   const answerable = run.queue.every(({ itemId, rung }) => {
     if (!isKnown(itemId)) return false;
     const p = progress[itemId];
     return p ? p.cards[rung] !== undefined && rung <= p.highestRung : rung === 1;
   });
-  return answerable ? run : null;
+  return answerable ? { run, mastered, testable } : null;
 }
 
 /** The saved run for today, if it can still be resumed (see `parseSavedRun`). */
@@ -71,7 +85,7 @@ export function loadSessionRun(
   dayKey: string,
   progress: Readonly<Record<string, ItemProgress>>,
   isKnown: (itemId: string) => boolean,
-): SessionRun | null {
+): SavedSession | null {
   try {
     return parseSavedRun(sessionStorage.getItem(KEY), dayKey, progress, isKnown);
   } catch {
@@ -79,9 +93,14 @@ export function loadSessionRun(
   }
 }
 
-export function saveSessionRun(dayKey: string, run: SessionRun): void {
+export function saveSessionRun(
+  dayKey: string,
+  run: SessionRun,
+  mastered: readonly string[],
+  testable: readonly string[],
+): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ dayKey, run } satisfies SavedRun));
+    sessionStorage.setItem(KEY, JSON.stringify({ dayKey, run, mastered, testable } satisfies SavedRun));
   } catch {
     // A run that cannot be saved just starts afresh after a reload.
   }

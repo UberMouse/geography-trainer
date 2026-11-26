@@ -7,6 +7,7 @@ import {
   question,
   summary,
   WAIT,
+  writeTexasOnePassFromMastery,
   writeUnitedStatesOnePassFromMastery,
 } from './sessionHelpers';
 import { expect, test, type Page } from './test';
@@ -287,4 +288,55 @@ test('[SES-21] a session whose data fails to load offers Retry, which starts it'
   await page.unroute(route);
   await alert.getByRole('button', { name: 'Retry' }).click();
   await expect(question(page)).toBeVisible(WAIT);
+});
+
+test('[SES-25, SES-C05] a reload on the last summary of the day keeps its unlock line and Test out link', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-one-pass-from-mastery.json');
+  await writeUnitedStatesOnePassFromMastery(file);
+  await importProgress(page, file);
+
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  const unlocked = page.getByText(/^Unlocked: United States's regions/);
+  await expect(summary(page)).toHaveText('Round done: 1 of 1 right', WAIT);
+  await expect(unlocked).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Test out' })).toBeVisible();
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.reload();
+  await expect(summary(page)).toHaveText('Round done: 1 of 1 right', WAIT);
+  await expect(unlocked).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Test out' })).toBeVisible();
+  await expect(page.getByText(/everything for today/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep going' })).toHaveCount(0);
+  await expect(page.getByText(/nothing to study right now/)).toHaveCount(0);
+});
+
+test('[SES-25, SES-C05, SES-C07] a reload mid-round keeps what the round has mastered, a region naming its country', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('texas-one-pass-from-mastery.json');
+  await writeTexasOnePassFromMastery(file);
+  await importProgress(page, file);
+
+  await page.getByRole('link', { name: /^Start/ }).click();
+  const first = await current(page);
+  expect(first.itemId).toBe('region:united-states.texas');
+  await answer(page, isMobile, first);
+  await next(page);
+  const second = await current(page);
+  expect(second.itemId).toBe('country:argentina');
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.reload();
+  expect(await current(page)).toEqual(second);
+  await answer(page, isMobile, second);
+  await next(page);
+  await expect(summary(page)).toHaveText('Round done: 2 of 2 right', WAIT);
+  await expect(page.getByText("Unlocked: Texas's places (United States)")).toBeVisible();
 });

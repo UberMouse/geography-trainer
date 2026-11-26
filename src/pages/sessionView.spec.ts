@@ -5,7 +5,7 @@ import { Rating } from 'ts-fsrs';
 import type { ExerciseResult } from '../exercises/types';
 import { buildCurriculum } from '../engine/curriculum';
 import type { Country, Place } from '../engine/types';
-import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
+import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines, withMastered } from './sessionView';
 
 describe('[SES-17] questionSeed', () => {
   it('is stable, and differs by item, by position and by salt', () => {
@@ -177,5 +177,19 @@ describe('the full tree', () => {
     it('is empty when nothing was mastered', () => {
       expect(unlockLines(curriculum, [], nameOf)).toEqual([]);
     });
+  });
+});
+
+describe('[SES-25, SES-C05] withMastered', () => {
+  it('adds the item in answer order, to testable only when it can be tested out of', () => {
+    const start = { mastered: ['country:france'], testable: ['country:france'] };
+    const peru = withMastered(start, 'country:peru', false);
+    expect(peru).toEqual({ mastered: ['country:france', 'country:peru'], testable: ['country:france'] });
+    expect(withMastered(peru, 'country:chile', true)).toEqual({
+      mastered: ['country:france', 'country:peru', 'country:chile'],
+      testable: ['country:france', 'country:chile'],
+    });
+    // The round it was given is not changed.
+    expect(start).toEqual({ mastered: ['country:france'], testable: ['country:france'] });
   });
 });

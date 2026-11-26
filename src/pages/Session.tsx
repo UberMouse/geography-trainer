@@ -20,9 +20,17 @@ import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { targetPoint } from '../maps/geo';
 import { progressStore } from '../storage/progressStore';
-import { clearSessionRun, loadSessionRun, saveSessionRun } from '../storage/sessionRunStore';
+import { clearSessionRun, loadSessionRun, saveSessionRun, type SavedSession } from '../storage/sessionRunStore';
 import Status from './LoadStatus';
-import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
+import {
+  answerEntry,
+  countriesNeedingRegions,
+  questionHeader,
+  questionSeed,
+  unlockLines,
+  withMastered,
+  type RoundMastery,
+} from './sessionView';
 import { showsTestOutLink, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 
@@ -35,7 +43,7 @@ interface SessionData {
   /** The session's first round queue, built when the data loaded (a resumed run's queue). */
   questions: SessionQuestion[];
   /** The run this tab had in progress before a reload, to carry on with; null for a new one. */
-  resumed: SessionRun | null;
+  resumed: SavedSession | null;
   /** Today's local day, which a saved run belongs to. */
   dayKey: string;
   /** The loaded regions of every country that owns a region or place question, by country id. */
@@ -56,15 +64,19 @@ const loadSessionData = async (): Promise<SessionData> => {
   const curriculum = buildCurriculum(countries.countries, regionsFromPlaces(countries.countries, places), places);
   const dayKey = localDayKey(now, -now.getTimezoneOffset());
   const resumed = loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id));
-  const questions = resumed ? [...resumed.queue] : buildSession({
+  const questions = resumed ? [...resumed.run.queue] : buildSession({
     curriculum,
     progress,
     now,
     dailyCap: settings.dailyNewCap,
     introducedToday: introducedToday(curriculum, progress, now, -now.getTimezoneOffset()),
   });
-  // Re-asks and later rounds only repeat these items, so these are all the regions a session needs.
-  const needed = countriesNeedingRegions(curriculum, questions);
+  // Re-asks and later rounds only repeat these items, so these are all the regions a session needs,
+  // plus those of a resumed round's mastered items, so a mastered region's line can name its country.
+  const needed = countriesNeedingRegions(curriculum, [
+    ...questions,
+    ...(resumed?.mastered ?? []).map((itemId) => ({ itemId, rung: 1 as const })),
+  ]);
   const loaded = await Promise.all(needed.map((id) => loadRegions(id)));
   const regions = new Map(needed.map((id, i) => [id, loaded[i]!]));
   // Built here so an item the data cannot build (a place naming a region its country lacks) fails
@@ -94,14 +106,17 @@ export default function Session() {
 
 function Runner({ data }: { data: SessionData }) {
   const { countries, curriculum, regions, items } = data;
-  const [run, setRun] = useState<SessionRun>(() => data.resumed ?? startRun(data.questions));
+  const [run, setRun] = useState<SessionRun>(() => data.resumed?.run ?? startRun(data.questions));
   // Leaving the page ends the session: only a reload (which runs no cleanup) resumes it.
   useEffect(() => clearSessionRun, []);
-  const empty = data.questions.length === 0;
-  // Ids of the items that passed from not mastered to mastered in this round, in answer order.
-  const [mastered, setMastered] = useState<readonly string[]>([]);
-  // Those of them that can be tested out of, judged when they were mastered.
-  const [testable, setTestable] = useState<readonly string[]>([]);
+  // A resumed run with an empty queue is the day's last summary, not an empty session.
+  const empty = data.questions.length === 0 && !data.resumed;
+  // What this round has mastered, in answer order, and which of it can be tested out of (judged when
+  // mastered). Saved with the run, so a reload on a summary or mid-round keeps them.
+  const [round, setRound] = useState<RoundMastery>(() => ({
+    mastered: data.resumed?.mastered ?? [],
+    testable: data.resumed?.testable ?? [],
+  }));
   // The run after the current question's answer; it becomes `run` when the learner presses Next.
   const [answeredRun, setAnsweredRun] = useState<SessionRun | null>(null);
   // True when the current question's answer could not be recorded and the question is skipped.
@@ -149,7 +164,7 @@ function Runner({ data }: { data: SessionData }) {
   }
 
   if (ended || !question || !item) {
-    const unlocks = unlockLines(curriculum, mastered, nameOf);
+    const unlocks = unlockLines(curriculum, round.mastered, nameOf);
     return (
       <Stack data-unsaved={unsaved} align="flex-start">
         <Title order={2} size="h3" ref={summaryRef} tabIndex={-1} className="session-summary">
@@ -158,7 +173,7 @@ function Runner({ data }: { data: SessionData }) {
         {unlocks.map((line) => (
           <Text key={line.id}>
             {line.text}
-            {testable.includes(line.id) && (
+            {round.testable.includes(line.id) && (
               <>
                 {' '}
                 <Anchor component={Link} to={testOutPath(line.id)}>
@@ -172,10 +187,9 @@ function Runner({ data }: { data: SessionData }) {
         {questionsRemain(run) ? (
           <Button
             onClick={() => {
-              setMastered([]);
-              setTestable([]);
+              setRound({ mastered: [], testable: [] });
               const next = nextRound(run);
-              saveSessionRun(data.dayKey, next);
+              saveSessionRun(data.dayKey, next, [], []);
               setRun(next);
             }}
           >
@@ -208,29 +222,30 @@ function Runner({ data }: { data: SessionData }) {
       const before = progress.current[question.itemId];
       progress.current = { ...progress.current, [question.itemId]: after };
       if (isMastered(after) && !(before && isMastered(before))) {
-        setMastered((ids) => [...ids, question.itemId]);
         newlyMastered = true;
       }
     } catch (error) {
       console.error('[session] could not record answer', question.itemId, error);
       setRecordFailed(true);
       const skipped = skipCurrent(run);
-      saveSessionRun(data.dayKey, skipped);
+      saveSessionRun(data.dayKey, skipped, round.mastered, round.testable);
       setAnsweredRun(skipped);
       return;
     }
+    let roundAfter = round;
     if (newlyMastered) {
+      let testOut = false;
       try {
-        if (showsTestOutLink(curriculum, progress.current, data.finishedTests, question.itemId)) {
-          setTestable((ids) => [...ids, question.itemId]);
-        }
+        testOut = showsTestOutLink(curriculum, progress.current, data.finishedTests, question.itemId);
       } catch (error) {
         console.error('[session] could not check test-out', question.itemId, error);
       }
+      roundAfter = withMastered(round, question.itemId, testOut);
+      setRound(roundAfter);
     }
     const next = answerCurrent(run, { rating: result.rating, correct: result.correct, after });
     // Saved as answered, so a reload carries on after this question rather than asking it again.
-    saveSessionRun(data.dayKey, next);
+    saveSessionRun(data.dayKey, next, roundAfter.mastered, roundAfter.testable);
     setAnsweredRun(next);
   };
 
