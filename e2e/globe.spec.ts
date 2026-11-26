@@ -328,3 +328,105 @@ test('[GLB-06] a lost WebGL context shows the message until the context comes ba
   const layerIds = () => hook.layerIds(page).catch(() => null);
   await expect.poll(layerIds).toEqual([]);
 });
+
+/** How far the zoom is from the one that fits the whole sphere at the current centre. */
+const offFit = async (page: Page) => {
+  const [, lat] = await hook.center(page);
+  const fit = (await hook.minZoom(page)) + Math.log2(Math.cos((lat * Math.PI) / 180));
+  return Math.abs((await hook.zoom(page)) - fit);
+};
+
+test('[GLB-04, GLB-C08, GLB-C14] the globe opens on the whole sphere at 0°, 20°N and zooms out no further', async ({
+  page,
+  isMobile,
+}) => {
+  const { box } = await readyGlobe(page);
+  const [lng, lat] = await hook.center(page);
+  expect(Math.abs(lng)).toBeLessThan(0.01);
+  expect(Math.abs(lat - 20)).toBeLessThan(0.01);
+  await expect.poll(() => offFit(page)).toBeLessThan(0.02);
+  const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
+  if (isMobile) {
+    // Two fingers pinched together: a zoom out.
+    const touch = await touchSession(page);
+    await touch('touchStart', [
+      [cx - 80, cy],
+      [cx + 80, cy],
+    ]);
+    for (let i = 1; i <= 5; i++) {
+      await touch('touchMove', [
+        [cx - 80 + 12 * i, cy],
+        [cx + 80 - 12 * i, cy],
+      ]);
+    }
+    await touch('touchEnd', []);
+  } else {
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, 600);
+  }
+  // A zoom out would have eased by now.
+  await page.waitForTimeout(500);
+  expect(await offFit(page)).toBeLessThan(0.02);
+});
+
+test('[GLB-09] region borders mode draws the country’s regions and its outline', async ({
+  page,
+}) => {
+  await readyGlobe(page);
+  await pickMode(page, 'Region borders');
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'regionBorders');
+  // France's regions load lazily; until then the outline alone.
+  await expect
+    .poll(() => hook.layerIds(page))
+    .toEqual(['gt-region-borders', 'gt-country-outline']);
+});
+
+test('[GLB-10] the reveal stays above the mode as the mode changes', async ({ page, isMobile }) => {
+  const { lastTap } = await readyGlobe(page);
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
+  await expect(lastTap).not.toHaveText('none');
+  await page.getByRole('switch', { name: 'Show reveal' }).check();
+  const reveal = ['gt-reveal-target-line', 'gt-reveal-path'];
+  await expect.poll(() => hook.layerIds(page)).toEqual(['gt-country-borders', ...reveal]);
+  await pickMode(page, 'Bare');
+  await expect.poll(() => hook.layerIds(page)).toEqual(reveal);
+  await pickMode(page, 'Region borders');
+  await expect
+    .poll(() => hook.layerIds(page))
+    .toEqual(['gt-region-borders', 'gt-country-outline', ...reveal]);
+});
+
+test('[GLB-18, GLB-C11, GLB-C15] in progress mode a tap selects the feature it lands in, and is no tap', async ({
+  page,
+  isMobile,
+}) => {
+  const { lastTap } = await readyGlobe(page);
+  await pickMode(page, 'Progress');
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'progress');
+  await expect.poll(async () => Object.keys((await hook.progress(page))?.fills ?? {}).length).toBeGreaterThan(0);
+  const selected = page.getByTestId('globe-selected');
+  await expect(selected).toHaveText('none');
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
+  await expect(selected).toHaveText('france');
+  // Mid-Atlantic: in no feature and far from any dot.
+  await tapAt(page, isMobile, await hook.project(page, [-30, 30]));
+  await nextFrame(page);
+  await expect(selected).toHaveText('france');
+  await expect(lastTap).toHaveText('none');
+  await pickMode(page, 'Bare');
+  await expect.poll(() => hook.progress(page)).toBeNull();
+});
+
+test('[GLB-20, GLB-C13] fitting a country frames its main part', async ({ page }) => {
+  await readyGlobe(page);
+  await pickMode(page, 'Highlight');
+  await expect(page.getByRole('combobox', { name: 'Country' })).toHaveValue('France');
+  await page.getByRole('button', { name: 'Fit country' }).click();
+  // Metropolitan France, not French Guiana: centred on it, zoomed well past the whole sphere.
+  await expect
+    .poll(async () => {
+      const [lng, lat] = await hook.center(page);
+      return lng > -5 && lng < 9 && lat > 42 && lat < 51.5 && (await offFit(page)) > 2;
+    })
+    .toBe(true);
+});

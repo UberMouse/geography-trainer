@@ -63,4 +63,23 @@ describe('App', () => {
     expect(render('/placement/france')).toContain('Loading…');
     expect(render('/placement/france/france.bretagne')).toContain('Loading…');
   });
+
+  it('[GLB-32] renders the drill-down and session routes (loading first)', () => {
+    for (const path of ['/progress/france', '/progress/france/france.bretagne', '/session']) {
+      expect(render(path)).toContain('Loading…');
+    }
+  });
+
+  it('[GLB-32] has the playground route in development builds only', () => {
+    expect(render('/playground')).toMatch(h1('Map playground'));
+    vi.stubEnv('DEV', false);
+    try {
+      // No route matches, so the catch-all redirect renders no page in the column.
+      const html = render('/playground');
+      expect(html).not.toContain('Map playground');
+      expect(html).not.toContain('Loading…');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

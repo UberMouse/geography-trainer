@@ -15,12 +15,18 @@ import {
   featureAt,
   featureBounds,
   fittedZoom,
+  FOV_DEG,
   greatCircle,
   imageryStyle,
+  LOWEST_ZOOM,
+  MAX_ZOOM,
   modeLayers,
+  OUR_PREFIX,
   PROGRESS_DOT_RADIUS,
   PROGRESS_DOTS_LAYER,
   revealLayers,
+  SPACE_COLOUR,
+  SPHERE_COLOUR,
   type GlobeMode,
   type LayerSet,
 } from './globeLayers';
@@ -432,5 +438,100 @@ describe('[GLB-04, GLB-C14] fittedZoom', () => {
 
   it('clamps a tiny container up to the lowest zoom MapLibre accepts', () => {
     expect(fittedZoom(10, 10)).toBe(-2);
+  });
+});
+
+describe('[GLB-C14] the fitted zoom formula', () => {
+  it("fits the sphere's outline with a 5% margin through MapLibre's default field of view", () => {
+    expect(LOWEST_ZOOM).toBe(-2);
+    expect(MAX_ZOOM).toBe(14);
+    expect(FOV_DEG).toBeCloseTo((Math.atan(0.75) * 180) / Math.PI, 12);
+    expect(FOV_DEG).toBeCloseTo(36.87, 2);
+    const [w, h] = [1000, 700];
+    const v = (0.9 * Math.min(w, h)) / 2;
+    const d = h / 2 / Math.tan((FOV_DEG * Math.PI) / 360);
+    const r = (v * v + v * Math.sqrt(v * v + d * d)) / d;
+    expect(fittedZoom(w, h)).toBeCloseTo(Math.log2((2 * Math.PI * r) / 512), 9);
+  });
+});
+
+describe('[GLB-C07, GLB-02] the imagery style around the tiles', () => {
+  it('has a dark blue sphere under the imagery, no atmosphere, and near-black space', () => {
+    const style = imageryStyle();
+    expect(style.layers[0]).toEqual({
+      id: 'sphere',
+      type: 'background',
+      paint: { 'background-color': '#0b2545' },
+    });
+    expect(SPHERE_COLOUR).toBe('#0b2545');
+    expect(SPACE_COLOUR).toBe('#05070d');
+    expect(style.sky).toEqual({ 'atmosphere-blend': 0 });
+    expect(style.version).toBe(8);
+  });
+});
+
+describe('[GLB-C09, GLB-C10] layer paint', () => {
+  it('draws each layer in the colour, width and opacity the spec states', () => {
+    const sets = [
+      modeLayers({ kind: 'highlight', target: { kind: 'country', feature: france, countries } }),
+      modeLayers({
+        kind: 'highlight',
+        target: { kind: 'region', feature: frRegions[0]!, country: france, regions: frRegions },
+      }),
+      modeLayers({ kind: 'highlight', target: { kind: 'place', place, country: france } }),
+      modeLayers({
+        kind: 'progress',
+        features: frRegions,
+        fills: {},
+        dots: [{ id: 'paris', at: [2.35, 48.85], colour: '#123456' }],
+      }),
+      revealLayers({ target: { kind: 'area', feature: france }, tap: { at: [0, 0], answer: [1, 1] } }),
+      revealLayers({ target: { kind: 'point', at: [2.35, 48.85] } }),
+    ];
+    const paint = Object.fromEntries(
+      sets.flatMap((s) => s.layers).map((l) => [l.id, { type: l.type, ...('paint' in l ? l.paint : {}) }]),
+    );
+    const line = (colour: string, width: number) => ({
+      type: 'line',
+      'line-color': colour,
+      'line-width': width,
+      'line-opacity': 0.85,
+    });
+    const circle = (colour: unknown) => ({
+      type: 'circle',
+      'circle-color': colour,
+      'circle-radius': 6,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+    });
+    expect(paint).toEqual({
+      'gt-country-borders': line('#ffffff', 1),
+      'gt-progress-borders': line('#ffffff', 1),
+      'gt-country-outline': line('#ffffff', 1.5),
+      'gt-region-borders': line('#ffd43b', 1),
+      'gt-highlight-fill': { type: 'fill', 'fill-color': '#ffd43b', 'fill-opacity': 0.35 },
+      'gt-highlight-line': line('#ffd43b', 2),
+      'gt-highlight-dot': circle('#ff922b'),
+      'gt-progress-fill': { type: 'fill', 'fill-color': ['get', 'fill'], 'fill-opacity': 0.55 },
+      'gt-progress-dots': circle(['get', 'colour']),
+      'gt-reveal-target-line': line('#40c057', 2.5),
+      'gt-reveal-target-dot': circle('#40c057'),
+      'gt-reveal-path': {
+        type: 'line',
+        'line-color': '#ffffff',
+        'line-width': 2,
+        'line-dasharray': [2, 1],
+      },
+    });
+    expect(OUR_PREFIX).toBe('gt-');
+  });
+
+  it('steps the great circle about a degree at a time, ends exact', () => {
+    // 90° apart: 90 steps, 91 points.
+    const path = greatCircle([0, 0], [90, 0]);
+    expect(path).toHaveLength(91);
+    expect(path[0]).toEqual([0, 0]);
+    expect(path.at(-1)).toEqual([90, 0]);
+    expect(greatCircle([0, 0], [0.5, 0])).toHaveLength(2);
   });
 });

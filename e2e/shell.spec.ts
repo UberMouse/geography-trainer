@@ -1,4 +1,5 @@
-import { globeHooked, hook, viewport } from './globeHook';
+import { globeHooked, globeReady, hook, viewport } from './globeHook';
+import { answer, current } from './sessionHelpers';
 import { expect, test, type Page } from './test';
 
 // The app shell: one globe for every page, beside (or below) the page's column.
@@ -152,4 +153,150 @@ test('[GLB-05] without WebGL the globe says so in its area and the column still 
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+const REGION_FILE = /\/data\/regions\/([^/]+)\.topo\.json$/;
+
+test('[GLB-08] region files load only when a page needs one, and only its country’s', async ({
+  page,
+}) => {
+  const fetched: string[] = [];
+  page.on('request', (request) => {
+    const match = REGION_FILE.exec(new URL(request.url()).pathname);
+    if (match) fetched.push(match[1]!);
+  });
+  await page.goto('/');
+  await globeHooked(page);
+  // Home has drawn the countries: everything it needs has loaded.
+  await expect.poll(() => hook.progress(page)).not.toBeNull();
+  expect(fetched).toEqual([]);
+  await page.goto('/progress/france');
+  await expect(page.getByRole('heading', { level: 1, name: 'France' })).toBeVisible();
+  await expect.poll(() => fetched).toContain('france');
+  expect(new Set(fetched)).toEqual(new Set(['france']));
+});
+
+test('[GLB-13, GLB-C12] leaving a page for one that sets nothing leaves the globe bare, the camera where it was', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/playground?mode=globe');
+  await globeReady(page);
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-country-borders');
+  const at = await hook.project(page, [2.35, 48.85]);
+  await (isMobile ? page.touchscreen.tap(at.x, at.y) : page.mouse.click(at.x, at.y));
+  await expect(page.getByTestId('globe-last-tap')).not.toHaveText('none');
+  await page.getByRole('switch', { name: 'Show reveal' }).check();
+  await expect.poll(async () => (await hook.markers(page)).length).toBe(3);
+  const camera = async () => ({ zoom: await hook.zoom(page), center: await hook.center(page) });
+  const before = await camera();
+  await column(page).getByRole('link', { name: 'Credits' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Credits' })).toBeVisible();
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'bare');
+  await expect.poll(() => hook.layerIds(page)).toEqual([]);
+  expect(await hook.markers(page)).toEqual([]);
+  expect(await camera()).toEqual(before);
+});
+
+const FRANCE = { west: -5, east: 9, south: 42, north: 51.5 };
+
+test('[GLB-21, GLB-20] a deep link frames its country once the globe opens, and Progress flies back to the world', async ({
+  page,
+}) => {
+  await page.goto('/progress/france');
+  await globeHooked(page);
+  await expect
+    .poll(async () => {
+      const [lng, lat] = await hook.center(page);
+      const inFrance =
+        lng > FRANCE.west && lng < FRANCE.east && lat > FRANCE.south && lat < FRANCE.north;
+      // Well past the whole sphere's zoom.
+      return inFrance && (await hook.zoom(page)) > (await hook.minZoom(page)) + 1.5;
+    })
+    .toBe(true);
+  await page.getByRole('link', { name: 'Back to the world' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeVisible();
+  // The world view: the opening centre at the zoom that fits the whole sphere.
+  await expect
+    .poll(async () => {
+      const [lng, lat] = await hook.center(page);
+      const fit = (await hook.minZoom(page)) + Math.log2(Math.cos((lat * Math.PI) / 180));
+      return Math.abs(lng) < 0.01 && Math.abs(lat - 20) < 0.01 && Math.abs((await hook.zoom(page)) - fit) < 0.02;
+    })
+    .toBe(true);
+});
+
+/** Saba: stored as a point, so Home's globe shows it as a dot. */
+const SABA: [number, number] = [-63.237, 17.633];
+
+test('[GLB-18, GLB-C11] on Home a tap on a dot, or a fingertip from it at sea, selects it; one well clear does not', async ({
+  page,
+  isMobile,
+}) => {
+  const tapNear = async (dx: number) => {
+    await page.goto('/');
+    await globeHooked(page);
+    await expect
+      .poll(async () => (await hook.progress(page))?.dots.some((d) => d.id === 'saba') ?? false)
+      .toBe(true);
+    // Stops Home's flight to the world, if one is under way.
+    await hook.jumpTo(page, SABA, 6);
+    const { x, y } = await hook.project(page, SABA);
+    await (isMobile ? page.touchscreen.tap(x + dx, y) : page.mouse.click(x + dx, y));
+  };
+  await tapNear(0);
+  await expect(page).toHaveURL(/\/progress\/saba$/);
+  // 11 px west, about 13 km out to sea: outside the dot as drawn, within the fingertip's slack.
+  await tapNear(-11);
+  await expect(page).toHaveURL(/\/progress\/saba$/);
+  // 30 px west: clear of the dot.
+  await tapNear(-30);
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('[GLB-34] a failed save shows on every page with Retry, and leaving asks first until it is saved', async ({
+  page,
+  isMobile,
+}) => {
+  // Answers fail to save while the flag is up: their table's add throws.
+  await page.addInitScript(() => {
+    const g = globalThis as unknown as {
+      __failAnswers?: boolean;
+      IDBObjectStore: { prototype: { add(...args: unknown[]): unknown; name: string } };
+    };
+    g.__failAnswers = true;
+    const store = g.IDBObjectStore.prototype;
+    const add = store.add;
+    store.add = function (this: { name: string }, ...args: unknown[]) {
+      if (g.__failAnswers && this.name === 'answers') {
+        throw new Error('Writes are failing');
+      }
+      return add.apply(this, args);
+    };
+  });
+  /** Whether leaving now would make the browser ask: a beforeunload listener cancelled it. */
+  const asksBeforeLeaving = () =>
+    page.evaluate(() => {
+      const g = globalThis as unknown as {
+        dispatchEvent(e: unknown): boolean;
+        Event: new (type: string, init: { cancelable: boolean }) => unknown;
+      };
+      return !g.dispatchEvent(new g.Event('beforeunload', { cancelable: true }));
+    });
+  await page.goto('/session');
+  expect(await asksBeforeLeaving()).toBe(false);
+  await answer(page, isMobile, await current(page));
+  const banner = page.getByRole('alert').filter({ hasText: 'could not be saved' });
+  await expect(banner).toBeVisible();
+  expect(await asksBeforeLeaving()).toBe(true);
+  await page.getByRole('link', { name: 'Quit' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
+  await expect(banner).toBeVisible();
+  await page.evaluate(() => {
+    (globalThis as unknown as { __failAnswers: boolean }).__failAnswers = false;
+  });
+  await banner.getByRole('button', { name: 'Retry' }).click();
+  await expect(banner).toHaveCount(0);
+  expect(await asksBeforeLeaving()).toBe(false);
 });

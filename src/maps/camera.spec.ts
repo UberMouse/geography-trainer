@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { pairBounds, spanZoom, unionBounds } from './camera';
+import {
+  MIN_COS_LAT,
+  NEIGHBOURHOOD_VIEW_KM,
+  pairBounds,
+  spanZoom,
+  TILE_PX,
+  unionBounds,
+} from './camera';
 import { EARTH_RADIUS_KM } from './geo';
 import { MAX_ZOOM } from './globeLayers';
 
@@ -103,5 +110,16 @@ describe('[GLB-20, GLB-C13] unionBounds', () => {
     );
     expect(w).toBe(177);
     expect(e).toBe(182);
+  });
+});
+
+describe('[GLB-C13] camera constants', () => {
+  it('has the neighbourhood span, the tile size and the polar floor the spec states', () => {
+    expect(NEIGHBOURHOOD_VIEW_KM).toBe(600);
+    expect(TILE_PX).toBe(512);
+    expect(MIN_COS_LAT).toBe(0.01);
+    // Past about 89.4° the span is measured as if at cos(lat) = 0.01.
+    const floorLat = (Math.acos(MIN_COS_LAT) * 180) / Math.PI;
+    expect(spanZoom(600, 400, 90)).toBeCloseTo(spanZoom(600, 400, floorLat), 9);
   });
 });

@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { geoArea, geoCentroid, geoContains } from 'd3-geo';
 import {
+  EARTH_RADIUS_KM,
+  FRAME_PADDING,
+  FRAME_SIZE,
+  INTERIOR_BOUNDARY_VERTICES,
+  INTERIOR_GRID,
+  INTERIOR_REFINES,
+  MAIN_PART_GAP_KM,
+  MAIN_PART_MIN_SHARE,
+  MIN_AREA_SR,
+  NEAR_BOUNDARY_TRIES,
   POINT_FEATURE_RADIUS_KM,
   answerPoint,
+  distanceKm,
   ensureArea,
   frameTest,
   mainPart,
   measureTap,
   midpoint,
+  nearPoint,
+  targetPoint,
   type AreaFeature,
   type LngLat,
 } from './geo';
@@ -447,5 +460,91 @@ describe('[GLB-28, GLB-C03] midpoint', () => {
     expect(lat).toBeGreaterThan(10);
     const [west] = midpoint([175, 0], [-165, 0]);
     expect(west).toBeCloseTo(-175, 6);
+  });
+});
+
+describe('[GLB-C01] spherical constants', () => {
+  it('has the values the spec states', () => {
+    expect({
+      EARTH_RADIUS_KM,
+      POINT_FEATURE_RADIUS_KM,
+      MIN_AREA_SR,
+      MAIN_PART_GAP_KM,
+      MAIN_PART_MIN_SHARE,
+      FRAME_SIZE,
+      FRAME_PADDING,
+      INTERIOR_GRID,
+      INTERIOR_REFINES,
+      INTERIOR_BOUNDARY_VERTICES,
+      NEAR_BOUNDARY_TRIES,
+    }).toEqual({
+      EARTH_RADIUS_KM: 6371,
+      POINT_FEATURE_RADIUS_KM: 2,
+      MIN_AREA_SR: 1e-12,
+      MAIN_PART_GAP_KM: 500,
+      MAIN_PART_MIN_SHARE: 0.8,
+      FRAME_SIZE: 480,
+      FRAME_PADDING: 16,
+      INTERIOR_GRID: 20,
+      INTERIOR_REFINES: 3,
+      INTERIOR_BOUNDARY_VERTICES: 250,
+      NEAR_BOUNDARY_TRIES: 100,
+    });
+  });
+});
+
+describe('[GLB-23, GLB-C03] distanceKm and targetPoint', () => {
+  it('measures great-circle km on a 6371 km sphere', () => {
+    expect(distanceKm([0, 0], [90, 0])).toBeCloseTo((Math.PI / 2) * 6371, 6);
+    expect(distanceKm([0, 0], [180, 0])).toBeCloseTo(Math.PI * 6371, 6);
+    expect(distanceKm([10, 20], [10, 20])).toBe(0);
+  });
+
+  it("is a place's point, or a feature's answer point", () => {
+    expect(targetPoint({ point: [2.35, 48.85] })).toEqual([2.35, 48.85]);
+    expect(targetPoint({ feature: square, answer: [1, 2] })).toEqual([1, 2]);
+  });
+});
+
+describe('[GLB-24, GLB-C04] nearPoint', () => {
+  it('is the centroid of the main part, even when that lies outside the feature, cached', () => {
+    const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
+    const [lng, lat] = nearPoint(f);
+    expect(lng).toBeCloseTo(5, 6);
+    expect(lat).toBeCloseTo(0, 6);
+    expect(nearPoint(f)).toBe(nearPoint(f));
+    // A C's centroid is in its mouth: nearPoint keeps it, where answerPoint moves inside.
+    const c = poly([
+      [0, 0],
+      [0, 10],
+      [10, 10],
+      [10, 8],
+      [2, 8],
+      [2, 2],
+      [10, 2],
+      [10, 0],
+      [0, 0],
+    ]);
+    expect(nearPoint(c)).toEqual(geoCentroid(c));
+    expect(geoContains(c, nearPoint(c))).toBe(false);
+  });
+});
+
+describe('[GLB-26, GLB-C05] ensureArea of a non-areal feature', () => {
+  it('throws, naming the feature, for a geometry with no area and no point', () => {
+    expect(() =>
+      ensureArea({
+        type: 'Feature',
+        id: 'road',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [1, 1],
+          ],
+        },
+      }),
+    ).toThrow(/road/);
   });
 });
