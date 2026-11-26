@@ -209,3 +209,35 @@ export async function writeTexasOnePassFromMastery(path: string) {
     ),
   ]);
 }
+
+/** Countries due for review (none of them in `INTRODUCED_TODAY`), to fill a session past one round. */
+const DUE_COUNTRIES = [
+  'afghanistan', 'algeria', 'angola', 'austria', 'bangladesh', 'belgium', 'benin', 'bolivia',
+  'bulgaria', 'cameroon', 'colombia', 'croatia', 'cuba', 'denmark', 'ecuador', 'ethiopia',
+  'finland', 'ghana', 'greece', 'guatemala', 'hungary', 'indonesia', 'iran',
+];
+
+/**
+ * A progress file whose session is 24 questions, so round one ends with questions left:
+ * `country:united-states` due at L3 and the most overdue (so asked in round one), one pass from
+ * mastery, then 23 other countries due at L2 and L3. Today's 15 new items are used up by countries
+ * that are not yet due.
+ */
+export async function writeUnitedStatesOnePassWithMoreDue(path: string) {
+  await writeProgressFile(path, [
+    progressRow('country:united-states', 3, {
+      dueInDays: -10,
+      l3PassDays: ['2026-01-10'],
+      introducedAt: Date.now() - 60 * DAY,
+    }),
+    ...DUE_COUNTRIES.map((id, i) =>
+      progressRow(`country:${id}`, i % 2 === 0 ? 2 : 3, {
+        dueInDays: -1,
+        introducedAt: Date.now() - 60 * DAY,
+      }),
+    ),
+    ...INTRODUCED_TODAY.map((id) =>
+      progressRow(`country:${id}`, 1, { dueInDays: 30, introducedAt: Date.now() }),
+    ),
+  ]);
+}

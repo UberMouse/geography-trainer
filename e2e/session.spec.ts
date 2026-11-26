@@ -9,6 +9,7 @@ import {
   WAIT,
   writeTexasOnePassFromMastery,
   writeUnitedStatesOnePassFromMastery,
+  writeUnitedStatesOnePassWithMoreDue,
 } from './sessionHelpers';
 import { expect, test, type Page } from './test';
 
@@ -120,6 +121,48 @@ test('[SES-25] a reload mid-round carries on at the next question, with the roun
   await page.reload();
   await expect(header).toHaveText(counted, WAIT);
   expect(await current(page)).toEqual(before);
+});
+
+test('[SES-25, SES-C05] a reload on a summary with questions left keeps its unlock line, and Keep going starts the next round afresh', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-one-pass-with-more-due.json');
+  await writeUnitedStatesOnePassWithMoreDue(file);
+  await importProgress(page, file);
+  await page.getByRole('link', { name: /^Start/ }).click();
+
+  const unlock = page.getByText("Unlocked: United States's regions");
+  const testOut = page.getByRole('link', { name: 'Test out' });
+  const keepGoing = page.getByRole('button', { name: 'Keep going' });
+  // Answers every question correctly until a summary shows, then waits for the answers to be saved.
+  const answerToSummary = async () => {
+    for (let i = 0; i < 60 && !(await summary(page).isVisible()); i++) {
+      await answer(page, isMobile, await current(page));
+      await next(page);
+      await expect(question(page).or(summary(page))).toBeVisible(WAIT);
+    }
+    await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+  };
+
+  await answerToSummary();
+  await expect(summary(page)).toHaveText('Round done: 20 of 20 right');
+  await expect(unlock).toBeVisible();
+  await expect(testOut).toBeVisible();
+  await expect(keepGoing).toBeVisible();
+
+  await page.reload();
+  await expect(summary(page)).toHaveText('Round done: 20 of 20 right', WAIT);
+  await expect(unlock).toBeVisible();
+  await expect(testOut).toBeVisible();
+
+  // The next round lists only what it mastered: a reload in it resumes it, and its summary has no line.
+  await keepGoing.click();
+  await current(page);
+  await page.reload();
+  await answerToSummary();
+  await expect(page.getByText('That is everything for today.')).toBeVisible();
+  await expect(unlock).toHaveCount(0);
 });
 
 test('[SES-10] a missed tap is incorrect, with its km and a low score', async ({ page, isMobile }) => {
