@@ -5,7 +5,7 @@ import { MAX_ZOOM } from './globeLayers';
 
 const CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM;
 
-describe('spanZoom', () => {
+describe('[GLB-20, GLB-C13] spanZoom', () => {
   it('is zoom 0 when 512 px show the equator’s whole circumference', () => {
     expect(spanZoom(CIRCUMFERENCE_KM, 512, 0)).toBeCloseTo(0, 9);
   });
@@ -45,7 +45,7 @@ describe('spanZoom', () => {
   });
 });
 
-describe('pairBounds', () => {
+describe('[GLB-20, GLB-C13] pairBounds', () => {
   it('bounds two points whichever comes first', () => {
     const expected = [
       [-74, 40.7],
@@ -70,7 +70,7 @@ describe('pairBounds', () => {
   });
 });
 
-describe('unionBounds', () => {
+describe('[GLB-20, GLB-C13] unionBounds', () => {
   it('holds both boxes', () => {
     expect(
       unionBounds(

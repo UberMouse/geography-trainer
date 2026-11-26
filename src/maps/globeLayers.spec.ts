@@ -74,7 +74,7 @@ const sourceOf = (set: LayerSet, layerId: string) => {
 };
 const dataOf = (set: LayerSet, id: string) => set.sources[id]!.data.features;
 
-describe('imageryStyle', () => {
+describe('[GLB-02, GLB-C07] imageryStyle', () => {
   it('is EOX Sentinel-2 2025 imagery on a globe, with no glyphs, sprite or vector source', () => {
     const style = imageryStyle();
     expect(style.projection).toEqual({ type: 'globe' });
@@ -94,7 +94,7 @@ describe('imageryStyle', () => {
     expect(style.layers.map((l) => l.type)).toEqual(['background', 'raster']);
   });
 
-  it('credits EOX with a link to s2maps.eu', () => {
+  it('[GLB-03] credits EOX with a link to s2maps.eu', () => {
     expect(EOX_ATTRIBUTION.replace(/<[^>]+>/g, '')).toBe(
       'Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
     );
@@ -102,7 +102,7 @@ describe('imageryStyle', () => {
   });
 });
 
-describe('modeLayers', () => {
+describe('[GLB-09, GLB-C09] modeLayers', () => {
   it('bare draws nothing of ours', () => {
     expect(modeLayers({ kind: 'bare' })).toEqual({ sources: {}, layers: [] });
   });
@@ -238,7 +238,7 @@ describe('modeLayers', () => {
     }
   });
 
-  it("switching modes leaves none of the previous mode's layers or sources", () => {
+  it("[GLB-10] switching modes leaves none of the previous mode's layers or sources", () => {
     const before = modeLayers({ kind: 'countryBorders', countries });
     const after = modeLayers({ kind: 'regionBorders', country: france, regions: frRegions });
     for (const id of layerIds(before)) expect(layerIds(after)).not.toContain(id);
@@ -256,7 +256,7 @@ describe('modeLayers', () => {
   });
 });
 
-describe('borderLines', () => {
+describe('[GLB-11, GLB-C09] borderLines', () => {
   const segments = (f: Feature<MultiLineString>) =>
     f.geometry.coordinates.flatMap((l) => l.slice(1).map((b, i) => [l[i]!, b] as const));
   const onAntimeridian = ([a, b]: readonly [Position, Position]) =>
@@ -299,7 +299,7 @@ describe('borderLines', () => {
   });
 });
 
-describe('revealLayers', () => {
+describe('[GLB-12, GLB-C10] revealLayers', () => {
   it('outlines an area target and draws the path from tap to answer', () => {
     const set = revealLayers({
       target: { kind: 'area', feature: france },
@@ -327,7 +327,7 @@ describe('revealLayers', () => {
   });
 });
 
-describe('greatCircle', () => {
+describe('[GLB-12, GLB-C10] greatCircle', () => {
   it('is densified along the great circle, from tap to answer', () => {
     const a: LngLat = [-74, 40.7]; // New York
     const b: LngLat = [2.35, 48.85]; // Paris
@@ -362,7 +362,7 @@ describe('greatCircle', () => {
   });
 });
 
-describe('featureBounds', () => {
+describe('[GLB-20, GLB-C13] featureBounds', () => {
   it("frames an ordinary country's main part", () => {
     const [[w, s], [e, n]] = featureBounds(france);
     // Metropolitan France, not French Guiana or the islands of the Indian Ocean.
@@ -402,7 +402,7 @@ describe('featureBounds', () => {
   });
 });
 
-describe('featureAt', () => {
+describe('[GLB-18, GLB-C11] featureAt', () => {
   it('finds the feature holding the point on the sphere, or none', () => {
     expect(featureAt(frRegions, [1, 46])).toBe('france.a');
     expect(featureAt(frRegions, [3, 46])).toBe('france.b');
@@ -410,7 +410,7 @@ describe('featureAt', () => {
   });
 });
 
-describe('fittedZoom', () => {
+describe('[GLB-04, GLB-C14] fittedZoom', () => {
   it('fits the sphere in the smaller side and grows by one zoom per doubling', () => {
     const z = fittedZoom(800, 600);
     expect(fittedZoom(600, 800)).toBeLessThan(z);

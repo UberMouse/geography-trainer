@@ -18,7 +18,7 @@ function render(path: string) {
 }
 
 describe('App', () => {
-  it('renders the heading and both credit lines', () => {
+  it('[GLB-33] renders the heading and both credit lines', () => {
     const html = render('/');
     expect(html).toMatch(h1('Geography Trainer'));
     expect(html).toContain('Place list courtesy of');
@@ -27,7 +27,7 @@ describe('App', () => {
     expect(html).toContain('href="https://www.naturalearthdata.com"');
   });
 
-  it('renders the page and footer in the column, beside the one globe', () => {
+  it('[GLB-01, GLB-33] renders the page and footer in the column, beside the one globe', () => {
     const html = render('/');
     expect(html.match(/data-testid="globe-stub"/g)).toHaveLength(1);
     const column = html.indexOf('data-testid="column"');
@@ -36,11 +36,11 @@ describe('App', () => {
     expect(html.indexOf('Place list courtesy of')).toBeGreaterThan(column);
   });
 
-  it('renders the Progress page heading', () => {
+  it('[GLB-32] renders the Progress page heading', () => {
     expect(render('/progress')).toMatch(h1('Progress'));
   });
 
-  it('renders the Credits page', () => {
+  it('[GLB-32] renders the Credits page', () => {
     const html = render('/credits');
     expect(html).toMatch(h1('Credits'));
     expect(html).toContain('MapTap.gg');
@@ -51,15 +51,15 @@ describe('App', () => {
     );
   });
 
-  it('renders the Settings page heading', () => {
+  it('[GLB-32] renders the Settings page heading', () => {
     expect(render('/settings')).toMatch(h1('Settings'));
   });
 
-  it('renders the Placement page (loading first)', () => {
+  it('[GLB-32] renders the Placement page (loading first)', () => {
     expect(render('/placement')).toContain('Loading…');
   });
 
-  it('renders the test-out routes (loading first)', () => {
+  it('[GLB-32] renders the test-out routes (loading first)', () => {
     expect(render('/placement/france')).toContain('Loading…');
     expect(render('/placement/france/france.bretagne')).toContain('Loading…');
   });

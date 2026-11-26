@@ -30,10 +30,10 @@ const square = poly([
   [-5, -5],
 ]);
 
-describe('measureTap on a polygon', () => {
+describe('[GLB-22, GLB-C02] measureTap on a polygon', () => {
   const target = { feature: square, answer: answerPoint(square) };
 
-  it('has an answer point at the centroid', () => {
+  it('[GLB-25] has an answer point at the centroid', () => {
     const [lng, lat] = answerPoint(square);
     expect(lng).toBeCloseTo(0, 6);
     expect(lat).toBeCloseTo(0, 6);
@@ -87,7 +87,7 @@ describe('measureTap on a polygon', () => {
     expect(m.kmOutsideBorder).toBeLessThan(2 * KM_PER_DEG);
   });
 
-  it('measures featureSizeKm as sqrt(area) times the Earth radius', () => {
+  it('[GLB-24] measures featureSizeKm as sqrt(area) times the Earth radius', () => {
     const m = measureTap(target, [0, 0]);
     expect(m.featureSizeKm).toBeGreaterThan(1110 * 0.97);
     expect(m.featureSizeKm).toBeLessThan(1110 * 1.03);
@@ -175,7 +175,7 @@ describe('measureTap on a polygon', () => {
   });
 });
 
-describe('measureTap on a place', () => {
+describe('[GLB-23, GLB-C02] measureTap on a place', () => {
   it('measures great-circle km to the point, London to Paris about 344 km', () => {
     const london: LngLat = [-0.1278, 51.5074];
     const paris: LngLat = [2.3522, 48.8566];
@@ -206,7 +206,7 @@ const parts = (...boxes: [number, number, number, number][]) =>
     geometry: { type: 'MultiPolygon', coordinates: boxes.map((b) => [ring(...b)]) },
   }) as AreaFeature & { id: string };
 
-describe('measureTap with a far part', () => {
+describe('[GLB-24, GLB-C02] measureTap with a far part', () => {
   it('sizes the target by its main part but counts the far part as inside', () => {
     const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
     const main = measureTap({ feature: mainPart(f), answer: [5, 0] }, [5, 0]);
@@ -217,7 +217,7 @@ describe('measureTap with a far part', () => {
   });
 });
 
-describe('mainPart', () => {
+describe('[GLB-24, GLB-C04] mainPart', () => {
   it('returns a single polygon feature itself', () => {
     expect(mainPart(square)).toBe(square);
   });
@@ -252,7 +252,7 @@ describe('mainPart', () => {
   });
 });
 
-describe('frameTest', () => {
+describe('[GLB-27, GLB-C06] frameTest', () => {
   // 10 x 10 degrees, clockwise.
   const frame = poly([
     [0, 40],
@@ -285,7 +285,7 @@ describe('frameTest', () => {
   });
 });
 
-describe('answerPoint', () => {
+describe('[GLB-25, GLB-C04] answerPoint', () => {
   it('is the centroid of the main part, not of the far parts too', () => {
     const f = parts([0, -5, 10, 5], [40, 0, 41, 1]);
     const [lng, lat] = answerPoint(f);
@@ -347,7 +347,7 @@ describe('answerPoint', () => {
   });
 });
 
-describe('ensureArea', () => {
+describe('[GLB-26, GLB-C05] ensureArea', () => {
   const disc = Math.PI * (POINT_FEATURE_RADIUS_KM / 6371) ** 2; // steradians, near enough flat
 
   it('turns a point into a small disc around it, keeping id and properties', () => {
@@ -430,7 +430,7 @@ describe('ensureArea', () => {
   });
 });
 
-describe('midpoint', () => {
+describe('[GLB-28, GLB-C03] midpoint', () => {
   it('is halfway along the great circle', () => {
     const [lng, lat] = midpoint([0, 0], [90, 0]);
     expect(lng).toBeCloseTo(45, 6);

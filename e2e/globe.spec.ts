@@ -12,7 +12,7 @@ async function globeTab(page: Page) {
   return { slot, panel: page.getByTestId('column') };
 }
 
-test('wide screens put a 320px panel left of the globe, and the page does not scroll', async ({
+test('[GLB-29, GLB-C16] wide screens put a 320px panel left of the globe, and the page does not scroll', async ({
   page,
   isMobile,
 }) => {
@@ -31,7 +31,7 @@ test('wide screens put a 320px panel left of the globe, and the page does not sc
   expect(vp.scrollWidth).toBeLessThanOrEqual(vp.width);
 });
 
-test('phone width puts the globe above the panel, all inside the viewport', async ({
+test('[GLB-30, GLB-C16] phone width puts the globe above the panel, all inside the viewport', async ({
   page,
   isMobile,
 }) => {
@@ -59,7 +59,7 @@ test('phone width puts the globe above the panel, all inside the viewport', asyn
 const playgroundTab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Playground', exact: true }).getByRole('link', { name });
 
-test('the column links back to the Exercises tab', async ({ page }) => {
+test('[GLB-32] the column links back to the Exercises tab', async ({ page }) => {
   await globeTab(page);
   const panelNav = page.getByRole('navigation', { name: 'Playground tabs' });
   await expect(panelNav.getByRole('link')).toHaveText(['Exercises']);
@@ -69,7 +69,7 @@ test('the column links back to the Exercises tab', async ({ page }) => {
   await expect(playgroundTab(page, 'Exercises')).toHaveAttribute('aria-current', 'page');
 });
 
-test('the playground nav opens the Globe tab, without the page heading and nav', async ({
+test('[GLB-32] the playground nav opens the Globe tab, without the page heading and nav', async ({
   page,
 }) => {
   await page.goto('/playground');
@@ -79,7 +79,7 @@ test('the playground nav opens the Globe tab, without the page heading and nav',
   await expect(page.getByRole('navigation', { name: 'Playground', exact: true })).toHaveCount(0);
 });
 
-test('Back from the Globe tab shows the Exercises tab on the same globe, its reveal gone', async ({
+test('[GLB-01, GLB-13, GLB-32, GLB-C12] Back from the Globe tab shows the Exercises tab on the same globe, its reveal gone', async ({
   page,
   isMobile,
 }) => {
@@ -137,13 +137,13 @@ async function pickMode(page: Page, mode: string) {
   await page.getByRole('option', { name: mode, exact: true }).click();
 }
 
-test('the globe loads stubbed EOX imagery and credits EOX', async ({ page, eoxRequests }) => {
+test('[GLB-02, GLB-03] the globe loads stubbed EOX imagery and credits EOX', async ({ page, eoxRequests }) => {
   await readyGlobe(page);
   expect(eoxRequests.some((url) => EOX_TILE.test(url))).toBe(true);
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('EOX');
 });
 
-test('a tap on Paris puts Paris in the last-tap readout', async ({ page, isMobile }) => {
+test('[GLB-14, GLB-C11] a tap on Paris puts Paris in the last-tap readout', async ({ page, isMobile }) => {
   const { lastTap } = await readyGlobe(page);
   await expect(lastTap).toHaveText('none');
   await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
@@ -153,7 +153,7 @@ test('a tap on Paris puts Paris in the last-tap readout', async ({ page, isMobil
   expect(Math.abs(lat! - 48.85)).toBeLessThan(0.5);
 });
 
-test('with EOX never answering, the borders still draw and a tap still registers', async ({
+test('[GLB-07] with EOX never answering, the borders still draw and a tap still registers', async ({
   page,
   isMobile,
 }) => {
@@ -170,7 +170,7 @@ test('with EOX never answering, the borders still draw and a tap still registers
   await expect(page.locator('[data-ready="true"]')).toHaveCount(0);
 });
 
-test('a drag spins the globe and is not a tap', async ({ page, isMobile }) => {
+test('[GLB-15, GLB-17] a drag spins the globe and is not a tap', async ({ page, isMobile }) => {
   const { box, lastTap } = await readyGlobe(page);
   const before = await hook.center(page);
   const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
@@ -190,7 +190,7 @@ test('a drag spins the globe and is not a tap', async ({ page, isMobile }) => {
   await expect(lastTap).toHaveText('none');
 });
 
-test('wheel zooms the globe in', async ({ page, isMobile }) => {
+test('[GLB-17] wheel zooms the globe in', async ({ page, isMobile }) => {
   test.skip(isMobile, 'no wheel on a phone; the pinch test covers zoom there');
   const { box } = await readyGlobe(page);
   const before = await hook.zoom(page);
@@ -199,7 +199,7 @@ test('wheel zooms the globe in', async ({ page, isMobile }) => {
   await expect.poll(() => hook.zoom(page)).toBeGreaterThan(before);
 });
 
-test('a two-finger pinch zooms the globe in', async ({ page, isMobile }) => {
+test('[GLB-15, GLB-17] a two-finger pinch zooms the globe in', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'touch only');
   const { box, lastTap } = await readyGlobe(page);
   const before = await hook.zoom(page);
@@ -220,7 +220,7 @@ test('a two-finger pinch zooms the globe in', async ({ page, isMobile }) => {
   await expect(lastTap).toHaveText('none');
 });
 
-test('a double click or double tap is two taps, not a zoom', async ({ page, isMobile }) => {
+test('[GLB-16, GLB-C08] a double click or double tap is two taps, not a zoom', async ({ page, isMobile }) => {
   const { lastTap } = await readyGlobe(page);
   const before = await hook.zoom(page);
   const { x, y } = await hook.project(page, [2.35, 48.85]);
@@ -236,7 +236,7 @@ test('a double click or double tap is two taps, not a zoom', async ({ page, isMo
   expect(await hook.zoom(page)).toBe(before);
 });
 
-test('each mode draws its own layers', async ({ page }) => {
+test('[GLB-09, GLB-C15] each mode draws its own layers', async ({ page }) => {
   await readyGlobe(page);
   const map = page.locator('[data-mode]');
   await expect(map).toHaveAttribute('data-mode', 'countryBorders');
@@ -252,7 +252,7 @@ test('each mode draws its own layers', async ({ page }) => {
   await expect.poll(() => hook.layerIds(page)).toContain('gt-highlight-fill');
 });
 
-test('a tap in the space beside the globe is not a tap', async ({ page, isMobile }) => {
+test('[GLB-15, GLB-C11] a tap in the space beside the globe is not a tap', async ({ page, isMobile }) => {
   const { box, lastTap } = await readyGlobe(page);
   // The slot's top-left corner: the sphere is a disc in the middle, with a margin around it.
   await tapAt(page, isMobile, { x: box.x + 8, y: box.y + 8 });
@@ -260,7 +260,7 @@ test('a tap in the space beside the globe is not a tap', async ({ page, isMobile
   await expect(lastTap).toHaveText('none');
 });
 
-test('a tap on a reveal marker is not a tap on the globe', async ({ page, isMobile }) => {
+test('[GLB-15, GLB-C11] a tap on a reveal marker is not a tap on the globe', async ({ page, isMobile }) => {
   const { lastTap } = await readyGlobe(page);
   await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
   await expect(lastTap).not.toHaveText('none');
@@ -274,7 +274,7 @@ test('a tap on a reveal marker is not a tap on the globe', async ({ page, isMobi
   await expect(lastTap).toHaveText(tapped!);
 });
 
-test('the reveal shows its pins and the target named as a marker, read through the hook', async ({
+test('[GLB-12, GLB-C10, GLB-C15] the reveal shows its pins and the target named as a marker, read through the hook', async ({
   page,
   isMobile,
 }) => {
@@ -298,7 +298,7 @@ test('the reveal shows its pins and the target named as a marker, read through t
   await expect.poll(() => hook.markers(page)).toEqual([]);
 });
 
-test('a lost WebGL context shows the message until the context comes back', async ({ page }) => {
+test('[GLB-06] a lost WebGL context shows the message until the context comes back', async ({ page }) => {
   await readyGlobe(page);
   const canvas = page.locator('canvas.maplibregl-canvas');
   // Through the canvas's own context's WEBGL_lose_context extension (no DOM types here). A lost

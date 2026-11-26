@@ -20,7 +20,7 @@ const PAGES = [
 /** Pages whose globe is hidden at phone width. */
 const NO_PHONE_GLOBE = ['/settings', '/credits'];
 
-test('client-side links between pages keep the same globe', async ({ page }) => {
+test('[GLB-01] client-side links between pages keep the same globe', async ({ page }) => {
   // Five pages, each loading its data and drawing on the globe: slow on a loaded machine.
   test.setTimeout(120_000);
   await page.goto('/');
@@ -40,7 +40,7 @@ test('client-side links between pages keep the same globe', async ({ page }) => 
 });
 
 for (const { path, heading } of PAGES) {
-  test(`${path}: the column sits beside the globe, or below it at phone width, and nothing scrolls sideways`, async ({
+  test(`[GLB-29, GLB-30, GLB-31, GLB-C16] ${path}: the column sits beside the globe, or below it at phone width, and nothing scrolls sideways`, async ({
     page,
     isMobile,
   }) => {
@@ -71,7 +71,7 @@ for (const { path, heading } of PAGES) {
   });
 }
 
-test('the globe hidden on Settings at phone width is the same map, resized when it shows again', async ({
+test('[GLB-31, GLB-04] the globe hidden on Settings at phone width is the same map, resized when it shows again', async ({
   page,
   isMobile,
 }) => {
@@ -108,7 +108,7 @@ test('the globe hidden on Settings at phone width is the same map, resized when 
   await expect.poll(camera).toEqual(before);
 });
 
-test('the attribution is the compact ⓘ button at phone width, in full on wide screens', async ({
+test('[GLB-03, GLB-C08] the attribution is the compact ⓘ button at phone width, in full on wide screens', async ({
   page,
   isMobile,
 }) => {
@@ -127,7 +127,7 @@ test('the attribution is the compact ⓘ button at phone width, in full on wide 
   await expect(text).toBeVisible();
 });
 
-test('without WebGL the globe says so in its area and the column still works', async ({ page }) => {
+test('[GLB-05] without WebGL the globe says so in its area and the column still works', async ({ page }) => {
   await page.addInitScript(() => {
     const canvas = (
       globalThis as unknown as {
