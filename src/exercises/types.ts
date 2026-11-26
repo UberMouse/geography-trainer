@@ -31,8 +31,10 @@ export interface ExerciseItem {
   /** L2's globe: every country's border for a country, else its country's region borders. */
   bordersMode: GlobeMode;
   /**
-   * A point-only country (no area of its own) or a place in one: the camera shows its
-   * neighbourhood instead of fitting it (L1 for the country, L2 for the place).
+   * A point-only country (no area of its own) or a place in one; always false for a region.
+   * `questionCamera` reads it: at L1 a point-only country's question flies to the neighbourhood
+   * of its answer point instead of fitting the country; at L2 a place's question flies to the
+   * neighbourhood of its `frame`'s answer point instead of fitting the frame.
    */
   pointOnly: boolean;
 }

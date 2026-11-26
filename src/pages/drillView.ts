@@ -11,7 +11,7 @@ import {
 } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
-import { inFrame, type AreaFeature, type LngLat } from '../maps/geo';
+import { frameTest, type AreaFeature, type LngLat } from '../maps/geo';
 import { STATE_LABELS } from './progressView';
 
 export type DrillRoute =
@@ -91,8 +91,8 @@ export function childRows(
 }
 
 /**
- * Splits `items` by whether `at(item)` lies near `frame` (`inFrame`), the country's main part:
- * `onMap` is drawn, `off` is named in the column.
+ * Splits `items` by whether `at(item)` lies within `frame`'s padded extent (`frameTest`), the
+ * country's main part: `onMap` is drawn, `off` is named in the column.
  */
 export function splitByFrame<T>(
   frame: AreaFeature,
@@ -101,7 +101,8 @@ export function splitByFrame<T>(
 ): { onMap: T[]; off: T[] } {
   const onMap: T[] = [];
   const off: T[] = [];
-  for (const item of items) (inFrame(frame, at(item)) ? onMap : off).push(item);
+  const inside = frameTest(frame);
+  for (const item of items) (inside(at(item)) ? onMap : off).push(item);
   return { onMap, off };
 }
 

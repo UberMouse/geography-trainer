@@ -4,7 +4,7 @@ import {
   POINT_FEATURE_RADIUS_KM,
   answerPoint,
   ensureArea,
-  inFrame,
+  frameTest,
   mainPart,
   measureTap,
   type AreaFeature,
@@ -251,7 +251,7 @@ describe('mainPart', () => {
   });
 });
 
-describe('inFrame', () => {
+describe('frameTest', () => {
   // 10 x 10 degrees, clockwise.
   const frame = poly([
     [0, 40],
@@ -260,15 +260,27 @@ describe('inFrame', () => {
     [10, 40],
     [0, 40],
   ]);
+  const inside = frameTest(frame);
 
   it('is true for a point inside the frame and one just off its coast', () => {
-    expect(inFrame(frame, [5, 45])).toBe(true);
-    expect(inFrame(frame, [10.2, 45])).toBe(true);
+    expect(inside([5, 45])).toBe(true);
+    expect(inside([10.2, 45])).toBe(true);
   });
 
   it('is false for a point far outside the frame, or round the back of the globe', () => {
-    expect(inFrame(frame, [55, -21])).toBe(false);
-    expect(inFrame(frame, [-175, -45])).toBe(false);
+    expect(inside([55, -21])).toBe(false);
+    expect(inside([-175, -45])).toBe(false);
+  });
+
+  it('gives the same answers however many points one test is asked about, in any order', () => {
+    const points: LngLat[] = [
+      [-175, -45],
+      [5, 45],
+      [55, -21],
+      [10.2, 45],
+    ];
+    expect(points.map(inside)).toEqual(points.map((p) => frameTest(frame)(p)));
+    expect(points.map(inside)).toEqual([false, true, false, true]);
   });
 });
 

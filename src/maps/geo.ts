@@ -227,17 +227,21 @@ export function mainPart<F extends AreaFeature>(feature: F): F {
   return part;
 }
 
-/** The square, and its padding, that `inFrame` fits a frame into. */
+/** The square, and its padding, that `frameTest` fits a frame into. */
 const FRAME_SIZE = 480;
 const FRAME_PADDING = 16;
 
 /**
- * Whether `point` lies near `frame`: inside the square that an azimuthal equal-area projection
- * centred on the frame's centroid shows when fitted to the frame with a little padding. A
- * country's main part as the frame sets its outlying regions and places (overseas, far islands)
- * apart.
+ * A test of whether a point lies within `frame`'s padded extent: inside the square that an
+ * azimuthal equal-area projection centred on the frame's centroid shows when fitted to the frame
+ * with padding. The projection is built once, so testing many points against one frame is cheap.
+ * `FRAME_SIZE` and `FRAME_PADDING` only set the margin beyond the frame's edge, through their
+ * ratio: 16/448 of the frame's projected extent along its longer side, more along its shorter
+ * one. It is the old flat map's rule, which the drill-down's "Not on this map" line
+ * kept. A country's main part as the frame sets its outlying regions and places (overseas, far
+ * islands) apart.
  */
-export function inFrame(frame: AreaFeature, point: LngLat): boolean {
+export function frameTest(frame: AreaFeature): (point: LngLat) => boolean {
   const [lng, lat] = geoCentroid(frame);
   const project = geoAzimuthalEqualArea()
     .rotate([-lng, -lat])
@@ -248,8 +252,10 @@ export function inFrame(frame: AreaFeature, point: LngLat): boolean {
       ],
       { type: 'FeatureCollection', features: [frame] },
     );
-  const p = project(point);
-  return !!p && p.every((v) => Number.isFinite(v) && v >= 0 && v <= FRAME_SIZE);
+  return (point) => {
+    const p = project(point);
+    return !!p && p.every((v) => Number.isFinite(v) && v >= 0 && v <= FRAME_SIZE);
+  };
 }
 
 const answerPoints = new WeakMap<AreaFeature, LngLat>();
