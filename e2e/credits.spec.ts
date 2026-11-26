@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 
 test('the footer opens the Credits page', async ({ page }) => {
   await page.goto('/');

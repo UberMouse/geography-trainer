@@ -1,20 +1,6 @@
-import { fileURLToPath } from 'node:url';
-import { expect, test, type Page } from '@playwright/test';
+import { EOX_ROUTE, expect, test, type Page } from './test';
 
 const EOX_TILE = /\/s2cloudless-2025_3857\/default\/GoogleMapsCompatible\/\d+\/\d+\/\d+\.jpg/;
-const FIXTURE_TILE = fileURLToPath(new URL('./fixtures/eox-tile.jpg', import.meta.url));
-
-/** Tile URLs the page asked EOX for, all answered with the fixture tile. */
-let eoxRequests: string[] = [];
-
-// No test touches EOX: every request to it gets the local fixture tile.
-test.beforeEach(async ({ page }) => {
-  eoxRequests = [];
-  await page.route('https://tiles.maps.eox.at/**', (route) => {
-    eoxRequests.push(route.request().url());
-    return route.fulfill({ path: FIXTURE_TILE, contentType: 'image/jpeg' });
-  });
-});
 
 /** The Globe tab, once its lazily loaded module has rendered. */
 async function globeTab(page: Page) {
@@ -179,7 +165,7 @@ async function pickMode(page: Page, mode: string) {
   await page.getByRole('option', { name: mode, exact: true }).click();
 }
 
-test('the globe loads stubbed EOX imagery and credits EOX', async ({ page }) => {
+test('the globe loads stubbed EOX imagery and credits EOX', async ({ page, eoxRequests }) => {
   await readyGlobe(page);
   expect(eoxRequests.some((url) => EOX_TILE.test(url))).toBe(true);
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('EOX');
@@ -199,9 +185,9 @@ test('with EOX never answering, the borders still draw and a tap still registers
   page,
   isMobile,
 }) => {
-  await page.unroute('https://tiles.maps.eox.at/**');
+  await page.unroute(EOX_ROUTE);
   // Left hanging: the imagery never arrives.
-  await page.route('https://tiles.maps.eox.at/**', () => {});
+  await page.route(EOX_ROUTE, () => {});
   await globeTab(page);
   const layerIds = () =>
     page.evaluate(

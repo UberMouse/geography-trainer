@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { answer, current, next, question, WAIT } from './sessionHelpers';
 
 // Placement loads the world's map data and draws up to 20 globes: slow on a loaded machine.

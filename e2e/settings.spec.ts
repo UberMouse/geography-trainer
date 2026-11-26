@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 import { WAIT, writeMasteredUnitedStates } from './sessionHelpers';
 
 test.describe.configure({ timeout: 120_000 });

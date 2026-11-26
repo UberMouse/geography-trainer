@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { answer, current, next, question, summary, WAIT, writeMasteredUnitedStates } from './sessionHelpers';
 
 // Sessions load the world's map data and draw maps: slow on a loaded machine.

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 import { answer, current, next, question, summary, WAIT } from './sessionHelpers';
 
 // A session loads the world's map data and draws globes: slow on a loaded machine.

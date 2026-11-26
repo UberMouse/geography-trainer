@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './test';
 
 // Each test loads the world's map data and draws globes: slow on a loaded machine.
 test.describe.configure({ timeout: 90_000 });

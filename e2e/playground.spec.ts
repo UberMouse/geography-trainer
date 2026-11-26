@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from './test';
 
 /** The bare globe's canvas, scrolled into view, once it has drawn (its view attributes are set). */
 async function bareGlobe(page: Page, query = '') {

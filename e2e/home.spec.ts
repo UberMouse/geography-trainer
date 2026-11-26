@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test';
 import { answer, current, next, question, summary, WAIT } from './sessionHelpers';
 
 // Sessions load the world's map data and draw globes: slow on a loaded machine.
