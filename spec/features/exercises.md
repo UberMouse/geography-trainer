@@ -69,30 +69,6 @@ Scenario: fewer options when the tier is small
   Then three options show: its own name and both wrong ones
 ```
 
-### EXR-05 Wrong options come from the item's own tier
-Up: PRD-03
-
-Which of the pool are picked, and how near, is `grading.md`'s.
-
-```gherkin
-Scenario Outline: the pool of wrong options
-  Given a <tier> item
-  When its options are built
-  Then the wrong options are drawn from <pool>
-  Examples:
-    | tier    | pool                                                                                  |
-    | country | every other country                                                                   |
-    | region  | its country's other regions that have places                                          |
-    | place   | its region's other places when 3 distinct names remain, else its country's, else all |
-
-Scenario: names are never repeated, nor the item's own
-  Given a pool where some items share a name, one of them the item's own
-  When its options are built
-  Then no wrong option carries the item's own name
-    And each name is offered once, by the nearest item carrying it
-    And a pool too thin once names are deduplicated falls back to the next wider one
-```
-
 ### EXR-06 L1 is graded on the first choice
 Up: PRD-03, PRD-04
 

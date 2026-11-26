@@ -127,11 +127,10 @@ Up: DAT-16, DAT-21
 | Name | Value | Lives in |
 |---|---|---|
 | Dissolve by NE `region` | `france`, `england`, `scotland`, `wales`, `northern-ireland`, `italy`, `spain`, `philippines` | `assign-regions.ts` `DISSOLVE_BY_REGION` |
-| Regions tier: regions holding a place | ≥ 4 | `src/engine/config.ts` `REGIONS_TIER_MIN_REGIONS` |
-| Regions tier: places in the country | ≥ 15 | `src/engine/config.ts` `REGIONS_TIER_MIN_PLACES` |
 
-`hasRegionsTier(regionsWithPlaces, places)` applies both. The build counts places and regions
-over the kept places and final regions.
+`hasRegionsTier(regionsWithPlaces, places)` applies both regions-tier thresholds,
+`REGIONS_TIER_MIN_REGIONS` and `REGIONS_TIER_MIN_PLACES` (CUR-C01). The build counts places and
+regions over the kept places and final regions.
 
 ### DAT-C08 Region-name overrides
 Up: DAT-18

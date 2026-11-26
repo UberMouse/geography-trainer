@@ -148,7 +148,7 @@ Up: GRD-08, GRD-09, GRD-10, GRD-12, GRD-13, GRD-14, GRD-15, GRD-16, GRD-17, GRD-
 | `applyAnswer(progress, rung, rating, now, dayKey)` | schedules `cards[rung]` with FSRS at `now`; moves the ladder only when `rung === progress.rung`; adds `dayKey` to `l3PassDays` only on a pass at rung 3 while the current rung is 3; a card first reached is new and due `now`; a card stepped down to keeps its state with `due = now`; throws when `rung > highestRung` or the rung has no card |
 | `isIntroduced(p)` | some card has `reps > 0` |
 | `isStudied(p)` | `introducedAt !== null`, or some card has `reps > 1` |
-| `isMastered(p)` | `l3PassDays.length >= MASTERY_DISTINCT_DAYS` |
+| `isMastered(p)` | `l3PassDays.length >= MASTERY_DISTINCT_DAYS`; `l3PassDays` only grows, so a lapse never undoes it |
 | `dueRung(p)` | `p.rung` |
 | `nextDue(p)` | `p.cards[p.rung].due`; throws if that card is missing |
 | `seedFromPlacement(itemId, outcome, now, dayKey, due?)` | fresh progress for a placement `outcome` (`'passed' \| 'close' \| 'failed' \| 'likelyKnown' \| 'aboveEstimate' \| 'untestedAtOrBelow'`); builds new data, so callers seed only items with no progress |
@@ -185,7 +185,7 @@ Up: GRD-22, GRD-23, GRD-25
 |---|---|---|
 | `DISTRACTORS` | 3 wrong options per question | `src/engine/distractors.ts` |
 | draw pool | the `2 × count` nearest candidates (6 by default) | `pickDistractors` |
-| place exclusion radius | `PLACE_EASY_KM`, 25 km: a place closer than this to the target is never a candidate | `src/engine/config.ts` |
+| place exclusion radius | `PLACE_EASY_KM` (GRD-C03): a place closer than this to the target is never a candidate | `src/engine/config.ts` |
 | widening threshold | a place's pool widens while it has fewer than `DISTRACTORS` distinct names | `placeCandidates` |
 | distance | great-circle (haversine), Earth radius 6,371 km | `src/engine/distractors.ts` |
 

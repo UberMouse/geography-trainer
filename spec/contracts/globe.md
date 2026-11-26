@@ -32,7 +32,7 @@ MAX_PIXEL_RATIO)`, followed when the screen's ratio changes.
 |---|---|
 | `center` (`START`) | `[0, 20]` |
 | `zoom`, `minZoom` | the fitted zoom of the container (GLB-C14) |
-| `maxZoom` (`MAX_ZOOM`, `globeLayers.ts`) | 14 |
+| `maxZoom` | `MAX_ZOOM` (GLB-C14) |
 | `maxPitch` | 0 |
 | `dragRotate`, `pitchWithRotate`, `touchPitch` | false (touch and keyboard rotation are disabled after creation too) |
 | `doubleClickZoom` | false |

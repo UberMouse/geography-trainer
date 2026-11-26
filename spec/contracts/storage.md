@@ -15,7 +15,7 @@ Database `geography-trainer` (`DB_NAME`, `src/storage/db.ts`), opened by `Geogra
 
 The current version is **2**. A schema change adds a version with a migration (CLAUDE.md).
 
-- `progress` rows are the engine's `ItemProgress` (see the engine contracts), stored as is.
+- `progress` rows are the engine's `ItemProgress` (GRD-C07), stored as is.
 - `answers` rows are `AnswerRow` (STO-C02).
 - `meta` rows are `{ key: string, value: unknown }`: a finished-placement marker (key
   `placement:…`, value `true`; key shapes are the placement area's `isPlacementKey`) or a setting
@@ -105,10 +105,10 @@ Up: STO-15
 | `DAILY_NEW_CAP_KEY` | `"setting:dailyNewCap"` (a `meta` row) | `src/storage/settings.ts` |
 | `DAILY_NEW_CAP_MIN` | 5 | `src/storage/settings.ts` |
 | `DAILY_NEW_CAP_MAX` | 50 | `src/storage/settings.ts` |
-| default | 15 (`DAILY_NEW_CAP`) | `src/engine/config.ts` |
 
 `isValidDailyNewCap(v)`: `v` is a number, an integer, and 5 ≤ v ≤ 50.
-`dailyNewCapOrDefault(stored)`: `stored` when valid, else 15. Both pure.
+`dailyNewCapOrDefault(stored)`: `stored` when valid, else the default `DAILY_NEW_CAP` (SES-C01).
+Both pure.
 
 ### STO-C06 The save queue
 Up: STO-01, STO-02, STO-03

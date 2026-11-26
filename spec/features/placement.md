@@ -300,16 +300,19 @@ Scenario: an open question at the finish
 ### PLC-13 Answered items are placed by their answer
 Up: PRD-05, PRD-03
 
+What each placement makes of the item's progress (its rung, its card, its pass days) is
+`grading.md`'s (GRD-19).
+
 ```gherkin
-Scenario Outline: what an answer leaves behind
+Scenario Outline: what an answer places
   Given a placement answer that earned <credit> credit
   When the test's results are stored
-  Then the item <placement>
+  Then the item is placed as <placement>
     Examples:
-      | credit | placement                                                                                 |
-      | 1      | is an L3 review due 2 days later, with today counted as one L3 pass toward mastery        |
-      | 0.5    | starts at L2, tapping with borders drawn                                                  |
-      | 0      | stores nothing, so it starts at L1 like any new item                                      |
+      | credit | placement                                                    |
+      | 1      | passed, and stored                                           |
+      | 0.5    | a close miss, and stored                                     |
+      | 0      | failed, and nothing is stored, so it starts like any new item |
 ```
 
 *Why:* nothing is skipped outright; a pass comes back within days to confirm.
@@ -322,19 +325,19 @@ Scenario Outline: untested items
   Given the test ended with enough answers to place untested items
     And an untested item the learner knows with probability <p>, averaged over the estimate
   When the results are stored
-  Then the item <placement>
+  Then the item is placed as <placement>
     Examples:
-      | p                                                            | placement                                 |
-      | 0.85 or more, at or below the highest level passed outright  | is sent to L3 review to confirm           |
-      | 0.85 or more, above every level passed outright              | starts at L2                              |
-      | from 0.5 up to the L3 threshold                              | starts at L2                              |
-      | below 0.5                                                    | stores nothing and starts at L1           |
+      | p                                                            | placement                                        |
+      | 0.85 or more, at or below the highest level passed outright  | likely known, sent to L3 review to confirm       |
+      | 0.85 or more, above every level passed outright              | probably known                                   |
+      | from 0.5 up to the L3 threshold                              | probably known                                   |
+      | below 0.5                                                    | not placed, and nothing is stored                |
 
 Scenario: close misses alone never skip to review
   Given a learner whose every answer was a close miss
   When the test ends
   Then the estimate is above 0
-    And some untested items start at L2
+    And some untested items are placed as probably known
     And none is sent to L3 review
 ```
 
@@ -347,7 +350,7 @@ Scenario: 6 a day from day 2
   When the results are stored
   Then the least certain item comes first
     And 6 are due 2 days after the test, 6 the day after, and 1 the day after that
-    And none of them counts as a new item introduced
+    And none of them counts against the daily new-item limit
 
 Scenario: storing order
   When the results are stored
@@ -479,26 +482,15 @@ Scenario: a test-out
 ### PLC-22 Finishing a test stores its marker
 Up: PRD-05
 
+The seeds and the marker are written together, both or neither (STO-06). The marker is what hides
+Home's placement offer (SCR-05) and an item's test-out link (SCR-18); quitting stores none (PLC-19).
+
 ```gherkin
-Scenario: finish stores seeds and marker together
+Scenario: finishing stores the marker
   Given a test ends, or the learner chose to finish now
   When its results are stored
-  Then its seeds and its finished-test marker are stored together: both or neither
-
-Scenario: the countries marker hides the Home offer
-  Given the countries test was finished
-  When the learner opens Home
-  Then the placement offer is gone
-
-Scenario: quitting leaves the offer
-  Given the learner quit the countries test partway
-  When they open Home
-  Then the placement offer still shows
-
-Scenario: a test-out marker hides that item's test-out link
-  Given a test-out of an item was finished
-  When the learner opens that item's progress page
-  Then it offers no test-out
+  Then its finished-test marker is stored with its seeds
+    And the Home offer or the test-out link for that test no longer shows
 ```
 
 ## Test out of a tier

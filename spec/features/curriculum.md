@@ -1,7 +1,9 @@
 # Curriculum (CUR)
 
 What there is to learn and in what order: the country → regions → places tree, which items are
-unlocked, when an item counts as mastered, the order new items arrive in, and how hard each item is.
+unlocked, the order new items arrive in, and how hard each item is. When an item counts as mastered
+is `grading.md`'s (GRD-15); which countries get a regions tier is decided when the data is built
+(DAT-21). How the Progress pages show all this is `screens.md`'s.
 
 ## The tree
 
@@ -14,29 +16,6 @@ Scenario: a first-run learner can start on any country
   When the unlocked items are listed
   Then every country in the data is listed, and no region or place is
     And a country drawn only as a point (Bonaire, Vatican City) is a country like any other
-    And every country can be opened from the globe, or from the country picker with the keyboard
-
-Scenario: an address that names nothing in the tree
-  Given a country or region id that is not in the tree
-  When its progress page is opened
-  Then nothing is shown for it, only a way back
-```
-
-### CUR-02 A country gets a regions tier when it has enough regions and places
-Up: PRD-02
-
-*Why:* a country with a handful of places gains nothing from a regions step in between.
-
-```gherkin
-Scenario Outline: the regions tier is decided by regions holding places and total places
-  Given a country with <regions> regions that hold a place, and <places> places in all
-  When the data is generated
-  Then the country <has> a regions tier
-  Examples:
-    | regions | places | has         |
-    | 4       | 15     | has         |
-    | 3       | 15     | does not have |
-    | 4       | 14     | does not have |
 ```
 
 ### CUR-03 Regions sit between a country and its places only in a regions-tier country
@@ -148,7 +127,6 @@ Scenario: a country in progress
   Given a learner who has started France but not mastered it
   When the unlocked items are listed
   Then none of France's regions are unlocked
-    And France's page lists every region as locked, saying France must be mastered first
 ```
 
 ### CUR-11 A lapse does not re-lock anything
@@ -177,30 +155,6 @@ Scenario: only places of the chosen types
     And an empty filter leaves out every place, and no filter keeps every place
 ```
 
-## Mastery
-
-### CUR-13 An item is mastered by passing the top rung on two different days
-Up: PRD-02, PRD-04
-
-```gherkin
-Scenario Outline: passes at the top rung
-  Given an item that has passed the top rung on <days> different local day(s)
-  Then it <is> mastered
-  Examples:
-    | days | is     |
-    | 1    | is not |
-    | 2    | is     |
-
-Scenario: two passes on one day count once
-  Given an item that passes the top rung twice on the same local day
-  Then it is not mastered
-
-Scenario: mastery is kept
-  Given a mastered item
-  When it is later missed
-  Then it stays mastered
-```
-
 ## Item states and counts
 
 ### CUR-14 Each item is locked, new, learning or mastered
@@ -217,11 +171,6 @@ Scenario Outline: an item's state
     | that is unlocked with only a placement result, unanswered    | new      |
     | that has been answered in a session and is not mastered      | learning |
     | that is mastered                                             | mastered |
-
-Scenario: progress shows the states
-  Given a learner who has mastered the United States
-  Then the United States shows as mastered, and every one of its regions as new
-    And a country never touched, such as Germany, shows as new on Home and Progress
 ```
 
 ### CUR-15 Progress under an item counts its whole subtree
@@ -244,27 +193,16 @@ Scenario: tier totals
   Then each tier (countries, regions, places) has a total, a learning count and a learned count
     And learned means mastered, and learning means answered in a session and not mastered
     And progress for ids not in the tree is ignored
-
-Scenario: the Progress page counts a mastered country
-  Given a learner who has mastered the United States
-  When the Progress page opens
-  Then the countries tier says one is learned
 ```
 
 ### CUR-17 Mastering an item names what it unlocks
-Up: PRD-02, PRD-05
+Up: PRD-02
 
 ```gherkin
 Scenario: what an item unlocks
   Given an item
   Then what mastering it unlocks is its children and their tier (regions or places)
     And a place, or a country with nothing under it, unlocks nothing
-
-Scenario: a mastered country offers to test out of its next tier
-  Given a learner who has mastered the United States
-  When its progress page opens
-  Then it offers a test-out of the United States's regions
-    And a region that is not mastered offers none
 ```
 
 ## New items
@@ -276,8 +214,9 @@ Up: PRD-06
 Scenario: which items are new
   Given some unlocked items
   Then an item with no progress, or with progress never answered, is new
-    And a placement seed the learner did not pass is still new
-    And an item the learner passed in placement, or answered in a session, is not new
+    And a placement seed that starts below L3 (a close miss, or probably known) is still new
+    And an item placement sent to L3 review (passed, or likely known), or answered in a session,
+      is not new
 ```
 
 ### CUR-19 New items arrive easiest first, then by how much maptap asks about the country

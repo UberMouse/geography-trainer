@@ -103,21 +103,6 @@ Scenario: EOX never answers
     And taps still register
 ```
 
-### GLB-08 Region files load only when needed
-Up: PRD-08, PRD-14
-
-```gherkin
-Scenario: the app starts without any region file
-  Given a first visit
-  When Home has loaded
-  Then no country's region file has been fetched
-
-Scenario: a page that needs a country's regions fetches that file alone
-  When the learner opens a country's progress page
-  Then that country's region file is fetched
-    And no other country's region file is
-```
-
 ## What the globe draws
 
 ### GLB-09 Each mode draws its own layers
@@ -501,26 +486,6 @@ Scenario: the footer
   When any page is shown
   Then below the page, its column credits MapTap.gg for the place list and Natural Earth for the boundaries, each linked to its site
     And it links to the Credits page
-```
-
-### GLB-34 A failed save is shown on every page
-Up: PRD-10
-
-```gherkin
-Scenario: an answer could not be saved
-  Given an answer's save has failed
-  When any page is shown
-  Then the column shows, above the page, how many answers could not be saved and that closing or reloading loses them
-    And a Retry button
-  When Retry saves them
-  Then the banner goes
-
-Scenario: leaving with unsaved answers
-  Given answers are waiting to be saved
-  When the learner closes or reloads the page
-  Then the browser asks first
-  When nothing is waiting to be saved
-  Then it does not ask
 ```
 
 ### GLB-35 The site works from a sub-path

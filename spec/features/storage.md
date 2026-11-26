@@ -332,14 +332,20 @@ Scenario: countries and places are fetched once
 ```
 
 ### STO-18 A country's regions load only when needed
-Up: PRD-02, PRD-14
+Up: PRD-02, PRD-08, PRD-14
 
 ```gherkin
+Scenario: the app starts without any region file
+  Given a first visit
+  When Home has loaded
+  Then no country's region file has been fetched
+
 Scenario: regions load on demand
   Given a country with a regions tier
   When a screen needs its regions
   Then that country's own regions file is fetched, once
     And each region names its country
+    And no other country's regions file is fetched
 
 Scenario: a country without regions
   Given a country that has no regions tier, or a country the data does not know
@@ -367,7 +373,8 @@ Up: PRD-08, PRD-12
 Scenario Outline: tiny countries get a disc
   Given the countries file stores a country as <shape>
   When the countries are loaded
-  Then that country has a small disc as its outline, and is marked as having no area of its own
+  Then that country is marked as having no area of its own, and is given the small disc GLB-26
+    describes as its outline
     And countries with an area of their own are not marked
     Examples:
       | shape                 |

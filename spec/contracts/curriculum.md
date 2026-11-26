@@ -1,11 +1,12 @@
 # Curriculum contracts (CUR)
 
-`src/engine/curriculum.ts` and the constants it and mastery read. The module is pure: it imports
+`src/engine/curriculum.ts` and the constants it reads. Mastery itself (`isMastered`) is the
+grading area's (GRD-C06, GRD-C08). The module is pure: it imports
 nothing from React, the DOM, storage or maps, and every function returns the same output for the
 same input.
 
 ### CUR-C01 Regions-tier thresholds
-Up: CUR-02
+Up: DAT-21
 
 | Constant | Value | Meaning |
 |---|---|---|
@@ -16,17 +17,6 @@ Both must be met (`>=`). Live in `src/engine/config.ts`. Applied when the data i
 `hasRegionsTier(regionsWithPlaces, places)` in `scripts/build-data/assign-regions.ts`; the result
 is each country's `hasRegions` property in `public/data/countries.topo.json`, which the app reads
 as given.
-
-### CUR-C02 Mastery days
-Up: CUR-13
-
-| Constant | Value | Meaning |
-|---|---|---|
-| `MASTERY_DISTINCT_DAYS` | 2 | distinct local days (`YYYY-MM-DD`) with a pass at L3 |
-
-Lives in `src/engine/config.ts`. `isMastered(progress)` in `src/engine/srs.ts` is
-`progress.l3PassDays.length >= MASTERY_DISTINCT_DAYS`; `l3PassDays` only grows, so a lapse never
-undoes it.
 
 ### CUR-C03 Difficulty bands
 Up: CUR-20
@@ -99,7 +89,7 @@ unlockedItems(curriculum, progress: Record<itemId, ItemProgress>, opts?): Curric
 newItems(curriculum, progress, opts?): CurriculumItem[]
 ```
 
-- `unlockedItems`: items whose parent is null or `isMastered` (CUR-C02), in `items` order. Only the
+- `unlockedItems`: items whose parent is null or `isMastered` (GRD-C08), in `items` order. Only the
   direct parent is checked. With `placeTypes`, places of other types and regions with no child of
   those types are dropped; countries are always kept.
 - `newItems`: `unlockedItems` without the ones that are `isIntroduced` (some card has

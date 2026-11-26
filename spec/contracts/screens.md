@@ -29,15 +29,14 @@ Up: SCR-19, SCR-20, SCR-23
 
 | Value | | Lives in |
 |---|---|---|
-| Daily limit, minimum | 5 | `src/storage/settings.ts` `DAILY_NEW_CAP_MIN` |
-| Daily limit, maximum | 50 | `src/storage/settings.ts` `DAILY_NEW_CAP_MAX` |
-| Daily limit, default | 15 | `src/engine/config.ts` `DAILY_NEW_CAP` |
+| Daily limit, range | `DAILY_NEW_CAP_MIN` to `DAILY_NEW_CAP_MAX` (STO-C05) | `src/storage/settings.ts` |
+| Daily limit, default | `DAILY_NEW_CAP` (SES-C01) | `src/engine/config.ts` |
 | Accepted limit text | `^\d+$` after trimming, within the range | `src/pages/settingsView.ts` `checkLimitText` |
 | Reset word | `reset`, compared trimmed and lower-cased | `src/pages/settingsView.ts` `RESET_WORD` |
 | Export file name | `geography-trainer-progress-<YYYY-MM-DD>.json`, the local day of the export | `src/pages/settingsView.ts` `exportFilename` |
 
-The storage area owns the limit's range and default and the export file's format; Settings
-reads them from there.
+The storage area owns the limit's range (STO-C05) and the export file's format (STO-C03), the
+session area the default (SES-C01); Settings reads them from there.
 
 ### SCR-C03 Home's clock and placement offer
 Up: SCR-04, SCR-05
@@ -45,7 +44,7 @@ Up: SCR-04, SCR-05
 | Value | | Lives in |
 |---|---|---|
 | Refresh interval | 60 000 ms, and on `visibilitychange` (when visible) and window `focus` | `src/pages/Home.tsx` `useNow` |
-| Placement length shown in the offer | 12 to 20 questions | `src/engine/config.ts` `PLACEMENT_MIN_QUESTIONS`, `PLACEMENT_MAX_QUESTIONS` |
+| Placement length shown in the offer | `PLACEMENT_MIN_QUESTIONS` to `PLACEMENT_MAX_QUESTIONS` questions (PLC-C02) | `src/pages/Home.tsx` |
 | Time zone | the browser's, as minutes east of UTC (`-getTimezoneOffset()`) | `src/pages/Home.tsx`, `src/pages/Settings.tsx` |
 
 ### SCR-C04 Drill-down camera
@@ -56,10 +55,10 @@ Up: SCR-15, SCR-17
 | Page | Move |
 |---|---|
 | region page | `{ kind: 'fit', feature: region }` |
-| country page, point-only country | `{ kind: 'span', at: answerPoint(country), km: 600 }` |
+| country page, point-only country | `{ kind: 'span', at: answerPoint(country), km: NEIGHBOURHOOD_VIEW_KM }` |
 | country page, any other country | `{ kind: 'fit', feature: country }` |
 
-The 600 km is `NEIGHBOURHOOD_VIEW_KM` in `src/maps/camera.ts`. Home and Progress move the camera
+`NEIGHBOURHOOD_VIEW_KM` is the globe's (GLB-C13). Home and Progress move the camera
 to `{ kind: 'world' }` once their data has loaded.
 
 ### SCR-C05 Routes

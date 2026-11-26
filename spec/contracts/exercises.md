@@ -5,7 +5,7 @@ React components is pure: given the same item, rung, tap and seed it returns the
 fetches nothing.
 
 ### EXR-C01 `buildExerciseItem` and `ExerciseItem`
-Up: EXR-02, EXR-05, EXR-12, EXR-20, EXR-21, EXR-22
+Up: EXR-02, EXR-12, EXR-20, EXR-21, EXR-22
 
 `buildExerciseItem(itemId: string, data: ExerciseData): ExerciseItem` in `src/exercises/item.ts`.
 `ExerciseData` is `{ countries: CountriesData; places: Place[]; regions?: RegionsData }`, where
@@ -18,7 +18,7 @@ Up: EXR-02, EXR-05, EXR-12, EXR-20, EXR-21, EXR-22
 | `name` | string | the feature's or place's name |
 | `countryId` | string | the owning country's namespaced id (`country:<id>`) |
 | `target` | `TapTarget` | `{ feature, answer, alsoInside? }` for a country or region (`answer` is `answerPoint(feature)`; `alsoInside` lists same-named sibling regions, only when there are any), `{ point }` for a place |
-| `candidates` | `Candidate[]` | the wrong-option pool (EXR-05), from `countryCandidates`, `regionCandidates` or `placeCandidates` in `src/engine/distractors.ts`; may be empty for a region |
+| `candidates` | `Candidate[]` | the wrong-option pool (GRD-25), from `countryCandidates`, `regionCandidates` or `placeCandidates` in `src/engine/distractors.ts`; may be empty for a region |
 | `frame` | `AreaFeature` | the owning country's main part (`mainPart`) |
 | `outsideFrame` | boolean | `!frameTest(frame)(answer point)`; always false for a country |
 | `highlightMode` | `GlobeMode` | L1's: `highlight` with target `{kind:'country', feature, countries}`, `{kind:'region', feature, country, regions}` or `{kind:'place', place, country, regions?}` (`regions` undefined for a country without a regions tier) |
@@ -65,7 +65,7 @@ confirmed tap is revealed. A choice reveals no tap, so it moves nothing.
 Up: EXR-04
 
 `buildChoices(item: ExerciseItem, rng: Rng): Choice[]` in `src/exercises/options.ts`, `Choice` being
-`{ id, name }`. It picks up to `DISTRACTORS` (3, in `src/engine/distractors.ts`, `grading.md`'s)
+`{ id, name }`. It picks up to `DISTRACTORS` (GRD-C10)
 wrong options from `item.candidates` near the target point with `pickDistractors`, then shuffles
 them with the item using `multipleChoice`, both from `rng`. The exercise seeds `rng` with
 `mulberry32(seed)`, so one seed gives one set of options in one order.
@@ -98,11 +98,11 @@ Up: EXR-09, EXR-16
 
 | Constant | Value | Lives in | Is |
 |---|---|---|---|
-| `NEIGHBOURHOOD_VIEW_KM` | 600 km | `src/maps/camera.ts` | the ground shown edge to edge around a place or a point-only country (also used by the Progress drill-down) |
 | `REVEAL_WORLD_KM` | 5,000 km | `src/exercises/questionGlobe.ts` | beyond this tap-to-answer distance the reveal shows the whole globe instead of framing both |
 | `REVEAL_FAR_SIDE_KM` | 9,000 km | `src/exercises/questionGlobe.ts` | beyond this the whole globe centres on the answer point, not halfway |
 
-Both reveal limits compare `distanceKm(tap, answer point)` with `>`, so a distance equal to the
+A question's `span` move shows `NEIGHBOURHOOD_VIEW_KM` (GLB-C13) around a place or a point-only
+country. Both reveal limits compare `distanceKm(tap, answer point)` with `>`, so a distance equal to the
 limit is the nearer case.
 
 ### EXR-C07 The `Exercise` component

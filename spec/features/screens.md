@@ -35,8 +35,8 @@ Scenario Outline: the new-today line
   Then it reads <reading>
   Examples:
     | started | limit | reading                                  |
-    | 0       | 5     | "0 of 5": the count out of the limit     |
-    | 5       | 5     | "5 of 5": the count out of the limit     |
+    | 0       | 5     | the count out of the limit               |
+    | 5       | 5     | the count out of the limit               |
     | 10      | 5     | the count, then the limit named apart    |
 ```
 

@@ -12,7 +12,7 @@ Up: PLC-04, PLC-07, PLC-17
 | `PLACEMENT_PRIOR_SD` | 2.5 levels | the prior's spread (a normal prior) |
 | `PLACEMENT_SLOPE` | 1.5 | the logistic slope: P(know) = `1 / (1 + exp(−1.5 · (ability − level)))` |
 | `PLACEMENT_MIN_LEVEL` | 1 | the lowest level a question aims at |
-| `PLACEMENT_MAX_LEVEL` | 8 (`DIFFICULTY_LEVELS`) | the highest level a question aims at, and the highest estimate |
+| `PLACEMENT_MAX_LEVEL` | `DIFFICULTY_LEVELS` (CUR-C03) | the highest level a question aims at, and the highest estimate |
 | `PLACEMENT_NO_ESTIMATE` | 0 | the estimate when nothing was shown |
 | grid | 0 to 9 in steps of 0.25 | the ability values the posterior is held on (37 points) |
 
@@ -58,11 +58,13 @@ Up: PLC-13, PLC-14, PLC-15
 | `PLACEMENT_PROBABLY_KNOWN` | 0.5 | at or above (and not `likelyKnown`): start at L2 (`untestedAtOrBelow`) |
 | `PLACEMENT_CONFIRM_START_DAYS` | 2 days | the first confirmation reviews fall due this long after the test |
 | `PLACEMENT_CONFIRM_PER_DAY` | 6 | at most this many confirmations fall due per day |
-| `PLACEMENT_SEED_STABILITY_DAYS` | 2 days | a passed item's L3 review card: stability and due offset |
 
-Lives in `src/engine/config.ts`. The probability is the predictive one: `knowProbability`
-averaged over the posterior. Confirmation `i` (0-based, least certain first, ties by item id) is
-due `2 + floor(i / 6)` days after the test.
+Lives in `src/engine/config.ts`. A passed item's L3 review card takes its stability and due offset
+from `PLACEMENT_SEED_STABILITY_DAYS` (GRD-C06), through `seedFromPlacement` (GRD-C08).
+
+The probability is the predictive one: `knowProbability` averaged over the posterior. Confirmation
+`i` (0-based, least certain first, ties by item id) is due
+`PLACEMENT_CONFIRM_START_DAYS + floor(i / PLACEMENT_CONFIRM_PER_DAY)` days after the test.
 
 ### PLC-C05 The engine's state machine
 Up: PLC-04, PLC-07, PLC-08, PLC-09, PLC-10, PLC-11
@@ -130,14 +132,17 @@ progress rows (`seedFromPlacement` in `src/engine/srs.ts`):
 
 | Outcome | From | Row stored |
 |---|---|---|
-| `passed` | credit 1 | rung 3, an L3 review card (reps 1) due in 2 days, `l3PassDays: [dayKey]` |
+| `passed` | credit 1 | rung 3, an L3 review card (reps 1) due in `PLACEMENT_SEED_STABILITY_DAYS` days (GRD-C06), `l3PassDays: [dayKey]` |
 | `close` | credit 0.5 | rung 2, a fresh L2 card |
 | `failed` | credit 0 | none |
 | `likelyKnown` | untested, P ≥ 0.85, level ≤ highest passed | rung 3, an L3 review card due per PLC-C04, `l3PassDays: []` |
 | `untestedAtOrBelow` | untested, P ≥ 0.5 | rung 2, a fresh L2 card |
 | `aboveEstimate` | untested otherwise, unaskable, or any untested item after an early finish | none |
 
-Every seed has `introducedAt: null`, so it is not counted as a new item and is not "studied".
+Every seed has `introducedAt: null`, so storing it counts nothing against today's new-item limit
+and the item is not "studied" (`isStudied`). A `close` or `untestedAtOrBelow` seed has no answered
+card, so it is still a new item (`newItems`); a `passed` or `likelyKnown` seed has one rep, so it is
+not.
 Rows come in `outcomes` order with the `likelyKnown` ones moved to the end, least certain first.
 An item that already has a row is skipped.
 

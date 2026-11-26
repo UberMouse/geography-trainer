@@ -381,20 +381,23 @@ Scenario Outline: whether an item has been studied
 ### GRD-19 A placement outcome decides where an item starts
 Up: PRD-05
 
+Which outcome a placement test gives an item, and which outcomes it stores at all, is
+`placement.md`'s (PLC-13, PLC-14); this is the progress each outcome makes.
+
 ```gherkin
-Scenario Outline: seeding from a placement outcome
+Scenario Outline: progress from a placement outcome
   Given a placement test left an item <outcome>
-  When its progress is seeded
+  When its progress is made from that outcome
   Then it is at L<rung> with <card>
     And it has <passDays> L3 pass days and is not mastered
   Examples:
-    | outcome           | rung | card                                         | passDays |
-    | passed            | 3    | one L3 review card, due in 2 days            | 1        |
-    | likelyKnown       | 3    | one L3 review card, due at the date given    | 0        |
-    | close             | 2    | one new L2 card, due now                     | 0        |
-    | untestedAtOrBelow | 2    | one new L2 card, due now                     | 0        |
-    | failed            | 1    | a new L1 card, as for a fresh item           | 0        |
-    | aboveEstimate     | 1    | a new L1 card, as for a fresh item           | 0        |
+    | outcome                  | rung | card                                         | passDays |
+    | passed                   | 3    | one L3 review card, due in 2 days            | 1        |
+    | likely known, untested   | 3    | one L3 review card, due at the date given    | 0        |
+    | a close miss             | 2    | one new L2 card, due now                     | 0        |
+    | probably known, untested | 2    | one new L2 card, due now                     | 0        |
+    | failed                   | 1    | a new L1 card, as for a fresh item           | 0        |
+    | not placed               | 1    | a new L1 card, as for a fresh item           | 0        |
 
 Scenario: a review seed comes back within days, never sooner than 2
   Given an item seeded as an L3 review

@@ -22,8 +22,8 @@ Areas and their ID prefixes:
 
 | File | Prefix | Covers |
 |---|---|---|
-| `curriculum.md` | `CUR` | the country → regions → places tree, unlocking, mastery, new-item order, difficulty bands |
-| `grading.md` | `GRD` | the exercise ladder, tap and choice grading, FSRS ratings and scheduling, distractors, maptap score |
+| `curriculum.md` | `CUR` | the country → regions → places tree, unlocking, new-item order, difficulty bands |
+| `grading.md` | `GRD` | the exercise ladder, mastery, tap and choice grading, FSRS ratings and scheduling, distractors, maptap score |
 | `placement.md` | `PLC` | the placement test and test-out: ability estimate, stopping, seeding |
 | `session.md` | `SES` | building a session, running a round, resume after reload, the counter, the summary |
 | `exercises.md` | `EXR` | the three exercise types on screen, the reveal, camera moves per question |
