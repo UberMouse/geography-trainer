@@ -1,10 +1,27 @@
 import { createContext, useContext, useEffect, useId, useRef, type RefObject } from 'react';
+import type { CameraMove } from './camera';
 import type { LngLat } from './geo';
 import type { GlobeHandle, GlobeMarker } from './Globe';
 import type { GlobeMode, Reveal } from './globeLayers';
 
 /** The camera calls on the app's one globe. They do nothing while it has no map (no WebGL). */
 export type GlobeCamera = GlobeHandle;
+
+/** Make `move` on the globe. */
+export function moveCamera(camera: GlobeCamera, move: CameraMove): void {
+  switch (move.kind) {
+    case 'fit':
+      return camera.fitFeature(move.feature);
+    case 'span':
+      return camera.flyToSpan(move.at, move.km);
+    case 'pair':
+      return camera.fitPoints(move.a, move.b);
+    case 'world':
+      return camera.worldView();
+    case 'stay':
+      return camera.stop();
+  }
+}
 
 /**
  * What a page or exercise shows on the globe and how taps reach it. Each field left out is off:

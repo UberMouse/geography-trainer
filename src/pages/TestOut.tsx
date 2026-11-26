@@ -1,3 +1,4 @@
+import { Anchor, Stack, Text, Title } from '@mantine/core';
 import { Link, useParams } from 'react-router';
 import { regionItemId } from '../engine/curriculum';
 import { placementPool, type PlacementItem } from '../engine/placement';
@@ -41,13 +42,15 @@ function Resolved({
   );
   if (route.kind === 'unavailable') {
     return (
-      <>
-        <h1>Test out</h1>
-        <p>This test is not available.</p>
-        <Link to={route.back}>
+      <Stack>
+        <Title order={1} size="h3">
+          Test out
+        </Title>
+        <Text>This test is not available.</Text>
+        <Anchor component={Link} to={route.back}>
           {route.back === '/progress' ? 'Back to the world' : 'Back to the country'}
-        </Link>
-      </>
+        </Anchor>
+      </Stack>
     );
   }
   return <Loaded key={route.itemId} world={world} route={route} />;

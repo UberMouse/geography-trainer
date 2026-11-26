@@ -1,3 +1,4 @@
+import { Alert, Anchor, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { buildCurriculum, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
@@ -17,6 +18,7 @@ import { loadCountries, loadPlaces, loadRegions, type CountriesData, type Region
 import Exercise from '../exercises/Exercise';
 import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
+import { targetPoint } from '../maps/geo';
 import { progressStore } from '../storage/progressStore';
 import Status from './LoadStatus';
 import { answerEntry, countriesNeedingRegions, questionHeader, questionSeed, unlockLines } from './sessionView';
@@ -102,8 +104,8 @@ function Runner({ data }: { data: SessionData }) {
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const question = run.queue[0];
   const ended = roundEnded(run);
-  // Prebuilt at load: a new `item.target` on every render would reset the globe's view. Re-asks
-  // and later rounds only repeat items of the first queue.
+  // Prebuilt at load: a new item on every render would redraw the globe and move its camera again.
+  // Re-asks and later rounds only repeat items of the first queue.
   const item = question ? items.get(question.itemId)! : null;
   const questionRef = useRef<HTMLDivElement>(null);
   const summaryRef = useRef<HTMLHeadingElement>(null);
@@ -128,55 +130,53 @@ function Runner({ data }: { data: SessionData }) {
 
   if (empty) {
     return (
-      <>
-        <p>There is nothing to study right now.</p>
-        <p>
-          <Link to="/">Back to Home</Link>
-        </p>
-      </>
+      <Stack>
+        <Text>There is nothing to study right now.</Text>
+        <Anchor component={Link} to="/">
+          Back to Home
+        </Anchor>
+      </Stack>
     );
   }
 
   if (ended || !question || !item) {
     const unlocks = unlockLines(curriculum, mastered, nameOf);
     return (
-      <div data-unsaved={unsaved}>
-        <h2 ref={summaryRef} tabIndex={-1} className="session-summary">
+      <Stack data-unsaved={unsaved} align="flex-start">
+        <Title order={2} size="h3" ref={summaryRef} tabIndex={-1} className="session-summary">
           Round done: {run.correctInRound} of {run.answeredInRound} right
-        </h2>
+        </Title>
         {unlocks.map((line) => (
-          <p key={line.id}>
+          <Text key={line.id}>
             {line.text}
             {testable.includes(line.id) && (
               <>
                 {' '}
-                <Link to={testOutPath(line.id)}>Test out</Link>
+                <Anchor component={Link} to={testOutPath(line.id)}>
+                  Test out
+                </Anchor>
               </>
             )}
-          </p>
+          </Text>
         ))}
-        {unlocks.length > 0 && <p>These join your new questions from your next session.</p>}
+        {unlocks.length > 0 && <Text>These join your new questions from your next session.</Text>}
         {questionsRemain(run) ? (
-          <p>
-            <button
-              type="button"
-              className="session-button"
-              onClick={() => {
-                setMastered([]);
-                setTestable([]);
-                setRun(nextRound(run));
-              }}
-            >
-              Keep going
-            </button>
-          </p>
+          <Button
+            onClick={() => {
+              setMastered([]);
+              setTestable([]);
+              setRun(nextRound(run));
+            }}
+          >
+            Keep going
+          </Button>
         ) : (
-          <p>That is everything for today.</p>
+          <Text>That is everything for today.</Text>
         )}
-        <p>
-          <Link to="/">Back to Home</Link>
-        </p>
-      </div>
+        <Anchor component={Link} to="/">
+          Back to Home
+        </Anchor>
+      </Stack>
     );
   }
 
@@ -226,16 +226,20 @@ function Runner({ data }: { data: SessionData }) {
 
   return (
     <div data-unsaved={unsaved}>
-      <div className="session-header">
-        <span>{questionHeader(run)}</span>
-        <Link to="/">Quit</Link>
-      </div>
+      <Group justify="space-between" mb="xs">
+        <Text c="dimmed">{questionHeader(run)}</Text>
+        <Anchor component={Link} to="/">
+          Quit
+        </Anchor>
+      </Group>
       <div
         ref={questionRef}
         tabIndex={-1}
         data-testid="session-question"
         data-item-id={item.id}
         data-item-name={item.name}
+        // Dev builds: where e2e aims a tap.
+        data-answer={import.meta.env.DEV ? targetPoint(item.target).join(',') : undefined}
         data-rung={question.rung}
       >
         <Exercise
@@ -245,9 +249,12 @@ function Runner({ data }: { data: SessionData }) {
           seed={questionSeed(item.id, run.answered, salt)}
           onAnswer={onAnswer}
           onNext={onNext}
+          opening={run.answered === 0}
         />
         {recordFailed && (
-          <p role="alert">This answer could not be recorded, so this question is skipped for now.</p>
+          <Alert color="red" mt="sm">
+            This answer could not be recorded, so this question is skipped for now.
+          </Alert>
         )}
       </div>
     </div>

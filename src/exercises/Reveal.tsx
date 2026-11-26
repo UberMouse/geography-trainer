@@ -1,3 +1,4 @@
+import { Button, Stack, Text } from '@mantine/core';
 import { RATING_LABEL, formatKm } from './result';
 import type { ExerciseItem, ExerciseResult } from './types';
 
@@ -16,18 +17,20 @@ export default function Reveal({
   onNext: () => void;
 }) {
   return (
-    <div className="exercise-reveal" data-correct={result?.correct}>
-      <p role="status">
+    <Stack gap="xs">
+      <Text role="status">
         {result && (
           <>
-            <strong>{result.correct ? 'Correct' : 'Incorrect'}</strong> ·{' '}
-            {RATING_LABEL[result.rating]}
+            <Text span fw={700} c={result.correct ? 'green' : 'red'}>
+              {result.correct ? 'Correct' : 'Incorrect'}
+            </Text>{' '}
+            · {RATING_LABEL[result.rating]}
             {!result.correct && <> · it is {item.name}</>}
           </>
         )}
-      </p>
+      </Text>
       {result?.km !== undefined && (
-        <p>
+        <Text>
           <span data-testid="reveal-km">{formatKm(result.km)} km</span> off
           {result.maptapScore !== undefined && (
             <>
@@ -35,13 +38,13 @@ export default function Reveal({
               · maptap score <span data-testid="reveal-score">{result.maptapScore}</span>
             </>
           )}
-        </p>
+        </Text>
       )}
       {result && (
-        <button type="button" onClick={onNext} autoFocus>
+        <Button onClick={onNext} autoFocus>
           Next
-        </button>
+        </Button>
       )}
-    </div>
+    </Stack>
   );
 }

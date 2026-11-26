@@ -1,23 +1,23 @@
-import { expect, test, type Page } from './test';
-import { answer, current, next, question, summary, WAIT, writeMasteredUnitedStates } from './sessionHelpers';
+import { expect, test } from './test';
+import { hook } from './globeHook';
+import {
+  answer,
+  current,
+  importProgress,
+  next,
+  question,
+  summary,
+  WAIT,
+  writeMasteredUnitedStates,
+} from './sessionHelpers';
 
 // Sessions load the world's map data and draw maps: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
 
-async function importMastered(page: Page, path: string) {
-  await page.goto('/settings');
-  await expect(page.getByLabel('New items per day')).toBeVisible(WAIT);
-  await page.getByLabel('Import progress').setInputFiles(path);
-  await page.getByRole('button', { name: 'Replace' }).click();
-  await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
-  await page.getByRole('link', { name: 'Back to Home' }).click();
-  await expect(page.getByTestId('today-new')).toBeVisible(WAIT);
-}
-
 test("a mastered country's regions are asked in the next session", async ({ page, isMobile }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
-  await importMastered(page, file);
+  await importProgress(page, file);
 
   await page.getByRole('link', { name: /^Start/ }).click();
   let region: Awaited<ReturnType<typeof current>> | null = null;
@@ -33,8 +33,12 @@ test("a mastered country's regions are asked in the next session", async ({ page
   }
   expect(region, 'a United States region question within the first round').not.toBeNull();
 
-  // The region's map is drawn from the country's region topology.
-  await expect(page.locator('[data-testid="session-question"] svg').first()).toBeVisible(WAIT);
+  // The region is drawn on the globe from the country's region topology: highlighted at L1, its
+  // country's region borders at L2.
+  expect(region!.rung).toBeLessThanOrEqual(2);
+  await expect
+    .poll(() => hook.layerIds(page), WAIT)
+    .toContain(region!.rung === 1 ? 'gt-highlight-fill' : 'gt-region-borders');
   await answer(page, isMobile, region!);
   await next(page);
   await expect(question(page).or(summary(page))).toBeVisible(WAIT);
@@ -44,7 +48,7 @@ test("a mastered country's regions are asked in the next session", async ({ page
 test('the Progress page shows the mastered country and its map shape', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
-  await importMastered(page, file);
+  await importProgress(page, file);
 
   await page.getByRole('link', { name: 'See your progress' }).click();
   await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible(WAIT);
@@ -94,7 +98,7 @@ test('a country can be opened from the Go to a country control using only the ke
 test('the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
-  await importMastered(page, file);
+  await importProgress(page, file);
 
   await page.goto('/progress/united-states');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('United States', WAIT);
@@ -109,7 +113,7 @@ test('the United States page shows it mastered and its regions as new', async ({
 test('the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
-  await importMastered(page, file);
+  await importProgress(page, file);
 
   await page.goto('/progress/united-states');
   await page.getByRole('link', { name: "Test out of United States's regions" }).click();

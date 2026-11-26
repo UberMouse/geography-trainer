@@ -127,6 +127,47 @@ describe('buildExerciseItem: a place', () => {
   });
 });
 
+describe('buildExerciseItem: the globe modes', () => {
+  const [alpha, beta] = COUNTRIES.features;
+  const regions = ALPHA_REGIONS.features;
+
+  it('a country: highlighted among every country’s borders, which L2 draws', () => {
+    const item = buildExerciseItem('country:alpha', DATA);
+    expect(item.highlightMode).toEqual({
+      kind: 'highlight',
+      target: { kind: 'country', feature: alpha, countries: COUNTRIES.features },
+    });
+    expect(item.bordersMode).toEqual({ kind: 'countryBorders', countries: COUNTRIES.features });
+  });
+
+  it('a region: highlighted among its country’s regions, whose borders L2 draws', () => {
+    const item = buildExerciseItem('region:alpha.north', DATA_WITH_ALPHA);
+    expect(item.highlightMode).toEqual({
+      kind: 'highlight',
+      target: { kind: 'region', feature: regions[0], country: alpha, regions },
+    });
+    expect(item.bordersMode).toEqual({ kind: 'regionBorders', country: alpha, regions });
+  });
+
+  it('a place: dotted among its country’s regions', () => {
+    const item = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
+    expect(item.highlightMode).toEqual({
+      kind: 'highlight',
+      target: { kind: 'place', place: PLACES[0], country: alpha, regions },
+    });
+    expect(item.bordersMode).toEqual({ kind: 'regionBorders', country: alpha, regions });
+  });
+
+  it('a place in a country without regions: its country’s outline alone', () => {
+    const item = buildExerciseItem('place:b1', DATA);
+    expect(item.highlightMode).toEqual({
+      kind: 'highlight',
+      target: { kind: 'place', place: PLACES[6], country: beta, regions: undefined },
+    });
+    expect(item.bordersMode).toEqual({ kind: 'regionBorders', country: beta, regions: undefined });
+  });
+});
+
 describe('buildExerciseItem: empty regions data', () => {
   const regions = { features: [], regions: [] };
 

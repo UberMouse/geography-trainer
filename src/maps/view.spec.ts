@@ -1,6 +1,7 @@
 import { geoDistance, geoOrthographic, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import { describe, expect, it } from 'vitest';
+import { NEIGHBOURHOOD_VIEW_KM } from './camera';
 import { mainPart, type AreaFeature, type LngLat } from './geo';
 import {
   GLOBE_FILL,
@@ -13,7 +14,6 @@ import {
   GLOBE_MIN_ZOOM,
   fitGlobe,
   globeRadius,
-  NEIGHBOURHOOD_VIEW_KM,
   inFlatFrame,
   outlineFrame,
   panFlat,

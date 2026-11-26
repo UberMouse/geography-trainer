@@ -81,6 +81,11 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         features.map((f) => pointRecord(f, nearPoint(f))),
       ),
       frame: mainPart(country),
+      highlightMode: {
+        kind: 'highlight',
+        target: { kind: 'country', feature: country, countries: features },
+      },
+      bordersMode: { kind: 'countryBorders', countries: features },
       world: features,
       onGlobe: false,
       pointOnly: country.properties.pointOnly === true,
@@ -119,6 +124,11 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         })),
       ),
       frame,
+      highlightMode: {
+        kind: 'highlight',
+        target: { kind: 'region', feature: region, country, regions: regions.features },
+      },
+      bordersMode: { kind: 'regionBorders', country, regions: regions.features },
       world: worldWith(country, regions.features),
       onGlobe: !inFlatFrame(frame, answer),
       pointOnly: false,
@@ -137,6 +147,8 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
     const point: LngLat = [place.lng, place.lat];
     const frame = mainPart(country);
     const pointOnly = country.properties.pointOnly === true;
+    // A country without a regions tier draws its outline alone.
+    const regions = regionFeatures.length > 0 ? regionFeatures : undefined;
     return {
       id: itemId,
       tier,
@@ -146,6 +158,8 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       context: regionFeatures.length > 0 ? regionFeatures : [country],
       candidates: placeCandidates(place, data.places),
       frame,
+      highlightMode: { kind: 'highlight', target: { kind: 'place', place, country, regions } },
+      bordersMode: { kind: 'regionBorders', country, regions },
       world: worldWith(country, regionFeatures),
       // A point-only country's flat map is its featureless disc: show its places on the globe.
       onGlobe: pointOnly || !inFlatFrame(frame, point),

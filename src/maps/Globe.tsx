@@ -3,6 +3,7 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { NEIGHBOURHOOD_VIEW_KM, pairBounds, spanZoom } from './camera';
 import type { AreaFeature, LngLat } from './geo';
 import classes from './Globe.module.css';
 import {
@@ -24,6 +25,10 @@ export interface GlobeHandle {
   /** Fly to frame the feature's main part. */
   fitFeature(feature: AreaFeature): void;
   flyTo(at: LngLat, zoom: number): void;
+  /** Fly to centre `at`, showing about `km` of ground across the globe's shorter side. */
+  flyToSpan(at: LngLat, km: number): void;
+  /** Fly to frame both points, never closer than `NEIGHBOURHOOD_VIEW_KM` across. */
+  fitPoints(a: LngLat, b: LngLat): void;
   /** Fly to the opening view: the whole sphere, centred where it starts. */
   worldView(): void;
   /** Stop a camera flight where it has reached (and drop one held for the opening jump). */
@@ -46,6 +51,8 @@ export interface GlobeTestHook {
   project(at: LngLat): { x: number; y: number };
   center(): LngLat;
   zoom(): number;
+  /** Move the camera at once, stopping any flight: to bring a target into view before a tap. */
+  jumpTo(at: LngLat, zoom: number): void;
   /** Our layers now in the style, bottom to top (the imagery's excluded). */
   layerIds(): string[];
   /** A number of its own for each map instance created, so a spec can tell it is the same map. */
@@ -251,7 +258,8 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     // MapLibre watches the container's size and fires `resize`: refit the zoom-out limit to it.
     // A view the user had not zoomed in follows the new fit, so a shrunk container still shows
     // the whole sphere; a zoomed-in view keeps its zoom, unless it is now past the limit, when
-    // MapLibre pulls it in to it. The centre stays.
+    // MapLibre pulls it in to it. The centre stays. A camera flight is left to finish: `jumpTo`
+    // would stop it (a page's column often changes height just as its first question flies).
     let fitted = mountZoom;
     map.on('resize', () => {
       // Hidden (a page hides the globe at phone width): nothing to fit until it shows again.
@@ -259,7 +267,10 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       const zoom = fit();
       if (!Number.isFinite(zoom)) return;
       const allowance = latAllowance(map.getCenter().lat);
-      const atFit = camera.current.opened && map.getZoom() <= fitted + allowance + FITTED_EPSILON;
+      const atFit =
+        camera.current.opened &&
+        !map.isMoving() &&
+        map.getZoom() <= fitted + allowance + FITTED_EPSILON;
       fitted = zoom;
       map.setMinZoom(zoom);
       if (atFit) map.jumpTo({ zoom: zoom + allowance });
@@ -294,6 +305,7 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
           },
           center: () => map.getCenter().toArray() as LngLat,
           zoom: () => map.getZoom(),
+          jumpTo: (at, zoom) => map.jumpTo({ center: at, zoom }),
           layerIds: () =>
             map
               .getStyle()
@@ -336,11 +348,11 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
     const next = reveal ? revealLayers(reveal) : EMPTY;
     applyLayers(map, applied.current.reveal, next);
     applied.current.reveal = next;
-    if (!reveal) return;
+    if (!reveal?.tap) return;
     const shown = shownMarkers.current;
     const added = [
-      new maplibregl.Marker({ color: '#fa5252' }).setLngLat(reveal.tap).addTo(map),
-      new maplibregl.Marker({ color: '#40c057' }).setLngLat(reveal.answer).addTo(map),
+      new maplibregl.Marker({ color: '#fa5252' }).setLngLat(reveal.tap.at).addTo(map),
+      new maplibregl.Marker({ color: '#40c057' }).setLngLat(reveal.tap.answer).addTo(map),
     ];
     for (const m of added) shown.set(m, { kind: 'reveal', text: '' });
     return () =>
@@ -358,6 +370,9 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       let marker: maplibregl.Marker;
       if (m.kind === 'pin') {
         marker = new maplibregl.Marker();
+        // A tap on the pin is a tap on the globe beneath it, so the pin can be moved by a tap
+        // that lands on it.
+        marker.getElement().style.pointerEvents = 'none';
         shown.set(marker, { kind: 'pin', text: '' });
       } else {
         const element = document.createElement('div');
@@ -376,6 +391,10 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
   }, [markers, readyMap]);
 
   useImperativeHandle(ref, () => {
+    const shortSide = () => {
+      const { width, height } = containerRef.current!.getBoundingClientRect();
+      return Math.min(width, height);
+    };
     const move = (call: (map: maplibregl.Map) => void) => {
       const map = mapRef.current;
       if (!map) return;
@@ -386,6 +405,15 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       fitFeature: (feature) =>
         move((map) => map.fitBounds(featureBounds(feature), { padding: FIT_PADDING })),
       flyTo: (at, zoom) => move((map) => map.flyTo({ center: at, zoom })),
+      flyToSpan: (at, km) =>
+        move((map) => map.flyTo({ center: at, zoom: spanZoom(km, shortSide(), at[1]) })),
+      fitPoints: (a, b) =>
+        move((map) =>
+          map.fitBounds(pairBounds(a, b), {
+            padding: FIT_PADDING,
+            maxZoom: spanZoom(NEIGHBOURHOOD_VIEW_KM, shortSide(), (a[1] + b[1]) / 2),
+          }),
+        ),
       // minZoom is the fitted zoom at the equator; the same allowance below it as the opening jump.
       worldView: () =>
         move((map) =>

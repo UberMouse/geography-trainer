@@ -14,6 +14,7 @@ interface GlobeHook {
   project(at: LngLat): { x: number; y: number };
   center(): LngLat;
   zoom(): number;
+  jumpTo(at: LngLat, zoom: number): void;
   layerIds(): string[];
   instanceId(): number;
   markers(): MarkerReading[];
@@ -29,6 +30,11 @@ export const hook = {
   center: (page: Page) =>
     page.evaluate(() => (globalThis as unknown as HookWindow).__globe.center()),
   zoom: (page: Page) => page.evaluate(() => (globalThis as unknown as HookWindow).__globe.zoom()),
+  jumpTo: (page: Page, at: LngLat, zoom: number) =>
+    page.evaluate(
+      ([a, z]) => (globalThis as unknown as HookWindow).__globe.jumpTo(a, z),
+      [at, zoom] as const,
+    ),
   layerIds: (page: Page) =>
     page.evaluate(() => (globalThis as unknown as HookWindow).__globe.layerIds()),
   instanceId: (page: Page) =>

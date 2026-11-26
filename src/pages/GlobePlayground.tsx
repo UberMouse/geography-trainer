@@ -172,11 +172,11 @@ function GlobeTab({
   const reveal = useMemo(
     (): Reveal | null =>
       showReveal && lastTap
-        ? { target: { kind: 'area', feature: country }, tap: lastTap, answer }
+        ? { target: { kind: 'area', feature: country }, tap: { at: lastTap, answer } }
         : null,
     [showReveal, lastTap, country, answer],
   );
-  const measured = reveal ? measureTap({ feature: country, answer }, reveal.tap) : null;
+  const measured = reveal?.tap ? measureTap({ feature: country, answer }, reveal.tap.at) : null;
 
   // The reveal names its target on the globe.
   const markers = useMemo(

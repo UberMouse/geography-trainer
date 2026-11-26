@@ -1,3 +1,4 @@
+import { Alert, Anchor, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
@@ -15,6 +16,7 @@ import { isPass } from '../engine/grading';
 import { localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import Exercise from '../exercises/Exercise';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
+import { targetPoint } from '../maps/geo';
 import { placementKey } from '../storage/placementKeys';
 import { progressStore } from '../storage/progressStore';
 import {
@@ -106,54 +108,60 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
 
   if (!ended && !asking) {
     return (
-      <>
-        <h1>{heading}</h1>
-        <p>{pool.length === 0 ? emptyPoolText(tier, scopeName) : NOTHING_TO_ASK_TEXT}</p>
-        <p>
-          <Link to="/">Back to Home</Link>
-        </p>
-      </>
+      <Stack>
+        <Title order={1} size="h3">
+          {heading}
+        </Title>
+        <Text>{pool.length === 0 ? emptyPoolText(tier, scopeName) : NOTHING_TO_ASK_TEXT}</Text>
+        <Anchor component={Link} to="/">
+          Back to Home
+        </Anchor>
+      </Stack>
     );
   }
 
   if (ended) {
     const done = saving.status === 'saved';
     let body: ReactNode;
-    if (saving.status === 'saving') body = <p>Saving your results…</p>;
+    if (saving.status === 'saving') body = <Text>Saving your results…</Text>;
     else if (saving.status === 'failed') {
       body = (
-        <div role="alert">
-          <p>Could not save your placement results: {saving.error}</p>
-          <button type="button" className="session-button" onClick={() => {
-              setSaving({ status: 'saving' });
-              void save(ended);
-            }}>
-            Try again
-          </button>
-        </div>
+        <Alert color="red">
+          <Stack align="flex-start" gap="xs">
+            <Text>Could not save your placement results: {saving.error}</Text>
+            <Button
+              onClick={() => {
+                setSaving({ status: 'saving' });
+                void save(ended);
+              }}
+            >
+              Try again
+            </Button>
+          </Stack>
+        </Alert>
       );
     }
     return (
-      <>
-        <h1>{heading}</h1>
-        <h2 ref={resultRef} tabIndex={-1} className="session-summary">
+      <Stack align="flex-start">
+        <Title order={1} size="h3">
+          {heading}
+        </Title>
+        <Title order={2} size="h4" ref={resultRef} tabIndex={-1} className="session-summary">
           Placement done
-        </h2>
+        </Title>
         {resultLines(ended, tier).map((line) => (
-          <p key={line}>{line}</p>
+          <Text key={line}>{line}</Text>
         ))}
         {body}
         {done && (
-          <p>
-            <Link to="/session" className="home-start">
-              Start studying
-            </Link>
-          </p>
+          <Button component={Link} to="/session">
+            Start studying
+          </Button>
         )}
-        <p>
-          <Link to="/">Back to Home</Link>
-        </p>
-      </>
+        <Anchor component={Link} to="/">
+          Back to Home
+        </Anchor>
+      </Stack>
     );
   }
 
@@ -184,18 +192,24 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   };
 
   return (
-    <>
-      <h1>{heading}</h1>
-      <div className="session-header">
-        <span>{placementHeader(position, state?.items.length ?? 0)}</span>
-        <Link to="/">Quit</Link>
-      </div>
+    <Stack gap="sm">
+      <Title order={1} size="h3">
+        {heading}
+      </Title>
+      <Group justify="space-between">
+        <Text c="dimmed">{placementHeader(position, state?.items.length ?? 0)}</Text>
+        <Anchor component={Link} to="/">
+          Quit
+        </Anchor>
+      </Group>
       <div
         ref={questionRef}
         tabIndex={-1}
         data-testid="placement-question"
         data-item-id={item.id}
         data-item-name={item.name}
+        // Dev builds: where e2e aims a tap.
+        data-answer={import.meta.env.DEV ? targetPoint(item.target).join(',') : undefined}
         data-rung={3}
       >
         <Exercise
@@ -205,16 +219,15 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           seed={questionSeed(item.id, position, salt)}
           onAnswer={onAnswer}
           onNext={onNext}
+          opening={position === 0}
         />
       </div>
-      {saveFailure !== null && <p role="alert">{saveFailure}</p>}
+      {saveFailure !== null && <Alert color="red">{saveFailure}</Alert>}
       {answeredCount > 0 && (
-        <p>
-          <button type="button" className="session-button" onClick={() => finish(state!)}>
-            Finish now
-          </button>
-        </p>
+        <Button variant="default" onClick={() => finish(state!)} style={{ alignSelf: 'flex-start' }}>
+          Finish now
+        </Button>
       )}
-    </>
+    </Stack>
   );
 }

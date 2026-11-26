@@ -10,7 +10,6 @@ import { buildExerciseItem } from '../exercises/item';
 import { RATING_LABEL, formatKm } from '../exercises/result';
 import type { ExerciseResult } from '../exercises/types';
 import { targetPoint } from '../maps/geo';
-import type { GlobeView } from '../maps/view';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
 
@@ -45,20 +44,18 @@ function hashOf(text: string): number {
 }
 
 /**
- * Dev-only: run one exercise. The item and rung live in the URL (`?item=<id>&rung=<1-3>`, and the
- * globes start from `?view=`), so e2e can open any question directly.
+ * Dev-only: run one exercise on the shared globe. The item and rung live in the URL
+ * (`?item=<id>&rung=<1-3>`), so e2e can open any question directly.
  */
 export default function ExercisePlayground({
   countries,
-  initialView,
 }: {
   countries: CountriesData;
-  initialView?: GlobeView;
 }) {
   const [places, retry] = useLoaded('places', loadPlaces);
   return (
     <Status state={places} retry={retry}>
-      {(data) => <Picker countries={countries} places={data} initialView={initialView} />}
+      {(data) => <Picker countries={countries} places={data} />}
     </Status>
   );
 }
@@ -66,11 +63,9 @@ export default function ExercisePlayground({
 function Picker({
   countries,
   places,
-  initialView,
 }: {
   countries: CountriesData;
   places: Place[];
-  initialView?: GlobeView;
 }) {
   const [params, setParams] = useSearchParams();
   const [seed, setSeed] = useState(1);
@@ -177,7 +172,6 @@ function Picker({
             countries={countries}
             places={places}
             regions={regionsData}
-            initialView={initialView}
             onSelect={(item) => set({ item })}
             seed={seed}
             onSeedUsed={() => setSeed((s) => s + 1)}
@@ -221,7 +215,6 @@ function Run({
   countries,
   places,
   regions,
-  initialView,
   onSelect,
   seed,
   onSeedUsed,
@@ -234,7 +227,6 @@ function Run({
   countries: CountriesData;
   places: Place[];
   regions?: RegionsData;
-  initialView?: GlobeView;
   onSelect: (itemId: string) => void;
   seed: number;
   onSeedUsed: () => void;
@@ -309,7 +301,6 @@ function Run({
         seed={exerciseSeed}
         onAnswer={onAnswer}
         onNext={next}
-        initialView={initialView}
       />
     </>
   );

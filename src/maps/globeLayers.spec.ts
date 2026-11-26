@@ -265,22 +265,27 @@ describe('revealLayers', () => {
   it('outlines an area target and draws the path from tap to answer', () => {
     const set = revealLayers({
       target: { kind: 'area', feature: france },
-      tap: [-1.5, 44],
-      answer: [2.5, 46.5],
+      tap: { at: [-1.5, 44], answer: [2.5, 46.5] },
     });
     expect(layerIds(set)).toEqual(['gt-reveal-target-line', 'gt-reveal-path']);
     expect(dataOf(set, 'gt-reveal-target')).toEqual(borderLines([france]));
     const path = dataOf(set, 'gt-reveal-path')[0]!.geometry;
     expect(path.type).toBe('LineString');
+    expect(path.type === 'LineString' && path.coordinates[0]).toEqual([-1.5, 44]);
   });
 
   it('marks a point target with a dot', () => {
     const set = revealLayers({
       target: { kind: 'point', at: [2.35, 48.85] },
-      tap: [0, 0],
-      answer: [2.35, 48.85],
+      tap: { at: [0, 0], answer: [2.35, 48.85] },
     });
     expect(layerIds(set)).toEqual(['gt-reveal-target-dot', 'gt-reveal-path']);
+  });
+
+  it('draws no path without a tap (a multiple-choice answer)', () => {
+    const set = revealLayers({ target: { kind: 'area', feature: france } });
+    expect(layerIds(set)).toEqual(['gt-reveal-target-line']);
+    expect(Object.keys(set.sources)).toEqual(['gt-reveal-target']);
   });
 });
 

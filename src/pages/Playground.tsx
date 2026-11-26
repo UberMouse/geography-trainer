@@ -67,7 +67,7 @@ export default function Playground() {
       <Status state={countries} retry={retry}>
         {(data) => {
           if (tab === 'exercises')
-            return <ExercisePlayground countries={data} initialView={initialView} />;
+            return <ExercisePlayground countries={data} />;
           const { features } = data;
           const country = features.find((f) => f.id === countryId) ?? features[0]!;
           const sorted = [...features].sort((a, b) =>

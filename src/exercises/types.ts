@@ -3,7 +3,7 @@ import type { Tier } from '../engine/curriculum';
 import type { Candidate } from '../engine/distractors';
 import type { Rung } from '../engine/srs';
 import type { AreaFeature, IdentifiedFeature, TapTarget } from '../maps/geo';
-import type { GlobeView } from '../maps/view';
+import type { GlobeMode } from '../maps/globeLayers';
 
 /** Everything an exercise needs about one item, built by `buildExerciseItem`. */
 export interface ExerciseItem {
@@ -26,8 +26,15 @@ export interface ExerciseItem {
    * should not ask such an item at L1, the multiple-choice rung.
    */
   candidates: Candidate[];
-  /** The country's main part, which the flat maps fit to. */
+  /** The country's main part, which the flat maps fit to and L2's camera frames. */
   frame: AreaFeature;
+  /**
+   * L1's globe: the item shaded (a place dotted) with its tier's context borders: every country's
+   * for a country, its country's regions' (or the country's outline alone) for a region or place.
+   */
+  highlightMode: GlobeMode;
+  /** L2's globe: every country's border for a country, else its country's region borders. */
+  bordersMode: GlobeMode;
   /** Every country, with the item's country drawn as its regions when it has them: the globes. */
   world: IdentifiedFeature[];
   /**
@@ -72,6 +79,9 @@ export interface ExerciseProps {
   onAnswer: (result: ExerciseResult) => void;
   /** Called when the learner presses Next after the reveal. */
   onNext: () => void;
-  /** Where the L2 and L3 globes start (default `NEUTRAL_VIEW`). */
-  initialView?: GlobeView;
+  /**
+   * The first question a page shows: an L3 question then starts from the whole-world view rather
+   * than where the camera was left (L1 and L2 move the camera to their own view anyway).
+   */
+  opening?: boolean;
 }

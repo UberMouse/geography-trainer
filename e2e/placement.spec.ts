@@ -1,5 +1,6 @@
+import { hook } from './globeHook';
+import { answer, current, next, question, tapGlobe, WAIT } from './sessionHelpers';
 import { expect, test, type Page } from './test';
-import { answer, current, next, question, WAIT } from './sessionHelpers';
 
 // Placement loads the world's map data and draws up to 20 globes: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
@@ -32,6 +33,8 @@ test('from a fresh profile, Home offers the placement test and the test ends in 
   await expect(page.getByText('Placement: question 1 of up to 20')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Quit' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('button', { name: 'Finish now' })).toHaveCount(0);
+  // Every placement question is an L3 tap on the bare globe.
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'bare');
   if (isMobile) await noHorizontalScroll(page);
 
   for (let i = 0; i < 20 && !(await done(page).isVisible()); i++) {
@@ -94,4 +97,24 @@ test('Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, i
   await page.getByRole('link', { name: 'Back to Home' }).click();
   await expect(page.getByRole('link', { name: /^Start/ })).toBeVisible(WAIT);
   await expect(offer).toHaveCount(0);
+});
+
+test('Quit in the middle of a question leaves Home with no pin, and taps there drop none', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/placement');
+  const q = await current(page, TEST_ID);
+  await tapGlobe(page, isMobile, q.answer);
+  await expect.poll(() => hook.markers(page)).toEqual([expect.objectContaining({ kind: 'pin' })]);
+  await expect(page.getByRole('button', { name: 'Confirm' })).toBeEnabled();
+
+  await page.getByRole('link', { name: 'Quit' }).click();
+  await expect(page.getByRole('link', { name: /^Start/ })).toBeVisible(WAIT);
+  await expect.poll(() => hook.markers(page)).toEqual([]);
+  expect((await hook.layerIds(page)).filter((id) => id.startsWith('gt-reveal'))).toEqual([]);
+  // The question's tap handler went with it.
+  await tapGlobe(page, isMobile, q.answer);
+  await page.waitForTimeout(500);
+  expect((await hook.markers(page)).filter((m) => m.kind === 'pin')).toEqual([]);
 });

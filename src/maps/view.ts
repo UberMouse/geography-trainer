@@ -184,15 +184,6 @@ export function fitFlat(features: Feature[], size = MAP_SIZE, padding = MAP_PADD
 }
 
 /**
- * How much ground (km, edge to edge) a point-only target's globe shows. The target's near
- * neighbours (Sint Eustatius 28 km from Saba) are the wrong options, so the picture must separate
- * them: at this span a ring sits clear of land 28 km away, while the neighbouring islands (Saint
- * Kitts, Saint Barthelemy, Sint Maarten) still show as separate land. Zoomed out to the whole Earth
- * one ring covered all of them.
- */
-export const NEIGHBOURHOOD_VIEW_KM = 600;
-
-/**
  * An orthographic globe rotated to `centre`, fitted into the square viewBox with padding. With
  * `spanKm`, it is instead zoomed so that much ground, centred on `centre`, spans the padded
  * extent (the sphere then reaches past the viewBox: the SVG clips it). A `spanKm` that is not a

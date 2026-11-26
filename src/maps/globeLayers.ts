@@ -87,11 +87,13 @@ export type HighlightTarget =
   | { kind: 'region'; feature: RegionFeature; country: CountryFeature; regions: RegionFeature[] }
   | { kind: 'place'; place: Place; country: CountryFeature; regions?: RegionFeature[] };
 
-/** The answer shown after a tap: the target, the tap and the answer point. */
+/**
+ * The answer shown after a question: the target, and for a tap the tap and the answer point. A
+ * multiple-choice answer (L1) has no `tap`.
+ */
 export interface Reveal {
   target: { kind: 'area'; feature: AreaFeature } | { kind: 'point'; at: LngLat };
-  tap: LngLat;
-  answer: LngLat;
+  tap?: { at: LngLat; answer: LngLat };
 }
 
 const collections = new WeakMap<Feature[], GeoJsonSource>();
@@ -273,25 +275,34 @@ export function modeLayers(mode: GlobeMode): LayerSet {
   }
 }
 
-/** The reveal's target outline (a dot for a point) and the great-circle path from tap to answer. */
+/**
+ * The reveal's target outline (a dot for a point) and, for a tap, the great-circle path from the
+ * tap to the answer.
+ */
 export function revealLayers(reveal: Reveal): LayerSet {
-  const { target } = reveal;
-  const path: Feature<LineString> = {
-    type: 'Feature',
-    properties: {},
-    geometry: { type: 'LineString', coordinates: greatCircle(reveal.tap, reveal.answer) },
-  };
-  return {
+  const { target, tap } = reveal;
+  const shown: LayerSet = {
     sources: {
       'gt-reveal-target': collection(
         target.kind === 'area' ? borderLines([target.feature]) : [point(target.at)],
       ),
-      'gt-reveal-path': collection([path]),
     },
     layers: [
       target.kind === 'area'
         ? line('gt-reveal-target-line', 'gt-reveal-target', REVEAL_TARGET, 2.5)
         : dot('gt-reveal-target-dot', 'gt-reveal-target', REVEAL_TARGET),
+    ],
+  };
+  if (!tap) return shown;
+  const path: Feature<LineString> = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: greatCircle(tap.at, tap.answer) },
+  };
+  return {
+    sources: { ...shown.sources, 'gt-reveal-path': collection([path]) },
+    layers: [
+      ...shown.layers,
       {
         id: 'gt-reveal-path',
         type: 'line',
