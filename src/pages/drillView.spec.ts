@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { buildCurriculum, countryItemId, placeItemId, regionItemId } from '../engine/curriculum';
+import {
+  buildCurriculum,
+  countryItemId,
+  placeItemId,
+  regionItemId,
+  unlockedBy,
+} from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
 import type { Country, Place } from '../engine/types';
 import type { AreaFeature } from '../maps/geo';
 import { childRows, resolveDrillRoute, sortOffMap, splitByFrame } from './drillView';
+import { showsTestOutLink, testOutLabel, testOutPath } from './testOutView';
 
 const countries: Country[] = [
   { id: 'fr', name: 'France', places: 2, hasRegions: true },
@@ -187,5 +194,35 @@ describe('[SCR-16, SCR-C09] sortOffMap', () => {
     ];
     expect(sortOffMap(entries).map((e) => e.name)).toEqual(['Alaska', 'Gibraltar', 'Navassa Island']);
     expect(entries[0]?.name).toBe('Navassa Island');
+  });
+});
+
+describe('[SCR-18, SCR-C09] the test-out link', () => {
+  const fr = countryItemId('fr');
+  const idf = regionItemId('fr.idf');
+  const shows = (progress: Record<string, ItemProgress>, finished: string[] = [], itemId = fr) =>
+    showsTestOutLink(curriculum, progress, new Set(finished), itemId);
+  /** The link's tier, as the drill page words it: the plural of the child tier. */
+  const linkTier = (itemId: string) => `${unlockedBy(curriculum, itemId)!.tier}s`;
+
+  it('shows on a mastered item none of whose children is studied', () => {
+    expect(shows({ [fr]: mastered(fr) })).toBe(true);
+    expect(shows({ [idf]: mastered(idf) }, [], idf)).toBe(true);
+  });
+
+  it('hides once the item’s test-out is finished', () => {
+    expect(shows({ [fr]: mastered(fr) }, ['placement:country:fr'])).toBe(false);
+  });
+
+  it('does not show on an item that is not mastered', () => {
+    expect(shows({})).toBe(false);
+  });
+
+  it('names the item and the child tier, and opens the item’s test-out page', () => {
+    expect(linkTier(fr)).toBe('regions');
+    expect(linkTier(countryItemId('sg'))).toBe('places');
+    expect(testOutLabel('France', 'regions')).toBe("Test out of France's regions");
+    expect(testOutPath(fr)).toBe('/placement/fr');
+    expect(testOutPath(idf)).toBe('/placement/fr/fr.idf');
   });
 });

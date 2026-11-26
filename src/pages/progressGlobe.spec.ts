@@ -100,3 +100,13 @@ describe('[SCR-15, SCR-17, SCR-C04] drillCamera', () => {
     expect(drillCamera(c)).toEqual({ kind: 'span', at: answerPoint(c), km: NEIGHBOURHOOD_VIEW_KM });
   });
 });
+
+describe('[SCR-C01, SCR-C04] the drill-down constants', () => {
+  it('draws a place outside the curriculum in the neutral dot colour', () => {
+    expect(NEUTRAL_DOT).toBe('#3b3a35');
+  });
+
+  it("spans 600 km around a point-only country", () => {
+    expect(NEIGHBOURHOOD_VIEW_KM).toBe(600);
+  });
+});

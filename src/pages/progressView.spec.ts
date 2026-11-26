@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { buildCurriculum, countryItemId, placeItemId } from '../engine/curriculum';
+import type { ItemProgress } from '../engine/srs';
+import type { Country, Place } from '../engine/types';
 import {
+  countryLooks,
   countryOptions,
+  itemLook,
+  lookOrLocked,
   mixOklab,
   PROGRESS_COLOURS,
   progressFill,
@@ -97,5 +103,78 @@ describe('[SCR-11, SCR-C07] countryOptions', () => {
       { id: 'b', name: 'Brazil' },
       { id: 'c', name: 'Chad' },
     ]);
+  });
+});
+
+describe('[SCR-C01] PROGRESS_COLOURS', () => {
+  it('has the spec’s colours', () => {
+    expect(PROGRESS_COLOURS).toEqual({
+      locked: '#404040',
+      new: '#7d8fbf',
+      learning: '#ea580c',
+      mastered: '#4d8f63',
+      complete: '#4ade80',
+    });
+  });
+
+  it('rounds the share of mastered descendants to hundredths', () => {
+    // 1/3 rounds to 0.33, 1/300 to 0.
+    expect(progressFill('mastered', { total: 3, mastered: 1 })).toBe(
+      mixOklab(PROGRESS_COLOURS.mastered, PROGRESS_COLOURS.complete, 0.33),
+    );
+    expect(progressFill('mastered', { total: 300, mastered: 1 })).toBe(PROGRESS_COLOURS.mastered);
+  });
+});
+
+describe('[SCR-06, SCR-10, SCR-C07] the looks of items and countries', () => {
+  const countries: Country[] = [
+    { id: 'fr', name: 'France', places: 2, hasRegions: false },
+    { id: 'pe', name: 'Peru', places: 1, hasRegions: false },
+  ];
+  const place = (id: string, country: string): Place => ({
+    id,
+    name: id,
+    country,
+    region: null,
+    lat: 0,
+    lng: 0,
+    type: 'city',
+    level: 1,
+  });
+  const curriculum = buildCurriculum(countries, [], [
+    place('paris', 'fr'),
+    place('lyon', 'fr'),
+    place('lima', 'pe'),
+  ]);
+  // Mastered: L3 passed on two different days.
+  const mastered = (itemId: string): ItemProgress =>
+    ({
+      itemId,
+      rung: 3,
+      highestRung: 3,
+      cards: {},
+      l3PassDays: ['2026-01-10', '2026-01-20'],
+      inL3Lapse: false,
+      introducedAt: 1,
+    }) as unknown as ItemProgress;
+  const fr = countryItemId('fr');
+  const paris = placeItemId('paris');
+
+  it('gives each state its colour, and deepens a mastered country by its mastered places', () => {
+    expect(itemLook(curriculum, {}, fr)).toEqual({ state: 'new', fill: PROGRESS_COLOURS.new });
+    expect(itemLook(curriculum, {}, paris)).toEqual({ state: 'locked', fill: PROGRESS_COLOURS.locked });
+    expect(itemLook(curriculum, { [fr]: mastered(fr), [paris]: mastered(paris) }, fr)).toEqual({
+      state: 'mastered',
+      fill: mixOklab(PROGRESS_COLOURS.mastered, PROGRESS_COLOURS.complete, 0.5),
+    });
+  });
+
+  it('has a look per curriculum country, and a feature without one reads as locked', () => {
+    const extra: Country = { id: 'xx', name: 'X', places: 0, hasRegions: false };
+    const looks = countryLooks(curriculum, { [fr]: mastered(fr) }, [...countries, extra]);
+    expect([...looks.keys()]).toEqual(['fr', 'pe']);
+    expect(looks.get('fr')).toEqual({ state: 'mastered', fill: PROGRESS_COLOURS.mastered });
+    expect(lookOrLocked(looks)('pe')).toEqual({ state: 'new', fill: PROGRESS_COLOURS.new });
+    expect(lookOrLocked(looks)('xx')).toEqual({ state: 'locked', fill: PROGRESS_COLOURS.locked });
   });
 });
