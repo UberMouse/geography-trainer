@@ -25,7 +25,7 @@ const curriculum = buildCurriculum(
 const started = (id: string): ItemProgress =>
   applyAnswer(createProgress(id, NOW), 1, 3, NOW, '2026-03-04');
 
-describe('offersPlacement', () => {
+describe('[SCR-05, SCR-C06] offersPlacement', () => {
   it('offers while no item has been started', () => {
     expect(offersPlacement(curriculum, {})).toBe(true);
     // A row with no answered card (a fresh or L2-seeded record) is not a started item.
@@ -55,7 +55,7 @@ describe('offersPlacement', () => {
   });
 });
 
-describe('showsPlacementOffer', () => {
+describe('[SCR-05, SCR-C06] showsPlacementOffer', () => {
   const countriesMarker = new Set(['placement:countries']);
 
   it('offers while offersPlacement holds and no marker exists', () => {
@@ -78,7 +78,7 @@ describe('showsPlacementOffer', () => {
   });
 });
 
-describe('newTodayText', () => {
+describe('[SCR-02, SCR-C06] newTodayText', () => {
   it('reads N of cap while within the limit', () => {
     expect(newTodayText(0, 5)).toBe('0 of 5 new today');
     expect(newTodayText(5, 5)).toBe('5 of 5 new today');

@@ -16,7 +16,7 @@ async function openExercises(page: Page, query = '') {
   await globeHooked(page);
 }
 
-test('the playground opens on the Exercises tab, at France on L1', async ({ page }) => {
+test('[SCR-30, SCR-C13] the playground opens on the Exercises tab, at France on L1', async ({ page }) => {
   await openExercises(page);
   await expect(exercisesTab(page)).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('item-id')).toHaveText('country:france');
@@ -25,7 +25,7 @@ test('the playground opens on the Exercises tab, at France on L1', async ({ page
   await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'highlight');
 });
 
-test('a rung other than 1, 2 or 3 falls back to L1', async ({ page }) => {
+test('[SCR-30, SCR-C13] a rung other than 1, 2 or 3 falls back to L1', async ({ page }) => {
   for (const rung of ['7', 'two', '']) {
     await openExercises(page, `?item=country:france&rung=${rung}`);
     await expect(page.getByRole('combobox', { name: 'Rung' })).toHaveValue('1');
@@ -33,14 +33,14 @@ test('a rung other than 1, 2 or 3 falls back to L1', async ({ page }) => {
   }
 });
 
-test('the Exercises tab has no horizontal scroll at phone width', async ({ page }) => {
+test('[SCR-26] the Exercises tab has no horizontal scroll at phone width', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await openExercises(page, '?item=place:honolulu_hawaii&rung=2');
   const vp = await viewport(page);
   expect(vp.scrollWidth).toBeLessThanOrEqual(vp.width);
 });
 
-test('a failed load shows an error whose Retry loads again', async ({ page }) => {
+test('[SCR-25, SCR-C11] a failed load shows an error whose Retry loads again', async ({ page }) => {
   let fail = true;
   await page.route('**/data/countries.topo.json', (route) =>
     fail ? route.fulfill({ status: 500, body: '' }) : route.continue(),

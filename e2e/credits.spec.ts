@@ -1,6 +1,6 @@
 import { expect, test } from './test';
 
-test('the footer opens the Credits page', async ({ page }) => {
+test('[SCR-27] the footer opens the Credits page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('contentinfo').getByRole('link', { name: 'Credits' }).click();
   await expect(page).toHaveURL(/\/credits$/);
@@ -16,7 +16,7 @@ test('the footer opens the Credits page', async ({ page }) => {
   );
 });
 
-test('Credits does not scroll horizontally at 390 px', async ({ page }) => {
+test('[SCR-26] Credits does not scroll horizontally at 390 px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/credits');
   await expect(page.getByRole('heading', { name: 'Credits' })).toBeVisible();

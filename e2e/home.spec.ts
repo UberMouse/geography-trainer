@@ -33,7 +33,7 @@ async function answerQuestions(page: Page, isMobile: boolean, count: number) {
   return ids;
 }
 
-test('a fresh Home shows empty numbers and Start', async ({ page }) => {
+test('[SCR-01, SCR-03] a fresh Home shows empty numbers and Start', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
   await expect(newToday(page)).toHaveText('0 of 15 new today', WAIT);
@@ -41,7 +41,7 @@ test('a fresh Home shows empty numbers and Start', async ({ page }) => {
   await expect(page.getByRole('link', { name: /^Start/ })).toHaveAttribute('href', '/session');
 });
 
-test('a session round shows up in Home after a reload', async ({ page, isMobile }) => {
+test('[SCR-01] a session round shows up in Home after a reload', async ({ page, isMobile }) => {
   await page.goto('/');
   await expect(newToday(page)).toHaveText('0 of 15 new today', WAIT);
   await expect(learning(page)).toHaveText('0');
@@ -56,7 +56,7 @@ test('a session round shows up in Home after a reload', async ({ page, isMobile 
   expect(Number(await learning(page).innerText())).toBeGreaterThan(0);
 });
 
-test('exported progress imports into a fresh browser', async ({ page, browser, isMobile }) => {
+test('[SCR-20, SCR-21] exported progress imports into a fresh browser', async ({ page, browser, isMobile }) => {
   await answerQuestions(page, isMobile, 3);
   await page.goto('/');
   const before = await numbers(page);
@@ -88,7 +88,7 @@ test('exported progress imports into a fresh browser', async ({ page, browser, i
   }
 });
 
-test('a file that is not JSON shows an alert and changes nothing', async ({ page }, testInfo) => {
+test('[SCR-21] a file that is not JSON shows an alert and changes nothing', async ({ page }, testInfo) => {
   await page.goto('/');
   const before = await numbers(page);
   await page.getByRole('link', { name: 'Settings' }).click();
@@ -101,7 +101,7 @@ test('a file that is not JSON shows an alert and changes nothing', async ({ page
   expect(await numbers(page)).toEqual(before);
 });
 
-test('Home does not scroll horizontally on a phone', async ({ page, isMobile }) => {
+test('[SCR-26] Home does not scroll horizontally on a phone', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone width only');
   await page.goto('/');
   await numbers(page);

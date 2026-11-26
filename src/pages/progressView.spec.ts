@@ -9,7 +9,7 @@ import {
   type CountryLook,
 } from './progressView';
 
-describe('progressFill', () => {
+describe('[SCR-10, SCR-C01, SCR-C07] progressFill', () => {
   it('uses the state colour for locked, new and learning', () => {
     for (const state of ['locked', 'new', 'learning'] as const) {
       expect(progressFill(state, { total: 10, mastered: 5 })).toBe(PROGRESS_COLOURS[state]);
@@ -29,7 +29,7 @@ describe('progressFill', () => {
   });
 });
 
-describe('mixOklab', () => {
+describe('[SCR-C01] mixOklab', () => {
   it('gives each end unchanged', () => {
     expect(mixOklab('#4d8f63', '#4ade80', 0)).toBe('#4d8f63');
     expect(mixOklab('#4d8f63', '#4ade80', 1)).toBe('#4ade80');
@@ -48,7 +48,7 @@ describe('mixOklab', () => {
   });
 });
 
-describe('startedCountries', () => {
+describe('[SCR-12, SCR-C07] startedCountries', () => {
   const country = (id: string, name: string) => ({ id, name, places: 1, hasRegions: false });
   const countries = [
     country('c', 'Chad'),
@@ -76,7 +76,7 @@ describe('startedCountries', () => {
   });
 });
 
-describe('tierCountText', () => {
+describe('[SCR-09, SCR-C07] tierCountText', () => {
   it('words the counts and pluralises the tier name', () => {
     expect(tierCountText('country', { total: 243, learning: 5, learned: 12 })).toBe(
       'Countries: 12 learned, 5 learning of 243',
@@ -87,7 +87,7 @@ describe('tierCountText', () => {
   });
 });
 
-describe('countryOptions', () => {
+describe('[SCR-11, SCR-C07] countryOptions', () => {
   it('lists every country, alphabetical by name, as id and name only', () => {
     const country = (id: string, name: string) => ({ id, name, places: 1, hasRegions: false });
     expect(

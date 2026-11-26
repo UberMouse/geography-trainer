@@ -39,7 +39,7 @@ const looks: Record<string, CountryLook> = {
 };
 const look = (id: string) => looks[id] ?? { state: 'locked', fill: PROGRESS_COLOURS.locked };
 
-describe('countriesMode', () => {
+describe('[SCR-06, SCR-C08] countriesMode', () => {
   const features = [country('big', [0, 0]), country('tiny', [20, 20], true), country('other', [40, 0])];
 
   it('fills every country by its look', () => {
@@ -63,7 +63,7 @@ describe('countriesMode', () => {
   });
 });
 
-describe('drillMode', () => {
+describe('[SCR-15, SCR-17, SCR-C08] drillMode', () => {
   const regions = [region('r.a', [0, 0]), region('r.b', [2, 0])];
 
   it('fills the features with a colour and leaves the rest unfilled', () => {
@@ -84,7 +84,7 @@ describe('drillMode', () => {
   });
 });
 
-describe('drillCamera', () => {
+describe('[SCR-15, SCR-17, SCR-C04] drillCamera', () => {
   it('fits the region on a region page', () => {
     const r = region('r.a', [0, 0]);
     expect(drillCamera(country('big', [0, 0]), r)).toEqual({ kind: 'fit', feature: r });

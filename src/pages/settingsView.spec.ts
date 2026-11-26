@@ -17,34 +17,34 @@ const NOW = new Date('2026-03-04T23:30:00Z');
 const started = (id: string): ItemProgress =>
   applyAnswer(createProgress(id, NOW), 1, 3, NOW, '2026-03-04');
 
-describe('exportFilename', () => {
+describe('[SCR-20, SCR-C02, SCR-C10] exportFilename', () => {
   it('names the file by the local day', () => {
     expect(exportFilename(NOW, 0)).toBe('geography-trainer-progress-2026-03-04.json');
     expect(exportFilename(NOW, 120)).toBe('geography-trainer-progress-2026-03-05.json');
   });
 });
 
-describe('checkImportText', () => {
+describe('[SCR-C10] checkImportText', () => {
   let repo: ProgressRepo;
   beforeEach(() => {
     repo = createRepo('settings-view-spec');
   });
   afterEach(() => repo.close());
 
-  it('rejects text that is not JSON', () => {
+  it('[SCR-21] rejects text that is not JSON', () => {
     expect(checkImportText('nope', {}, 0)).toEqual({
       ok: false,
       message: 'That file is not valid JSON.',
     });
   });
 
-  it('rejects JSON that is not a progress export, naming the problem', () => {
+  it('[SCR-21] rejects JSON that is not a progress export, naming the problem', () => {
     const result = checkImportText('{"hello":1}', {}, 0);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/Wrong format/);
   });
 
-  it('summarises both sides of a valid file', async () => {
+  it('[SCR-21, SCR-22] summarises both sides of a valid file', async () => {
     await repo.importProgress({
       format: 'geography-trainer-progress',
       version: 3,
@@ -75,7 +75,7 @@ describe('checkImportText', () => {
     ).toBe('This browser: nothing started. File: 1 country started, exported 2026-03-04.');
   });
 
-  it('lists each tier above zero, singular or plural, joined with "and"', () => {
+  it('[SCR-22] lists each tier above zero, singular or plural, joined with "and"', () => {
     const text = (here: TierCounts, inFile: TierCounts) => importConfirmText({ here, inFile, exportedOn: '2026-11-20' });
     expect(text({ countries: 3, regions: 12, places: 40 }, { countries: 3, regions: 1, places: 0 })).toBe(
       'This browser: 3 countries, 12 regions and 40 places started. File: 3 countries and 1 region started, exported 2026-11-20.',
@@ -85,7 +85,7 @@ describe('checkImportText', () => {
     );
   });
 
-  it('counts started region and place rows, not rows without answers', () => {
+  it('[SCR-22] counts started region and place rows, not rows without answers', () => {
     const here = {
       'country:chad': started('country:chad'),
       'region:fr.bre': started('region:fr.bre'),
@@ -104,13 +104,13 @@ describe('checkImportText', () => {
     expect(result.ok && result.summary.here).toEqual({ countries: 1, regions: 1, places: 1 });
   });
 
-  it('words the answers an export left out', () => {
+  it('[SCR-20] words the answers an export left out', () => {
     expect(leftOutText(1)).toBe('1 answer could not be saved and is not in the file.');
     expect(leftOutText(3)).toBe('3 answers could not be saved and are not in the file.');
   });
 });
 
-describe('checkLimitText', () => {
+describe('[SCR-19, SCR-C02, SCR-C10] checkLimitText', () => {
   it('accepts whole numbers from 5 to 50, trimmed', () => {
     expect(checkLimitText('5')).toEqual({ ok: true, value: 5 });
     expect(checkLimitText(' 50 ')).toEqual({ ok: true, value: 50 });
@@ -122,7 +122,7 @@ describe('checkLimitText', () => {
   });
 });
 
-describe('isResetConfirmed', () => {
+describe('[SCR-23, SCR-C02, SCR-C10] isResetConfirmed', () => {
   it('takes "reset" in any case with spaces around it', () => {
     expect(isResetConfirmed('reset')).toBe(true);
     expect(isResetConfirmed('  Reset ')).toBe(true);

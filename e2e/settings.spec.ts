@@ -3,7 +3,7 @@ import { WAIT, writeMasteredUnitedStates } from './sessionHelpers';
 
 test.describe.configure({ timeout: 120_000 });
 
-test('the daily limit is saved and Home uses it', async ({ page }) => {
+test('[SCR-19] the daily limit is saved and Home uses it', async ({ page }) => {
   await page.goto('/settings');
   const input = page.getByLabel('New items per day');
   await expect(input).toHaveValue('15', WAIT);
@@ -16,7 +16,7 @@ test('the daily limit is saved and Home uses it', async ({ page }) => {
   await expect(page.getByLabel('New items per day')).toHaveValue('5', WAIT);
 });
 
-test('an out-of-range limit shows an alert and saves nothing', async ({ page }) => {
+test('[SCR-19] an out-of-range limit shows an alert and saves nothing', async ({ page }) => {
   await page.goto('/settings');
   const input = page.getByLabel('New items per day');
   await expect(input).toHaveValue('15', WAIT);
@@ -33,7 +33,7 @@ test('an out-of-range limit shows an alert and saves nothing', async ({ page }) 
   await expect(page.getByTestId('today-new')).toHaveText('0 of 15 new today', WAIT);
 });
 
-test('import and reset each ask in a dialog; reset needs "reset" typed, then clears the progress', async ({ page }, testInfo) => {
+test('[SCR-21, SCR-23] import and reset each ask in a dialog; reset needs "reset" typed, then clears the progress', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('progress.json');
   await writeMasteredUnitedStates(file);
   await page.goto('/settings');
@@ -77,7 +77,7 @@ test('import and reset each ask in a dialog; reset needs "reset" typed, then cle
   await expect(page.getByRole('link', { name: 'Take the placement test' })).toBeVisible();
 });
 
-test('Settings does not scroll horizontally on a phone', async ({ page, isMobile }) => {
+test('[SCR-26] Settings does not scroll horizontally on a phone', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone width only');
   await page.goto('/settings');
   await expect(page.getByLabel('New items per day')).toBeVisible(WAIT);

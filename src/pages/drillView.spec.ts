@@ -48,7 +48,7 @@ const mastered = (itemId: string): ItemProgress =>
     introducedAt: 1,
   }) as unknown as ItemProgress;
 
-describe('resolveDrillRoute', () => {
+describe('[SCR-13, SCR-C09] resolveDrillRoute', () => {
   const resolve = (c: string, r?: string) => resolveDrillRoute(curriculum, countries, c, r);
 
   it('resolves a known country, with whether it has a regions tier', () => {
@@ -87,7 +87,7 @@ describe('resolveDrillRoute', () => {
   });
 });
 
-describe('childRows', () => {
+describe('[SCR-14, SCR-C09] childRows', () => {
   const names = new Map([
     [countryItemId('fr'), 'France'],
     [countryItemId('de'), 'Germany'],
@@ -138,7 +138,7 @@ describe('childRows', () => {
   });
 });
 
-describe('childRows order', () => {
+describe('[SCR-14, SCR-C09] childRows order', () => {
   it('sorts rows by name, whatever the curriculum order', () => {
     const names = new Map([
       [regionItemId('fr.idf'), 'Zeta'],
@@ -149,7 +149,7 @@ describe('childRows order', () => {
   });
 });
 
-describe('splitByFrame', () => {
+describe('[SCR-16, SCR-C09] splitByFrame', () => {
   const square: AreaFeature = {
     type: 'Feature',
     properties: {},
@@ -178,7 +178,7 @@ describe('splitByFrame', () => {
   });
 });
 
-describe('sortOffMap', () => {
+describe('[SCR-16, SCR-C09] sortOffMap', () => {
   it('sorts regions and places together by name', () => {
     const entries = [
       { id: 'b', name: 'Navassa Island', isRegion: false },
