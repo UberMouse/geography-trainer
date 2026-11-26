@@ -10,8 +10,11 @@ export interface Credit {
  * its project. `credits.spec.ts` fails when a dependency is missing here.
  */
 export const DEPENDENCY_CREDITS: readonly Credit[] = [
+  { name: '@mantine/core', licence: 'MIT', url: 'https://mantine.dev/' },
+  { name: '@mantine/hooks', licence: 'MIT', url: 'https://mantine.dev/' },
   { name: 'd3-geo', licence: 'ISC', url: 'https://d3js.org/d3-geo/' },
   { name: 'dexie', licence: 'Apache-2.0', url: 'https://dexie.org' },
+  { name: 'maplibre-gl', licence: 'BSD-3-Clause', url: 'https://maplibre.org/' },
   { name: 'react', licence: 'MIT', url: 'https://react.dev/' },
   { name: 'react-dom', licence: 'MIT', url: 'https://react.dev/' },
   { name: 'react-router', licence: 'MIT', url: 'https://reactrouter.com' },
