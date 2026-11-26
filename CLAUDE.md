@@ -2,9 +2,14 @@
 
 A public web app that trains the skill maptap.gg tests: given a place name, tap it on a bare
 globe. It teaches countries, then a country's regions, then the cities and landmarks in them,
-with spaced repetition (FSRS) and a placement test. The approved design is
-`docs/plan.md` (copied from the planning session): its *Build order* lists the steps, and the
-design sections above it say what each step builds.
+with spaced repetition (FSRS) and a placement test.
+
+**`spec/` says what the app does, and it is the source of truth** (`spec/README.md` has the
+format). It has three tiers: `00-product.md` (L0, what the product promises),
+`features/<area>.md` (L1, Given/When/Then scenarios) and `contracts/<area>.md` (L2, module
+contracts, data formats and every constant's value). Behaviour changes start as a spec edit.
+`docs/history/plan.md` is the original plan, kept as the record of past decisions. Where it and
+the spec disagree, the spec wins.
 
 ## Stack
 
@@ -26,7 +31,8 @@ These scripts are the contract every skill and agent relies on: keep their names
 | `npm run lint` | eslint over the repo (never `--fix` in a check) |
 | `npm test` | `vitest run`, every unit spec |
 | `npm run test:e2e` | `playwright test` (it starts the dev server itself) |
-| `npm run verify` | typecheck, lint, test, test:e2e, stopping at the first failure |
+| `npm run spec:check` | every spec entry is linked and tested (or `Verified:`), and every test cites a spec ID that exists |
+| `npm run verify` | spec:check, typecheck, lint, test, test:e2e, stopping at the first failure |
 | `npm run build:data` | regenerate `public/data/` from maptap's list (network; rarely run) |
 
 Filtered runs: `npm test -- <paths>`, `npm run test:e2e -- <spec> --grep '<name>'`,
@@ -59,16 +65,22 @@ before output starts is a queued job, not a hang.
 - The place list is maptap's, used with permission: the Credits page says "Place list courtesy
   of MapTap.gg" and credits Natural Earth for boundaries. Keep both.
 - maptap's score for a tap is `round(100 · exp(-3.5 · km / 16250))`, or 100 inside the target's
-  polygon. Show it for familiarity; schedule on raw km (see `docs/plan.md`).
+  polygon. Show it for familiarity; schedule on raw km (see `spec/features/grading.md`).
+- **Every test traces to the spec.** Its title, or a `describe` title around it, cites the
+  ID(s) it verifies in square brackets (`it('[SES-03] …')`). A constant's value lives in its L2
+  contract entry, and a test citing that entry pins the code to it. To change a number, edit
+  the spec first.
 - The layout works at phone width (a 16px side gutter, no horizontal scroll) and with touch:
   drag to rotate, pinch to zoom.
 
 ## How work gets done here
 
-Each build step in `docs/plan.md` is one `/sdd-loop` run (`.claude/skills/sdd-loop/`): the
-user types it, the conductor takes the intake, and the step's *Build order* entry, the design
-sections it builds on and the plan's *Verification* section are where its acceptance criteria
-start. The run keeps durable state in `.durable-state/state.json`
+Each change is one `/sdd-loop` run (`.claude/skills/sdd-loop/`), and it starts from the spec.
+The user either edits `spec/` themselves or describes the change, in which case the conductor
+drafts the spec edit at intake. The scenarios and contract entries the edit adds, changes or
+retires are the acceptance criteria. The edit lands as the branch's first commit
+(`docs(spec): …`), the tests that land cite its IDs, and `spec:check` keeps spec and tests
+traced. A refactor changes no file under `spec/`. The run keeps durable state in `.durable-state/state.json`
 (`.claude/skills/durable-state/`); the `idle-compact` mod (`.claude/skills/idle-compact/`)
 auto-compacts an idle conductor while its subagents work.
 

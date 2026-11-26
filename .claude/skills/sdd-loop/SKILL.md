@@ -1,14 +1,16 @@
 ---
 name: sdd-loop
 disable-model-invocation: true
-description: Run a small, already-understood change through the subagent-driven-development review loop end to end, with no artifact-review gates. You ASK whatever you need to pin the ask down, restate it as acceptance criteria, implement it (usually as ONE task) via a fresh subagent, review each task with a spec-compliance and a code-quality reviewer IN PARALLEL, fix-forward until both are clean, then run the branch code review, fix what it confirms, decide what it only suspects, and ship the branch (a PR when the repo has a GitHub remote). Each build step of this repo's plan is one run.
+description: Run a small, already-understood change through the subagent-driven-development review loop end to end, with no artifact-review gates. You ASK whatever you need to pin the ask down, restate it as acceptance criteria, implement it (usually as ONE task) via a fresh subagent, review each task with a spec-compliance and a code-quality reviewer IN PARALLEL, fix-forward until both are clean, then run the branch code review, fix what it confirms, decide what it only suspects, and ship the branch (a PR when the repo has a GitHub remote). In this repo a run starts from an edit to the spec (`spec/`): the scenarios and contract entries it adds or changes are the acceptance criteria, and the tests that land cite their IDs.
 ---
 
 # SDD Loop (lightweight, ungated)
 
-Subagent-driven development without a planning pipeline: no approach gate, no plan, no spec
-document. You take the ask, pin it down, implement it under subagent-driven development, let the
-independent reviewers converge, and hand back a reviewed branch.
+Subagent-driven development without a planning pipeline: no approach gate and no plan. The
+change is pinned down as an edit to the repo's spec (`spec/`, format in `spec/README.md`), which
+becomes the acceptance criteria. You take the ask, edit the spec, implement it under
+subagent-driven development, let the independent reviewers converge, and hand back a reviewed
+branch whose tests trace to the spec.
 
 > **Ungated does not mean silent.** What's removed is *artifact* review: you never hand the user
 > a plan, a spec, or a report and wait for approval. **Asking questions is not a gate; ask
@@ -24,10 +26,12 @@ development with autonomous review. I'll ask up front if anything's ambiguous, t
 planning gates."
 
 ```
-  0. Intake        ASK what you need ─► restate as ACCEPTANCE CRITERIA (the spec surrogate)
-                     ─► one COLD READ of the criteria by an agent without this conversation
+  0. Intake        ASK what you need ─► EDIT spec/ (or take the user's edit) ─► ACCEPTANCE
+                     CRITERIA = the spec diff + tracing ─► one COLD READ by an agent without
+                     this conversation
   1. Setup         worktree + preflight (clean tree, rebase on main while nothing has landed,
-                     npm ci if the lockfile moved, verify green); record BASE + branch; state.json
+                     npm ci if the lockfile moved, verify green); record BASE + branch; state.json;
+                     commit the spec edit first, as `docs(spec): …`
   2. Split         DEFAULT: one task. Split only if genuinely separable (2-4, primitives-first);
                      each tagged refactor | behaviour, refactors first
   3. SDD loop      per task, sequentially:
@@ -42,7 +46,8 @@ planning gates."
 
 ## When to use
 
-- A build step from the plan, a bug fix, small feature, or refactor you already understand.
+- A spec edit (new or changed behaviour), a bug fix, small feature, or refactor you already
+  understand.
 - You want the SDD quality bar (independent spec + quality review, fix-forward) without
   sitting through gates.
 - Long unattended runs: the questions are front-loaded at §0, so once answered the loop runs to
@@ -120,6 +125,7 @@ remember about the loop, re-read it:
 3. Invariants that have drifted after compactions:
    - **The conductor never edits `src/` (or `scripts/`, `public/data/`) for a task or a
      finding.** Implementers and fix agents do; a hand-implemented task skips both reviews.
+     Conversely, only the conductor edits `spec/`, and the spec edit is the branch's first commit.
    - **Every Agent call passes `model` explicitly** (`implModel` / `reviewModel`). An omitted
      `model` inherits the conductor's model.
    - Every dispatch uses the templates (FIRST LINE verdicts; implementers commit their own work).
@@ -129,18 +135,41 @@ skill's path).
 
 ---
 
-## 0. Intake — ask, then write the acceptance criteria
+## 0. Intake — ask, edit the spec, then write the acceptance criteria
 
-There is no plan document and no spec document. **This list is the spec.** Without it the
-spec-compliance reviewer has nothing to check against and degenerates into a second code review.
+The repo's spec (`spec/`: L0 product, L1 Given/When/Then scenarios in `features/`, L2 contracts
+with every constant's value in `contracts/`; `spec/README.md` has the format) says what the app
+does today. **A change is an edit to it, and that edit is what this run implements.** Without it
+the spec-compliance reviewer has nothing to check against and degenerates into a second code
+review.
 
 That makes this the **highest-leverage step in the loop**, and the only one where a human is
 cheap to consult. Everything downstream faithfully executes whatever you write here.
 
-When the run is a build step of the approved plan (`docs/plan.md`), start from that step's
-entry under *Build order*, the design sections it builds on (*Architecture*, *Curriculum &
-learning model*, *Data generation script*) and the plan's *Verification* section: together they
-already settle most of what §0b would ask.
+### Start from the spec
+
+Read the spec files the change touches (the area's `features/` and `contracts/` files, and the
+L0 item above them) before anything else. Then find which case this run is:
+
+- **The user edited `spec/` already** (uncommitted, or committed on the branch): that diff is
+  the change. Check it follows `spec/README.md` (IDs, `Up:`, one gherkin block, outlines for
+  tables) and ask, at §0b, only about what it leaves open.
+- **The user described the change**: after §0a and §0b, **write the spec edit yourself**.
+  Change scenarios and contract values in place, keeping their IDs. Add new entries with the next
+  free ID in the area, each with its `Up:` link. Retire removed entries by deleting them; an ID
+  is never reused. New behaviour states its edge cases as scenarios (§0c's *Stateful change*
+  rows belong in the spec, not only in the criteria). New constants go in the area's contract
+  with their values.
+- **A bug where the spec already says the right thing** (the code disagrees with a scenario):
+  no spec edit. The criteria cite the existing ID, and the fix's test must fail before the fix.
+- **A refactor**: no spec edit. The criteria say "no file under `spec/` changes, and every
+  existing test passes with its title and logic unedited".
+- **A change the spec doesn't cover at all** (a new area or L0 promise): add the L0 item and the
+  area file in the same edit. A new L0 promise is a product decision: ask the user (§0b), or
+  under autonomous mode log it needs-review.
+
+You (the conductor) write `spec/`; implementers never edit it. The edit is committed as the
+branch's first commit (§1), before any implementer dispatch.
 
 ### 0a. Read the code first
 
@@ -186,18 +215,27 @@ cost more than the interruption?
 
 ### 0c. Write the criteria
 
-Restate the ask as a short, checkable list of what must be true when this is done:
+The criteria are the spec diff plus its tracing. List every entry the edit adds, changes or
+retires, **verbatim with its ID**, then the lines that hold the code and tests to it:
 
 ```
 ## Acceptance criteria
-- [ ] `<symbol>` in `<file>` <does X> instead of <Y>
-- [ ] <edge case> is handled: <expected behaviour>
-- [ ] A Vitest spec covers <the behaviour that changed>
-- [ ] A Playwright case covers <the one user-visible happy path>  — or: no e2e case, because <reason>
-- [ ] No change to <thing explicitly out of scope>
+- [ ] SES-14 (new): <the scenario, verbatim>
+- [ ] GRD-C02 (changed: Good < 75 km → < 60 km): <the entry, verbatim>
+- [ ] CUR-07 (retired): no test cites it; the behaviour it described is gone
+- [ ] Every new or changed ID is cited by a test that exercises it and fails without the change
+      (a Vitest spec; a Playwright case for <the user-visible path> — or: no e2e, because <reason>)
+- [ ] `npm run spec:check` exits 0
+- [ ] **Assumption:** <anything you decided for the user>
+- [ ] No change to <thing explicitly out of scope>; the scenarios it is pinned by stay unedited
 ```
 
 Rules:
+
+- **The spec entry is the criterion; don't paraphrase it.** If a criterion needs words the spec
+  doesn't have, the spec edit is incomplete: put the words in the spec.
+- **Implementation pointers are allowed** (`<symbol>` in `<file>`), where the code makes the
+  change land in one obvious place, but as additions under the spec lines, never instead of them.
 
 - **Keep it to what the user asked for.** Improvements you noticed go in the final report's
   *Follow-ups*, not the criteria.
@@ -207,8 +245,10 @@ Rules:
   time and randomness passed in). The e2e line is always present: a change a user can see or
   tap names the Playwright case and its happy path; anything else records why there is none
   ("no e2e: engine only").
-- **Fold the answers in.** Every §0b answer and every `**Assumption:**` belongs in this list;
-  that is what makes it enforceable. An answer you merely remember is one no reviewer can check.
+- **Fold the answers in.** Every §0b answer that is behaviour belongs in the spec edit, and so
+  in this list; an answer that isn't behaviour (a file location, an approach) is an
+  `**Assumption:**` line. That is what makes it enforceable. An answer you merely remember is one
+  no reviewer can check.
 - **Stateful change? Write criteria for the states it doesn't mention too.** When the change
   adds or alters an event or step in a multi-step flow (a session, a placement test), list each
   state the event can arrive in, not just the one the ask is about. Mark each one handled,
@@ -261,6 +301,9 @@ Then triage each gap, once. This is one read, not a loop: do not re-dispatch aft
 **Skip it** only when §0b had nothing to ask and the list carries no `**Assumption:**` line: a
 one-liner with nothing to guess gains nothing from a fourth agent.
 
+A gap that is behaviour goes into the spec edit (and so into the list), never only into the
+criteria.
+
 **Echo the criteria to the user as narration, then keep going; do not wait for approval.** You
 asked your questions in §0b; now you report what you concluded, without requesting sign-off. If
 they disagree they'll say so; the loop doesn't stop to find out.
@@ -271,7 +314,9 @@ after a compaction; never point an agent at it.
 ## 1. Setup
 
 Confirm the tree is clean. **If it is dirty, stop and reconcile**: implementing on top of an
-unknown state makes every downstream review diff meaningless.
+unknown state makes every downstream review diff meaningless. The one exception is the user's
+own uncommitted edit confined to `spec/` (§0 *Start from the spec*): commit it on the branch
+first, as below, and then run the preflight.
 
 **Preflight — here AND on every resume.**
 
@@ -292,6 +337,15 @@ git rev-parse HEAD                                  #   this is BASE; record it,
 state --skill sdd-loop set base <sha>               #   creates the file as {skill, sessionId}
 git rev-parse --abbrev-ref HEAD                     # BRANCH
 ```
+
+**The spec edit is the branch's first commit**, `docs(spec): <what changes>`, made by you after
+the preflight and before the first dispatch, on its own (no code). When a spec edit is already
+committed or in the tree as the preflight runs, `npm run verify` stops at its first step,
+`spec:check`, and that is expected. Run `npm run spec:check` and confirm its only errors are
+"not cited by any test" for the IDs the edit adds or changes, and "unknown ID" for tests citing
+IDs it retires. Then run the rest of the checks
+(`npm run typecheck && npm run lint && npm test && npm run test:e2e`) as the green baseline.
+Any other spec:check error means the edit is malformed: fix the edit.
 
 Once task code is on the branch, do not rebase unprompted; report the behind-count instead.
 Write the rest of state.json with `state`, one call per field, arguments only (durable-state
@@ -386,6 +440,10 @@ is the durable state.
   files, no new files in the repo, no temporary mutations, no probe specs.
 - **The conductor never edits `src/` for a task or a finding**, and **every Agent call
   passes `model` explicitly**.
+- **Implementers never edit `spec/`.** If the spec can't be built as written, or the tests show
+  it describes something other than what the user meant, the implementer stops with a blocking
+  question. A spec change mid-run is the conductor's: it is a new `docs(spec): …` commit, the
+  criteria are updated from it, and the user hears about it in the report.
 - **Never skip a review, never proceed with open Critical or Important findings.** The task is
   done when neither dimension has one open (its Minors deferred per §3 step 3), not when the
   code runs.
@@ -485,6 +543,7 @@ This skill ends in a **reviewed branch**, not a question.
 
 **Final report to the user:**
 
+- The spec edit: the IDs added, changed and retired, with the `docs(spec)` commit.
 - What was implemented, per task, with commit SHAs.
 - What the per-task reviews caught and fixed.
 - Branch review: confirmed findings fixed, plausible findings promoted and skipped (one line

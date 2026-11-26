@@ -15,12 +15,12 @@ text is sent as written, except `[CONDUCTOR …]` notes and sections marked "omi
 | Slot | Filled with |
 |---|---|
 | `<TASK>` | the task title + what to do, verbatim |
-| `<CRITERIA>` | the §0 acceptance criteria relevant to this task, verbatim |
+| `<CRITERIA>` | the §0 acceptance criteria relevant to this task, verbatim: the spec entries with their IDs, then the tracing lines |
 | `<CONTEXT>` | the change, what prior tasks landed, the files involved, local conventions |
 | `<SKILLS>` | the conductor's pick of skills to load (omit the section if none apply) |
 | `<KIND>` | the task's §2 tag: `refactor` or `behaviour` |
 | `<COMMIT_MSG>` | `<type>(<scope>): <what you did>` |
-| `<REQUESTED>` (spec reviewer) | the §0 acceptance criteria, verbatim |
+| `<REQUESTED>` (spec reviewer) | the §0 acceptance criteria, verbatim, and the range of the `docs(spec)` commit(s) on the branch |
 | `<GATE>` | the *Task gate* below, with the test paths for the files the task touches |
 
 ## Task gate: inserted where a template says `<GATE>`
@@ -33,6 +33,8 @@ The scripts are defined in `package.json` (CLAUDE.md lists them). Per task, noth
    has a spec beside it.
 4. Only when the task changes something a user sees: `npm run test:e2e -- <spec> --grep '<name>'`
    for the e2e case that covers it.
+5. `npm run spec:check` reports no error that names this task's spec IDs or the test files it
+   touched. Errors for IDs a later task of the run will cover are expected until that task lands.
 
 Run them through these npm scripts, never bare `npx`: each script waits for a build slot
 (`scripts/slot.sh`), which is what keeps parallel worktrees from overloading the machine.
@@ -102,7 +104,11 @@ Agent(implementer, model=implModel):
     1. Implement exactly what's specified — read neighbouring files first; follow the
        conventions in CLAUDE.md (src/engine stays pure TS: no React, no DOM, no storage).
     2. Write/extend tests: Vitest specs beside the code; a Playwright case only when the
-       criteria ask for one. Then run this task's gate:
+       criteria ask for one. Every test you add cites the spec ID(s) it verifies in its title
+       or its describe's (`it('[SES-14] …')`; `spec/README.md` *Tracing to tests*). A test for
+       a changed entry keeps citing its ID, and a test citing a retired ID is removed or
+       re-pointed. Never edit `spec/`: if the spec can't be built as written, STOP and return
+       a blocking question. Then run this task's gate:
        <GATE>
     3. Commit your work (`git add <the paths you changed> && git commit -m "<COMMIT_MSG>"`
        — never `git add -A`, which sweeps in scratch and probe files). Do NOT push.
@@ -147,6 +153,11 @@ Agent(general-purpose, model=reviewModel):
     - Misunderstood: right problem, wrong interpretation.
     - Tests: a criterion naming a test (a Vitest spec, a Playwright case) is Missing unless the
       diff adds one that exercises that behaviour and could fail.
+    - Tracing: every spec ID the criteria add or change is cited (`[ID]` in a test or describe
+      title) by a test that really exercises that entry, not just carries its tag. No test cites
+      a retired ID. The task's diff edits nothing under `spec/` (only the conductor's
+      `docs(spec)` commits do). The code matches the spec entries as written, including every
+      contract value, not the implementer's paraphrase of them.
     - Kind (task kind: <KIND>): a `refactor` task whose diff edits an existing test or changes
       behaviour (check one moved or extracted body against its original) is a FAIL, as is any
       commit mixing a mechanical change with logic.

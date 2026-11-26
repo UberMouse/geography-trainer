@@ -1,5 +1,10 @@
 # Geography Trainer: a maptap.gg training site
 
+> **History.** This was the approved plan the prototype was built from (steps 0–11). On
+> 2026-11-27 it was superseded by `spec/`, which describes the app as built and is the source
+> of truth. Where this plan and the spec disagree, the spec wins. It is kept for the reasoning
+> behind past decisions.
+
 ## Context
 You play maptap.gg daily: you're given a place name and tap it on a **bare 3D globe with no borders or labels**, scored by distance. You want a public website that trains that skill. It works down a ladder, countries → regions in a country → cities in those regions, using maptap's own place list (permission granted; credit required). It uses spaced repetition so you retain what you learn, and a placement test so you skip what you already know.
 
