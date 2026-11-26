@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { answerCurrent, startRun } from '../engine/sessionRun';
 import { createProgress } from '../engine/srs';
 import { Rating } from 'ts-fsrs';
@@ -195,19 +195,39 @@ describe('[SES-26, SES-C05] resumable', () => {
     mastered: [],
     testable: [],
   });
+  const other = { itemId: 'country:spain', rung: 1 } as const;
+  const asked = (queue: SessionQuestion[], ids: string[]): SavedSession => {
+    const s = saved(queue);
+    return { ...s, run: { ...s.run, asks: Object.fromEntries(ids.map((id) => [id, 1])) } };
+  };
   it('is null when the queue is empty and a review has come due', () => {
-    expect(resumable(saved([]), [question])).toBeNull();
+    expect(resumable(saved([]), () => [question])).toBeNull();
   });
   it('is the session when the queue is empty and nothing is due', () => {
     const empty = saved([]);
-    expect(resumable(empty, [])).toBe(empty);
+    expect(resumable(empty, () => [])).toBe(empty);
   });
   it('is the session when the queue still has questions, due reviews or not', () => {
     const midRound = saved([question]);
-    expect(resumable(midRound, [question])).toBe(midRound);
+    expect(resumable(midRound, () => [question])).toBe(midRound);
+  });
+  it('does not consult the due reviews while the queue has questions', () => {
+    const midRound = saved([question]);
+    const due = vi.fn(() => {
+      throw new Error('No card for rung 1');
+    });
+    expect(resumable(midRound, due)).toBe(midRound);
+    expect(due).not.toHaveBeenCalled();
+  });
+  it('is the session when the only due item is one the round asked', () => {
+    const empty = asked([], [question.itemId]);
+    expect(resumable(empty, () => [question])).toBe(empty);
+  });
+  it('is null when a due item is not one the round asked, whatever else is due', () => {
+    expect(resumable(asked([], [question.itemId]), () => [question, other])).toBeNull();
   });
   it('is null when nothing was saved', () => {
-    expect(resumable(null, [question])).toBeNull();
+    expect(resumable(null, () => [question])).toBeNull();
   });
 });
 

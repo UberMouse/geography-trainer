@@ -66,7 +66,7 @@ const loadSessionData = async (): Promise<SessionData> => {
   const dayKey = localDayKey(now, -now.getTimezoneOffset());
   const resumed = resumable(
     loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id)),
-    dueQuestions({ curriculum, progress, now }),
+    () => dueQuestions({ curriculum, progress, now }),
   );
   const questions = resumed ? [...resumed.run.queue] : buildSession({
     curriculum,

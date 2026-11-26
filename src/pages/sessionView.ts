@@ -94,9 +94,18 @@ export function countriesNeedingRegions(
   return [...needed];
 }
 
-/** The saved session, or null when its queue is empty and a review has come due since (a fresh session is built). */
-export function resumable(saved: SavedSession | null, due: readonly SessionQuestion[]): SavedSession | null {
-  return saved && saved.run.queue.length === 0 && due.length > 0 ? null : saved;
+/**
+ * The saved session, or null when its queue is empty and a review has come due since (a fresh
+ * session is built). `due` is only called when the queue is empty, and a due question for an
+ * item the round itself asked (a key of `run.asks`) does not count: its learning steps come due
+ * within minutes of the round.
+ */
+export function resumable(
+  saved: SavedSession | null,
+  due: () => readonly SessionQuestion[],
+): SavedSession | null {
+  if (!saved || saved.run.queue.length > 0) return saved;
+  return due().some((q) => !(q.itemId in saved.run.asks)) ? null : saved;
 }
 
 /** What the current round has mastered: the unlock lines' ids, and those with a Test out link. */
