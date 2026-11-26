@@ -50,10 +50,11 @@ function isRun(r: unknown): r is SessionRun {
  * The session saved as `text` for `dayKey`, or null: for another day, malformed, with nothing left
  * to ask and nothing answered, or with a question the progress can no longer answer (an item
  * `isKnown` rejects, or a rung with no card: progress was reset or imported since). An item with no
- * progress row can only be asked at L1. A `mastered` id whose progress is missing or not mastered
- * is dropped too, and so is an empty queue (the day's last summary) when an id in `run.asks` has no
- * progress: progress was reset or imported since, or an answer was never recorded. Otherwise an
- * empty queue after answers is returned. A missing `mastered` or `testable` reads as empty.
+ * progress row can only be asked at L1. An empty queue (the day's last summary) is
+ * dropped too when an id in `run.asks` has no progress: progress was reset or imported since, or an
+ * answer was never recorded. Otherwise an empty queue after answers is returned. A `mastered` id
+ * whose progress is missing or not mastered (its answer was not saved before the reload) is left out
+ * of `mastered` and `testable`, and the rest is returned. A missing `mastered` or `testable` reads as empty.
  */
 export function parseSavedRun(
   text: string | null,
@@ -74,14 +75,15 @@ export function parseSavedRun(
   if (run.queue.length === 0 && run.answered === 0) return null;
   if (!isIdList(mastered) || !isIdList(testable)) return null;
   if (!mastered.every(isKnown) || !testable.every((id) => mastered.includes(id))) return null;
-  if (!mastered.every((id) => progress[id] !== undefined && isMastered(progress[id]))) return null;
   if (run.queue.length === 0 && !Object.keys(run.asks).every((id) => progress[id] !== undefined)) return null;
   const answerable = run.queue.every(({ itemId, rung }) => {
     if (!isKnown(itemId)) return false;
     const p = progress[itemId];
     return p ? p.cards[rung] !== undefined && rung <= p.highestRung : rung === 1;
   });
-  return answerable ? { run, mastered, testable } : null;
+  if (!answerable) return null;
+  const backed = (id: string) => progress[id] !== undefined && isMastered(progress[id]);
+  return { run, mastered: mastered.filter(backed), testable: testable.filter(backed) };
 }
 
 /** The saved run for today, if it can still be resumed (see `parseSavedRun`). */

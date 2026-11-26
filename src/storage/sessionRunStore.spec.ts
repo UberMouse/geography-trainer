@@ -87,14 +87,18 @@ describe('parseSavedRun', () => {
     expect(parse({ testable: ['country:peru'] })).toBeNull();
   });
 
-  it('[SES-26, SES-C05] starts afresh when an item the round mastered is no longer mastered', () => {
+  it('[SES-25, SES-C05] leaves out an unlock the saved progress does not back', () => {
     const { run, progress } = midRun();
-    const lists = { mastered: ['country:france'], testable: [] };
-    // Mastered in the saved round; progress was since reset (no row) or imported (not mastered).
-    expect(parseSavedRun(saved(DAY, run, lists), DAY, progress, known)).toBeNull();
-    expect(parseSavedRun(saved(DAY, run, lists), DAY, {}, known)).toBeNull();
-    const backed = { ...progress, 'country:france': masteredRow(progress['country:france']!) };
-    expect(parseSavedRun(saved(DAY, run, lists), DAY, backed, known)).toEqual({ run, ...lists });
+    const lists = { mastered: ['country:france', 'country:peru'], testable: ['country:france', 'country:peru'] };
+    const backed = { ...progress, 'country:peru': masteredRow(createProgress('country:peru', NOW)) };
+    // France's mastering answer was not saved (not mastered in progress); Peru's was.
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, backed, known)).toEqual({
+      run,
+      mastered: ['country:peru'],
+      testable: ['country:peru'],
+    });
+    // No row at all for Peru: left out too.
+    expect(parseSavedRun(saved(DAY, run, lists), DAY, progress, known)).toEqual({ run, mastered: [], testable: [] });
   });
 
   it('[SES-26, SES-C05] starts afresh when nothing is left to ask and an item asked has no progress', () => {
