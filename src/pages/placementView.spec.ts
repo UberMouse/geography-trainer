@@ -21,7 +21,7 @@ function result(
   return { estimate, outcomes, confidence: {} };
 }
 
-describe('placementHeader', () => {
+describe('[PLC-18] placementHeader', () => {
   it('counts the question being asked, out of the maximum', () => {
     expect(placementHeader(0, 50)).toBe('Placement: question 1 of up to 20');
     expect(placementHeader(6, 20)).toBe('Placement: question 7 of up to 20');
@@ -32,7 +32,7 @@ describe('placementHeader', () => {
   });
 });
 
-describe('saveFailureText', () => {
+describe('[PLC-19] saveFailureText', () => {
   it('is null when nothing failed', () => {
     expect(saveFailureText([])).toBeNull();
   });
@@ -56,7 +56,7 @@ describe('saveFailureText', () => {
   });
 });
 
-describe('emptyPoolText', () => {
+describe('[PLC-21] emptyPoolText', () => {
   it('names the tier in the singular', () => {
     expect(emptyPoolText('countries')).toBe('There is nothing left to place: every country is already placed or being studied.');
     expect(emptyPoolText('regions')).toBe('There is nothing left to place: every region is already placed or being studied.');
@@ -73,7 +73,7 @@ describe('emptyPoolText', () => {
   });
 });
 
-describe('resultLines', () => {
+describe('[PLC-20] resultLines', () => {
   it('says what each group of countries does, with many', () => {
     expect(resultLines(result(5, { passed: 4, below: 12, failed: 1, above: 30 }), 'countries')).toEqual([
       'Your level: 5 of 8.',
@@ -149,7 +149,7 @@ describe('resultLines', () => {
     ['countries', 'country', 'countries'],
     ['regions', 'region', 'regions'],
     ['places', 'place', 'places'],
-  ])('names the %s tier', (tier, one, many) => {
+  ])('[PLC-23] names the %s tier', (tier, one, many) => {
     const lines = resultLines(result(6, { passed: 1, below: 2 }), tier);
     expect(lines[1]).toBe(`1 ${one} you got right comes back within a couple of days to confirm.`);
     expect(lines[2]).toBe(`2 ${many} you probably know start at tapping on a bordered map.`);

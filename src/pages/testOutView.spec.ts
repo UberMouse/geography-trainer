@@ -48,7 +48,7 @@ const masteredFrance = { 'country:france': mastered('country:france') };
 const resolve = (progress: Record<string, ItemProgress>, c: string, r?: string) =>
   resolveTestOutRoute(curriculum, countries, progress, c, r);
 
-describe('resolveTestOutRoute', () => {
+describe('[PLC-23] resolveTestOutRoute', () => {
   it('runs for a mastered country with a regions tier', () => {
     expect(resolve(masteredFrance, 'france')).toEqual({
       kind: 'run',
@@ -137,21 +137,21 @@ describe('resolveTestOutRoute', () => {
   });
 });
 
-describe('testOutPath', () => {
+describe('[PLC-C09] testOutPath', () => {
   it('links a country by its id and a region by its country and full id', () => {
     expect(testOutPath('country:france')).toBe('/placement/france');
     expect(testOutPath('region:france.bretagne')).toBe('/placement/france/france.bretagne');
   });
 });
 
-describe('testOutLabel', () => {
+describe('[PLC-23] testOutLabel', () => {
   it('names the item and the tier of its children', () => {
     expect(testOutLabel('France', 'regions')).toBe("Test out of France's regions");
     expect(testOutLabel('Bretagne', 'places')).toBe("Test out of Bretagne's places");
   });
 });
 
-describe('showsTestOutLink', () => {
+describe('[PLC-24] showsTestOutLink', () => {
   const show = (progress: Record<string, ItemProgress>, finished: string[], id: string) =>
     showsTestOutLink(curriculum, progress, new Set(finished), id);
 

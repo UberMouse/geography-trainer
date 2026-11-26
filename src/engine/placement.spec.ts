@@ -74,7 +74,7 @@ const noisy = (k: number) => (level: number, rng: () => number): PlacementCredit
 
 describe('placement ability estimate', () => {
   for (const k of [2, 4, 6]) {
-    it(`places a learner who knows up to level ${k} at ${k} or ${k + 1}`, () => {
+    it(`[PLC-04] places a learner who knows up to level ${k} at ${k} or ${k + 1}`, () => {
       for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const { result, asked } = run(makeItems(25), seed, upTo(k));
         expect(result.estimate, `k=${k} seed=${seed}`).toBeGreaterThanOrEqual(k);
@@ -85,7 +85,7 @@ describe('placement ability estimate', () => {
     });
   }
 
-  it('places noisy synthetic learners within a level of their ability, on average within half', () => {
+  it('[PLC-04] places noisy synthetic learners within a level of their ability, on average within half', () => {
     for (const k of [2, 3.5, 5, 6.5]) {
       let totalError = 0;
       const seeds = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -99,7 +99,7 @@ describe('placement ability estimate', () => {
     }
   });
 
-  it('reads close misses as rough knowledge: few right but many close is not a beginner', () => {
+  it('[PLC-05] reads close misses as rough knowledge: few right but many close is not a beginner', () => {
     // Right only on the easiest levels, close on the middle ones, far off on the hardest.
     const credit = (level: number): PlacementCredit => (level <= 1 ? 1 : level <= 6 ? 0.5 : 0);
     for (const seed of [1, 2, 3, 4]) {
@@ -111,7 +111,7 @@ describe('placement ability estimate', () => {
     }
   });
 
-  it('puts a perfect learner at 8 and a hopeless one at 0 (no level shown)', () => {
+  it('[PLC-04, PLC-17] puts a perfect learner at 8 and a hopeless one at 0 (no level shown)', () => {
     expect(run(makeItems(6), 1, () => 1).result.estimate).toBe(8);
     const hopeless = run(makeItems(6), 1, () => 0);
     expect(hopeless.result.estimate).toBe(0);
@@ -121,7 +121,7 @@ describe('placement ability estimate', () => {
     }
   });
 
-  it('starts at the start level, then follows the estimate up after passes and down after misses', () => {
+  it('[PLC-07] starts at the start level, then follows the estimate up after passes and down after misses', () => {
     const rng = mulberry32(3);
     let state = startPlacement(makeItems(6), rng);
     const first = nextQuestion(state, rng)!;
@@ -133,7 +133,7 @@ describe('placement ability estimate', () => {
     expect(afterMiss.question.level).toBeLessThan(PLACEMENT_START_LEVEL);
   });
 
-  it('spreads questions across world areas at the same level', () => {
+  it('[PLC-08] spreads questions across world areas at the same level', () => {
     const items = makeItems(8);
     const { asked } = run(items, 5, upTo(4));
     // Every window of 4 consecutive questions at levels with all areas covers at least 3 areas.
@@ -143,20 +143,20 @@ describe('placement ability estimate', () => {
     expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(2);
   });
 
-  it('never asks an item twice', () => {
+  it('[PLC-09] never asks an item twice', () => {
     for (const seed of [1, 2, 3]) {
       const { asked } = run(makeItems(3), seed, noisy(4));
       expect(new Set(asked.map((i) => i.itemId)).size).toBe(asked.length);
     }
   });
 
-  it('stops early once confident, and at the question limit otherwise', () => {
+  it('[PLC-11] stops early once confident, and at the question limit otherwise', () => {
     const lengths = [1, 2, 3, 4, 5, 6].map((seed) => run(makeItems(25), seed, upTo(5)).asked.length);
     expect(Math.min(...lengths)).toBeLessThan(PLACEMENT_MAX_QUESTIONS);
     expect(Math.max(...lengths)).toBeLessThanOrEqual(PLACEMENT_MAX_QUESTIONS);
   });
 
-  it('asks the nearest level with items when the target level is empty', () => {
+  it('[PLC-07] asks the nearest level with items when the target level is empty', () => {
     const items: PlacementItem[] = [
       { itemId: 'a', level: 1, area: 'europe' },
       { itemId: 'b', level: 7, area: 'europe' },
@@ -169,14 +169,14 @@ describe('placement ability estimate', () => {
     expect(later.question.itemId).toBe(n.question.itemId === 'a' ? 'b' : 'a');
   });
 
-  it('never asks items with a non-finite level, and returns null when none are left', () => {
+  it('[PLC-09] never asks items with a non-finite level, and returns null when none are left', () => {
     const rng = mulberry32(1);
     const state = startPlacement([{ itemId: 'x', level: Infinity, area: 'unknown' }], rng);
     expect(nextQuestion(state, rng)).toBeNull();
     expect(finishPlacement(state).outcomes).toEqual({ x: 'aboveEstimate' });
   });
 
-  it('keeps non-finite items above the estimate through a JSON round trip', () => {
+  it('[PLC-09, PLC-10] keeps non-finite items above the estimate through a JSON round trip', () => {
     const rng = mulberry32(1);
     const items = [...makeItems(2), { itemId: 'tiny', level: Infinity, area: 'unknown' }];
     let state = startPlacement(items, rng);
@@ -189,7 +189,7 @@ describe('placement ability estimate', () => {
     expect(finishPlacement(copy)).toEqual(finishPlacement(state));
   });
 
-  it('rejects answers for items that are not the pending question', () => {
+  it('[PLC-10, PLC-C05] rejects answers for items that are not the pending question', () => {
     const rng = mulberry32(1);
     const state = startPlacement(makeItems(2), rng);
     expect(() => answerPlacement(state, 'i0', 1)).toThrow(/not the pending/);
@@ -200,7 +200,7 @@ describe('placement ability estimate', () => {
     expect(() => answerPlacement(answered, n.question.itemId, 1)).toThrow(/not the pending/);
   });
 
-  it('keeps one question open: nextQuestion is idempotent and spends no randomness', () => {
+  it('[PLC-10, PLC-C05] keeps one question open: nextQuestion is idempotent and spends no randomness', () => {
     let calls = 0;
     const rng = () => {
       calls++;
@@ -212,7 +212,7 @@ describe('placement ability estimate', () => {
     expect(calls).toBe(1);
   });
 
-  it('survives a JSON round trip with a question pending, and finishes it as untested', () => {
+  it('[PLC-10, PLC-12] survives a JSON round trip with a question pending, and finishes it as untested', () => {
     const rng = mulberry32(2);
     const n = nextQuestion(startPlacement(makeItems(2), rng), rng)!;
     const copy = JSON.parse(JSON.stringify(n.state)) as PlacementState;
@@ -220,7 +220,7 @@ describe('placement ability estimate', () => {
     expect(finishPlacement(copy).outcomes[n.question.itemId]).toBe('aboveEstimate');
   });
 
-  it('is pure: state is JSON and is not mutated', () => {
+  it('[PLC-C05] is pure: state is JSON and is not mutated', () => {
     const rng = mulberry32(4);
     const state = startPlacement(makeItems(2), rng);
     const before = JSON.stringify(state);
@@ -232,7 +232,7 @@ describe('placement ability estimate', () => {
     expect(JSON.stringify(n.state)).toBe(mid);
   });
 
-  it('maps answered items to passed, close or failed, and untested ones by how likely they are known', () => {
+  it('[PLC-13, PLC-14] maps answered items to passed, close or failed, and untested ones by how likely they are known', () => {
     const items = makeItems(4);
     const rng = mulberry32(9);
     let state = startPlacement(items, rng);
@@ -255,7 +255,7 @@ describe('placement ability estimate', () => {
     }
   });
 
-  it('sends nothing to L3 confirmation on close misses alone: at best it starts at L2', () => {
+  it('[PLC-14] sends nothing to L3 confirmation on close misses alone: at best it starts at L2', () => {
     const { result } = run(makeItems(25), 1, () => 0.5);
     expect(result.estimate).toBeGreaterThan(0);
     const outcomes = Object.values(result.outcomes);
@@ -263,7 +263,7 @@ describe('placement ability estimate', () => {
     expect(outcomes).toContain('untestedAtOrBelow');
   });
 
-  it('only confirms levels at or below the highest one passed outright', () => {
+  it('[PLC-14] only confirms levels at or below the highest one passed outright', () => {
     // Passes at level 2 and below, close above: no level-3+ item is confirmed in review.
     const items = makeItems(25);
     const { result } = run(items, 2, (level) => (level <= 2 ? 1 : 0.5));
@@ -272,7 +272,7 @@ describe('placement ability estimate', () => {
     }
   });
 
-  it('places a level when a small pool runs out before PLACEMENT_MIN_TO_PLACE answers', () => {
+  it('[PLC-12] places a level when a small pool runs out before PLACEMENT_MIN_TO_PLACE answers', () => {
     const items = makeItems(25).filter((i) => i.level <= 5 && Number(i.itemId.slice(1)) % 25 === 0);
     expect(items.length).toBeLessThan(PLACEMENT_MIN_TO_PLACE);
     const { result, asked } = run(items, 1, () => 1);
@@ -280,7 +280,7 @@ describe('placement ability estimate', () => {
     expect(result.estimate).toBeGreaterThan(0);
   });
 
-  it('finished early with few answers, places only what it asked', () => {
+  it('[PLC-12] finished early with few answers, places only what it asked', () => {
     const rng = mulberry32(6);
     let state = startPlacement(makeItems(6), rng);
     for (const credit of [1, 1, 0.5] as const) {
@@ -294,20 +294,20 @@ describe('placement ability estimate', () => {
     expect(counts).toEqual({ passed: 2, close: 1, aboveEstimate: 48 - 3 });
   });
 
-  it('can be finished early with no answers: estimate 0, every item above it', () => {
+  it('[PLC-12] can be finished early with no answers: estimate 0, every item above it', () => {
     const result = finishPlacement(startPlacement(makeItems(1), mulberry32(1)));
     expect(result.estimate).toBe(0);
     expect(new Set(Object.values(result.outcomes))).toEqual(new Set(['aboveEstimate']));
   });
 
-  it('throws a RangeError when rng returns a value outside [0, 1)', () => {
+  it('[PLC-C05] throws a RangeError when rng returns a value outside [0, 1)', () => {
     const state = startPlacement(makeItems(1), () => 0);
     expect(() => nextQuestion(state, () => 1)).toThrow(RangeError);
     expect(() => nextQuestion(state, () => NaN)).toThrow(RangeError);
   });
 });
 
-describe('placementCredit', () => {
+describe('[PLC-05] placementCredit', () => {
   it('gives full credit to a pass, half to a close miss and none to a far one', () => {
     expect(placementCredit('country', Rating.Good, 0)).toBe(1);
     expect(placementCredit('country', Rating.Easy, undefined)).toBe(1);
@@ -319,7 +319,7 @@ describe('placementCredit', () => {
   });
 });
 
-describe('worldArea', () => {
+describe('[PLC-08, PLC-C05] worldArea', () => {
   it('buckets points into coarse world areas', () => {
     expect(worldArea([-98, 39])).toBe('north-america');
     expect(worldArea([-55, -10])).toBe('south-america');
@@ -394,10 +394,10 @@ function fixture(): Curriculum {
 const rows = (...ids: string[]): Record<string, ItemProgress> =>
   Object.fromEntries(ids.map((id) => [id, createProgress(id, T0)]));
 
-describe('placementPool', () => {
+describe('[PLC-C07] placementPool', () => {
   const c = fixture();
 
-  it('lists every country without progress, in curriculum order, at its difficulty band and area', () => {
+  it('[PLC-01] lists every country without progress, in curriculum order, at its difficulty band and area', () => {
     // france: 3 places, mean level 3; germany: 1 at level 1; tuvalu: 2, mean 4. Ranked in that
     // order and cut into 8 bands. Every fixture place sits at 0,0.
     expect(placementPool(c, {}, 'countries')).toEqual([
@@ -407,19 +407,19 @@ describe('placementPool', () => {
     ]);
   });
 
-  it('skips countries with a progress row', () => {
+  it('[PLC-01] skips countries with a progress row', () => {
     const pool = placementPool(c, rows('country:germany'), 'countries');
     expect(pool.map((i) => i.itemId)).toEqual(['country:france', 'country:tuvalu']);
   });
 
-  it('a country with a regions tier lists its regions', () => {
+  it('[PLC-02] a country with a regions tier lists its regions', () => {
     expect(placementPool(c, {}, 'country:france')).toEqual([
       { itemId: 'region:france.bretagne', level: 1, area: 'africa' },
       { itemId: 'region:france.corse', level: 5, area: 'africa' },
     ]);
   });
 
-  it('a regionless country lists its places, and a region its places', () => {
+  it('[PLC-02] a regionless country lists its places, and a region its places', () => {
     expect(placementPool(c, {}, 'country:tuvalu').map((i) => i.itemId)).toEqual(['place:funafuti', 'place:vaitupu']);
     expect(placementPool(c, {}, 'region:france.bretagne')).toEqual([
       { itemId: 'place:rennes', level: 2, area: 'africa' },
@@ -427,12 +427,12 @@ describe('placementPool', () => {
     ]);
   });
 
-  it('leaves out children that have a progress row', () => {
+  it('[PLC-02] leaves out children that have a progress row', () => {
     const pool = placementPool(c, rows('place:rennes'), 'region:france.bretagne');
     expect(pool.map((i) => i.itemId)).toEqual(['place:brest']);
   });
 
-  it('is empty for a place and throws for an unknown id', () => {
+  it('[PLC-02] is empty for a place and throws for an unknown id', () => {
     expect(placementPool(c, {}, 'place:rennes')).toEqual([]);
     expect(() => placementPool(c, {}, 'country:nowhere')).toThrow(/Unknown item/);
   });
@@ -455,7 +455,7 @@ describe('placementSeeds', () => {
     confidence: { 'country:k1': 0.99, 'country:k2': 0.9 },
   };
 
-  it('seeds passed, close and untestedAtOrBelow items in outcome order, then likelyKnown ones least certain first', () => {
+  it('[PLC-15, PLC-C06] seeds passed, close and untestedAtOrBelow items in outcome order, then likelyKnown ones least certain first', () => {
     const seeds = placementSeeds(result, {}, NOW, day);
     const at = (days: number) => new Date(NOW.getTime() + days * DAY);
     expect(seeds).toEqual([
@@ -467,7 +467,7 @@ describe('placementSeeds', () => {
     ]);
   });
 
-  it('spreads likelyKnown seeds over days, PLACEMENT_CONFIRM_PER_DAY a day', () => {
+  it('[PLC-15, PLC-C04] spreads likelyKnown seeds over days, PLACEMENT_CONFIRM_PER_DAY a day', () => {
     const n = PLACEMENT_CONFIRM_PER_DAY * 2 + 1;
     const ids = Array.from({ length: n }, (_, i) => `country:x${String(i).padStart(2, '0')}`);
     const many: PlacementResult = {
@@ -492,13 +492,13 @@ describe('placementSeeds', () => {
     }
   });
 
-  it('never seeds an item that already has progress', () => {
+  it('[PLC-16] never seeds an item that already has progress', () => {
     const seeds = placementSeeds(result, rows('country:a', 'country:k1'), NOW, day);
     expect(seeds.map((s) => s.itemId)).toEqual(['country:c', 'country:e', 'country:k2']);
   });
 });
 
-describe('isStudied', () => {
+describe('[PLC-24] isStudied', () => {
   const DAY = '2026-03-04';
   it('is false for a fresh row and for every placement seed', () => {
     expect(isStudied(createProgress('country:a', T0))).toBe(false);
@@ -519,7 +519,7 @@ describe('isStudied', () => {
   });
 });
 
-describe('canTestOut', () => {
+describe('[PLC-24, PLC-C07] canTestOut', () => {
   const c = fixture();
   const masteredFrance = { 'country:france': mastered('country:france') };
 

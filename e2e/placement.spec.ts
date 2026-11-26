@@ -20,7 +20,7 @@ async function noHorizontalScroll(page: Page) {
   expect(fits).toBe(true);
 }
 
-test('from a fresh profile, Home offers the placement test and the test ends in a result', async ({
+test('[PLC-01, PLC-03, PLC-18, PLC-20] from a fresh profile, Home offers the placement test and the test ends in a result', async ({
   page,
   isMobile,
 }) => {
@@ -53,7 +53,7 @@ test('from a fresh profile, Home offers the placement test and the test ends in 
   await expect(question(page)).toBeVisible(WAIT);
 });
 
-test('Finish now ends the test after one answer, at 390 px without horizontal scroll', async ({
+test('[PLC-18, PLC-20] Finish now ends the test after one answer, at 390 px without horizontal scroll', async ({
   page,
   isMobile,
 }) => {
@@ -67,7 +67,7 @@ test('Finish now ends the test after one answer, at 390 px without horizontal sc
   await noHorizontalScroll(page);
 });
 
-test('a test-out page for an item that is not mastered is not available', async ({ page, isMobile }) => {
+test('[PLC-23] a test-out page for an item that is not mastered is not available', async ({ page, isMobile }) => {
   await page.goto('/placement/germany');
   await expect(page.getByText('This test is not available.')).toBeVisible(WAIT);
   await expect(page.getByRole('link', { name: 'Back to the country' })).toHaveAttribute(
@@ -78,7 +78,7 @@ test('a test-out page for an item that is not mastered is not available', async 
   if (isMobile) await noHorizontalScroll(page);
 });
 
-test('Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, isMobile }) => {
+test('[PLC-22, PLC-19] Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, isMobile }) => {
   const offer = page.getByRole('link', { name: 'Take the placement test' });
   await page.goto('/');
   await expect(offer).toBeVisible(WAIT);
@@ -99,7 +99,7 @@ test('Markers: Finish now hides the Home offer; Quit keeps it', async ({ page, i
   await expect(offer).toHaveCount(0);
 });
 
-test('Quit in the middle of a question leaves Home with no pin, and taps there drop none', async ({
+test('[PLC-19] Quit in the middle of a question leaves Home with no pin, and taps there drop none', async ({
   page,
   isMobile,
 }) => {

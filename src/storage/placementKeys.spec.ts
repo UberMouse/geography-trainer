@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COUNTRIES_SCOPE, isPlacementKey, placementKey } from './placementKeys';
 
-describe('placementKey', () => {
+describe('[PLC-C08] placementKey', () => {
   it('names the countries test and a test-out by its item id', () => {
     expect(placementKey(COUNTRIES_SCOPE)).toBe('placement:countries');
     expect(placementKey('country:peru')).toBe('placement:country:peru');
@@ -9,7 +9,7 @@ describe('placementKey', () => {
   });
 });
 
-describe('isPlacementKey', () => {
+describe('[PLC-C08] isPlacementKey', () => {
   it.each(['placement:countries', 'placement:country:peru', 'placement:region:us.tx'])('accepts %s', (key) => {
     expect(isPlacementKey(key)).toBe(true);
   });
