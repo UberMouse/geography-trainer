@@ -31,14 +31,15 @@ test('from Home, a session asks L1, L2 and L3 on the globe, with the reveal’s 
     else await expect(mode(page)).toHaveAttribute('data-mode', /^(countryBorders|regionBorders)$/);
     // The target is not named on the globe before the answer.
     expect((await hook.markers(page)).filter((m) => m.kind === 'name')).toEqual([]);
-    await answer(page, isMobile, q);
+    // Unhurried, so an L1 pass climbs to L2 rather than skipping it.
+    await answer(page, isMobile, q, { slow: true });
     await expect(page.getByRole('status')).toHaveText(/^Correct/);
     if (q.rung > 1) {
       // A tap at the answer point is inside the target's polygon (or on the place).
-      await expect(page.getByTestId('reveal-km')).toHaveText(/^\d[\d.,]* km$/);
+      await expect(page.getByTestId('reveal-km')).toHaveText(/^(inside the border|\d[\d.,]* km (away|outside the border))$/);
       await expect(page.getByTestId('reveal-score')).toHaveText(/^\d+$/);
       if (q.itemId.startsWith('country:')) {
-        await expect(page.getByTestId('reveal-km')).toHaveText('0.0 km');
+        await expect(page.getByTestId('reveal-km')).toHaveText('inside the border');
         await expect(page.getByTestId('reveal-score')).toHaveText('100');
       }
     }
@@ -55,14 +56,14 @@ test('from Home, a session asks L1, L2 and L3 on the globe, with the reveal’s 
   expect([...seen].sort()).toEqual([1, 2, 3]);
 });
 
-test('a correct L1 answer brings the same item back at L2 within the next 4 questions', async ({
+test('a correct, unhurried L1 answer brings the same item back at L2 within the next 4 questions', async ({
   page,
   isMobile,
 }) => {
   await page.goto('/session');
   const first = await current(page);
   expect(first.rung).toBe(1);
-  await answer(page, isMobile, first);
+  await answer(page, isMobile, first, { slow: true });
   await next(page);
   let seenAtL2 = false;
   for (let i = 0; i < 4 && !seenAtL2; i++) {
@@ -109,7 +110,8 @@ test('a missed tap is incorrect, with its km and a low score', async ({ page, is
       await next(page);
     }
   }
-  expect(q.rung).toBe(2);
+  // L2, or L3 when the L1 answer was fast enough to skip a rung.
+  expect(q.rung).toBeGreaterThan(1);
   await answer(page, isMobile, q, { miss: true });
   await expect(page.getByRole('status')).toHaveText(/^Incorrect · Again · it is /);
   expect(Number((await page.getByTestId('reveal-km').innerText()).replace(/[^\d.]/g, ''))).toBeGreaterThan(

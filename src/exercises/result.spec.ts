@@ -2,7 +2,7 @@ import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { DATA } from './fixtures';
 import { buildExerciseItem } from './item';
-import { choiceResult, formatKm, tapResult } from './result';
+import { choiceResult, distanceText, formatKm, tapResult } from './result';
 
 const KM_PER_DEG = (Math.PI * 6371) / 180;
 
@@ -62,6 +62,16 @@ describe('tapResult on a place', () => {
     expect(r).toMatchObject({ rating: Rating.Good, correct: true });
     // round(100 · exp(-3.5 · 55.6 / 16250)) = round(98.8)
     expect(r.maptapScore).toBe(99);
+  });
+});
+
+describe('distanceText', () => {
+  it('says inside or how far outside the border for countries and regions, and how far away for places', () => {
+    expect(distanceText('country', 0)).toBe('inside the border');
+    expect(distanceText('region', 4.06)).toBe('4.1 km outside the border');
+    expect(distanceText('country', 18840.4)).toBe('18,840 km outside the border');
+    expect(distanceText('place', 0)).toBe('0.0 km away');
+    expect(distanceText('place', 21)).toBe('21 km away');
   });
 });
 

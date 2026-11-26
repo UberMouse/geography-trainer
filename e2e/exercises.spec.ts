@@ -171,7 +171,7 @@ test.describe('L2 and L3 name → tap', () => {
     await expect(confirm(page)).toBeEnabled();
     await confirm(page).click();
     await expect(verdict(page)).toHaveText(/^Correct/);
-    await expect(page.getByTestId('reveal-km')).toHaveText('0.0 km');
+    await expect(page.getByTestId('reveal-km')).toHaveText('inside the border');
     await expect(page.getByTestId('reveal-score')).toHaveText('100');
     await expect(page.getByTestId('last-score')).toHaveText('100');
     // The reveal: the tap and answer pins, the target's name, and the outline and path.

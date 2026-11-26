@@ -1,6 +1,6 @@
 import { Button, Stack, Text } from '@mantine/core';
 import type { ReactNode } from 'react';
-import { RATING_LABEL, formatKm } from './result';
+import { RATING_LABEL, distanceText } from './result';
 import type { ExerciseItem, ExerciseResult } from './types';
 
 /**
@@ -35,7 +35,7 @@ export default function Reveal({
       </Text>
       {result?.km !== undefined && (
         <Text>
-          <span data-testid="reveal-km">{formatKm(result.km)} km</span> off
+          <span data-testid="reveal-km">{distanceText(item.tier, result.km)}</span>
           {result.maptapScore !== undefined && (
             <>
               {' '}

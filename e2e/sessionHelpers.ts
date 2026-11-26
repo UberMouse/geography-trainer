@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises';
+import { MC_FAST_MS } from '../src/engine/config';
 import { globeHooked, hook, type LngLat } from './globeHook';
 import { expect, type Page } from './test';
 
@@ -55,10 +56,13 @@ export const antipode = ([lng, lat]: LngLat): LngLat => [lng > 0 ? lng - 180 : l
 /**
  * Answers the current question correctly: the named option for the choice question (L1), a tap
  * on the answer point plus Confirm (L2, L3), or with `miss` a tap at its antipode. Then waits for
- * the reveal.
+ * the reveal. With `slow`, an L1 answer waits out MC_FAST_MS first, so it is Good and climbs one
+ * rung (a faster one is Easy and skips to L3).
  */
-export async function answer(page: Page, isMobile: boolean, q: Question, { miss = false } = {}) {
+export async function answer(page: Page, isMobile: boolean, q: Question, { miss = false, slow = false } = {}) {
   if (q.rung === 1) {
+    // A learner thinking it over: deliberate time, not a wait for the app.
+    if (slow) await page.waitForTimeout(MC_FAST_MS + 250);
     await page
       .getByRole('group', { name: 'Options' })
       .getByRole('button', { name: q.name, exact: true })

@@ -66,6 +66,9 @@ export const PLACEMENT_PRIOR_SD = 2.5;
 /** How sharply knowing an item falls off with its level above the learner's ability (logistic slope). */
 export const PLACEMENT_SLOPE = 1.5;
 export const PLACEMENT_MIN_QUESTIONS = 12;
+/** A test finished early with fewer answers than this places nothing it did not ask: with few
+ * answers the estimate is mostly the prior. */
+export const PLACEMENT_MIN_TO_PLACE = 8;
 export const PLACEMENT_MAX_QUESTIONS = 20;
 /** The test stops (after PLACEMENT_MIN_QUESTIONS) once the ability's spread is below this, in levels. */
 export const PLACEMENT_STOP_SD = 0.45;

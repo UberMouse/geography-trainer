@@ -16,6 +16,7 @@ import {
   PLACEMENT_MAX_QUESTIONS,
   PLACEMENT_MIN_LEVEL,
   PLACEMENT_MIN_QUESTIONS,
+  PLACEMENT_MIN_TO_PLACE,
   PLACEMENT_NO_ESTIMATE,
   PLACEMENT_PRIOR_SD,
   PLACEMENT_PROBABLY_KNOWN,
@@ -201,14 +202,17 @@ export function answerPlacement(state: PlacementState, itemId: string, credit: P
  * items are `passed` (credit 1), `close` (0.5) or `failed` (0). An item never answered (a pending
  * question included) is placed by the probability the learner knows it, averaged over the
  * posterior: `likelyKnown` at PLACEMENT_LIKELY_KNOWN or more, `untestedAtOrBelow` at
- * PLACEMENT_PROBABLY_KNOWN or more, else `aboveEstimate`. With no answer yet nothing was shown,
- * so every untested item is `aboveEstimate`; so are items with a non-finite level. The estimate
- * is the posterior mean rounded and clamped to 0-8, and 0 when no answer earned credit.
+ * PLACEMENT_PROBABLY_KNOWN or more, else `aboveEstimate`. Until PLACEMENT_MIN_TO_PLACE answers
+ * (a test finished early) the estimate is mostly the prior, so nothing untested is placed: every
+ * untested item is `aboveEstimate` and the estimate 0. Items with a non-finite level are always
+ * `aboveEstimate`. The estimate is the posterior mean rounded and clamped to 0-8, and 0 when no
+ * answer earned credit.
  */
 export function finishPlacement(state: PlacementState): PlacementResult {
   const anyCredit = state.answers.some((a) => a.credit > 0);
+  const enough = state.answers.length >= PLACEMENT_MIN_TO_PLACE;
   const { mean } = abilityOf(state.answers);
-  const estimate = anyCredit
+  const estimate = anyCredit && enough
     ? Math.min(PLACEMENT_MAX_LEVEL, Math.max(PLACEMENT_NO_ESTIMATE, Math.round(mean)))
     : PLACEMENT_NO_ESTIMATE;
   const post = posterior(state.answers);
@@ -222,7 +226,7 @@ export function finishPlacement(state: PlacementState): PlacementResult {
       outcomes[itemId] = credit === 1 ? 'passed' : credit === 0.5 ? 'close' : 'failed';
       continue;
     }
-    const p = state.answers.length === 0 ? 0 : predictive(post, level);
+    const p = enough ? predictive(post, level) : 0;
     if (p >= PLACEMENT_LIKELY_KNOWN) {
       outcomes[itemId] = 'likelyKnown';
       confidence[itemId] = p;

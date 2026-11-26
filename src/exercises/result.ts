@@ -1,6 +1,7 @@
 import { Rating, type Grade } from 'ts-fsrs';
 import { gradeMultipleChoice, gradeTap, isPass, maptapScore } from '../engine/grading';
 import { measureTap, type LngLat } from '../maps/geo';
+import type { Tier } from '../engine/curriculum';
 import type { ExerciseItem, ExerciseResult } from './types';
 
 export const RATING_LABEL: Record<Grade, string> = {
@@ -17,6 +18,16 @@ export const RATING_LABEL: Record<Grade, string> = {
 export function formatKm(km: number): string {
   const tenths = Math.round(km * 10) / 10;
   return tenths < 10 ? tenths.toFixed(1) : Math.round(km).toLocaleString('en');
+}
+
+/**
+ * What a tap's `km` measures, for the reveal: a place's distance from its point ("12 km away"),
+ * or a country's or region's distance outside its border ("inside the border" at 0). maptap's
+ * score, shown beside it, is from the answer point instead, so the words say which this is.
+ */
+export function distanceText(tier: Tier, km: number): string {
+  if (tier === 'place') return `${formatKm(km)} km away`;
+  return km === 0 ? 'inside the border' : `${formatKm(km)} km outside the border`;
 }
 
 /** A multiple-choice answer's result: `correct` when the item itself was chosen. */

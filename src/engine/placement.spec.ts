@@ -6,6 +6,7 @@ import {
   PLACEMENT_CONFIRM_START_DAYS,
   PLACEMENT_MAX_QUESTIONS,
   PLACEMENT_MIN_QUESTIONS,
+  PLACEMENT_MIN_TO_PLACE,
   PLACEMENT_START_LEVEL,
 } from './config';
 import { buildCurriculum, type Curriculum } from './curriculum';
@@ -252,6 +253,20 @@ describe('placement ability estimate', () => {
       else if (item.level === 8) expect(outcome).toBe('aboveEstimate');
       expect(outcome === 'likelyKnown').toBe(confidence[item.itemId] !== undefined);
     }
+  });
+
+  it('finished early with few answers, places only what it asked', () => {
+    const rng = mulberry32(6);
+    let state = startPlacement(makeItems(6), rng);
+    for (const credit of [1, 1, 0.5] as const) {
+      const n = nextQuestion(state, rng)!;
+      state = answerPlacement(n.state, n.question.itemId, credit);
+    }
+    expect(state.answers.length).toBeLessThan(PLACEMENT_MIN_TO_PLACE);
+    const { estimate, outcomes } = finishPlacement(state);
+    expect(estimate).toBe(0);
+    const counts = Object.values(outcomes).reduce<Record<string, number>>((m, o) => ({ ...m, [o]: (m[o] ?? 0) + 1 }), {});
+    expect(counts).toEqual({ passed: 2, close: 1, aboveEstimate: 48 - 3 });
   });
 
   it('can be finished early with no answers: estimate 0, every item above it', () => {
