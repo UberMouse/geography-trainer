@@ -275,10 +275,10 @@ Up: GLB-38
 | Page | `<page>` |
 |---|---|
 | Progress | `Progress` |
-| a drill-down page | the country's or region's name; `Not found` for a not-found address |
+| a drill-down page | the country's or region's name; `Not found` for a not-found address; `Progress` while it loads or after its load fails |
 | a session | `Study` |
 | the placement test | `Placement test` |
-| a test-out | its heading (PLC-18), or `Test out` while unavailable |
+| a test-out | its heading (PLC-18); `Test out` while it loads, after its load fails, or while unavailable |
 | Settings | `Settings` |
 | Credits | `Credits` |
 | the playground | `Playground` |
