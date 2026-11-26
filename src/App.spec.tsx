@@ -1,7 +1,10 @@
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import App from './App';
+
+// MapLibre needs a browser: the shell renders without the map (e2e covers the globe).
+vi.mock('./maps/Globe', () => ({ default: () => <div data-testid="globe-stub" /> }));
 
 function render(path: string) {
   return renderToString(
@@ -19,6 +22,15 @@ describe('App', () => {
     expect(html).toContain('href="https://maptap.gg"');
     expect(html).toContain('Boundaries:');
     expect(html).toContain('href="https://www.naturalearthdata.com"');
+  });
+
+  it('renders the page and footer in the column, beside the one globe', () => {
+    const html = render('/');
+    expect(html.match(/data-testid="globe-stub"/g)).toHaveLength(1);
+    const column = html.indexOf('data-testid="column"');
+    expect(column).toBeGreaterThan(-1);
+    expect(html.indexOf('<h1>Geography Trainer</h1>')).toBeGreaterThan(column);
+    expect(html.indexOf('Place list courtesy of')).toBeGreaterThan(column);
   });
 
   it('renders the Progress page heading', () => {

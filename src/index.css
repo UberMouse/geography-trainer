@@ -1,47 +1,21 @@
 :root {
-  --bg: #fafafa;
-  --text: #171717;
-  --link: #1d4ed8;
-  --muted: #525252;
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121212;
-    --text: #ededed;
-    --link: #8ab4ff;
-    --muted: #a3a3a3;
-  }
+  --bg: #121212;
+  --link: #8ab4ff;
+  --muted: #a3a3a3;
+  color-scheme: dark;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* Mantine's stylesheet sets the body's colours and font (its dark scheme). */
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 a {
   color: var(--link);
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 0 16px;
-}
-
-.app-main {
-  flex: 1;
 }
 
 .app-footer {
@@ -57,25 +31,13 @@ a {
 /* Maps */
 
 :root {
-  --map-ocean: #cfe3f3;
-  --map-land: #e9e4d6;
-  --map-border: #6b6b6b;
-  --map-highlight: #f59e0b;
-  --map-reveal: #16a34a;
-  --map-point: #1d4ed8;
-  --map-pin: #dc2626;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --map-ocean: #16283a;
-    --map-land: #3b3a35;
-    --map-border: #9a9a9a;
-    --map-highlight: #d97706;
-    --map-reveal: #22c55e;
-    --map-point: #8ab4ff;
-    --map-pin: #f87171;
-  }
+  --map-ocean: #16283a;
+  --map-land: #3b3a35;
+  --map-border: #9a9a9a;
+  --map-highlight: #d97706;
+  --map-reveal: #22c55e;
+  --map-point: #8ab4ff;
+  --map-pin: #f87171;
 }
 
 .map,
@@ -179,15 +141,8 @@ a {
 /* Exercises */
 
 :root {
-  --ok: #15803d;
-  --wrong: #b91c1c;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ok: #4ade80;
-    --wrong: #f87171;
-  }
+  --ok: #4ade80;
+  --wrong: #f87171;
 }
 
 .exercise {
@@ -376,21 +331,11 @@ a {
 /* Progress map */
 
 :root {
-  --progress-locked: #d4d4d4;
-  --progress-new: #fde68a;
-  --progress-learning: #fb923c;
-  --progress-mastered: #86efac;
-  --progress-complete: #15803d;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --progress-locked: #404040;
-    --progress-new: #a16207;
-    --progress-learning: #ea580c;
-    --progress-mastered: #4d8f63;
-    --progress-complete: #4ade80;
-  }
+  --progress-locked: #404040;
+  --progress-new: #a16207;
+  --progress-learning: #ea580c;
+  --progress-mastered: #4d8f63;
+  --progress-complete: #4ade80;
 }
 
 .map.progress-map {

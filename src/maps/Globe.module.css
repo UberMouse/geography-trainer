@@ -1,0 +1,10 @@
+/* A name on the globe, after an answer: readable over any imagery. */
+.name {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 70%);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

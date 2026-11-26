@@ -1,8 +1,7 @@
-/* Phone width: the globe on top, the panel below it where the thumb is. */
+/* Phone width: the globe on top, the column below it where the thumb is. */
 .root {
   position: fixed;
   inset: 0;
-  z-index: 1;
   display: flex;
   flex-direction: column-reverse;
   height: 100dvh;
@@ -11,7 +10,7 @@
   color: var(--mantine-color-text);
 }
 
-.panel {
+.column {
   flex: none;
   max-height: 50dvh;
   overflow-y: auto;
@@ -24,13 +23,25 @@
   min-height: 50dvh;
 }
 
-/* Mantine's `sm` breakpoint (768px): the panel is a 320px column on the left. */
+/* A page without the globe at phone width: the column fills the screen. */
+.hideGlobe .globe {
+  display: none;
+}
+
+.hideGlobe .column {
+  flex: 1;
+  max-height: none;
+}
+
+/* Mantine's `sm` breakpoint (768px): the column is a 320px strip on the left. */
 @media (min-width: 48em) {
   .root {
     flex-direction: row;
   }
 
-  .panel {
+  .column,
+  .hideGlobe .column {
+    flex: none;
     width: 320px;
     max-height: none;
     border-right: 1px solid var(--mantine-color-default-border);
@@ -38,5 +49,9 @@
 
   .globe {
     min-height: 0;
+  }
+
+  .hideGlobe .globe {
+    display: block;
   }
 }

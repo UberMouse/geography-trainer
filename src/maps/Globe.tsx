@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { AreaFeature, LngLat } from './geo';
+import classes from './Globe.module.css';
 import {
   featureAt,
   featureBounds,
@@ -23,6 +24,20 @@ export interface GlobeHandle {
   /** Fly to frame the feature's main part. */
   fitFeature(feature: AreaFeature): void;
   flyTo(at: LngLat, zoom: number): void;
+  /** Fly to the opening view: the whole sphere, centred where it starts. */
+  worldView(): void;
+  /** Stop a camera flight where it has reached (and drop one held for the opening jump). */
+  stop(): void;
+}
+
+/** An HTML marker on the globe: MapLibre's default pin, or a name as text. */
+export type GlobeMarker = { kind: 'pin'; at: LngLat } | { kind: 'name'; at: LngLat; text: string };
+
+/** What the test hook reports of a marker: `reveal` for the reveal's tap and answer pins. */
+export interface MarkerReading {
+  kind: GlobeMarker['kind'] | 'reveal';
+  text: string;
+  lngLat: LngLat;
 }
 
 /** Dev builds only: what e2e specs read off the mounted globe. */
@@ -33,6 +48,10 @@ export interface GlobeTestHook {
   zoom(): number;
   /** Our layers now in the style, bottom to top (the imagery's excluded). */
   layerIds(): string[];
+  /** A number of its own for each map instance created, so a spec can tell it is the same map. */
+  instanceId(): number;
+  /** The HTML markers now on the globe, in the order they were added. */
+  markers(): MarkerReading[];
 }
 
 declare global {
@@ -45,6 +64,8 @@ export interface GlobeProps {
   mode: GlobeMode;
   /** Shown over any mode; absent or null shows none. Pass a memoised object: a new one redraws. */
   reveal?: Reveal | null;
+  /** HTML markers over any mode. Pass a memoised array: a new one re-adds them. */
+  markers?: GlobeMarker[];
   /** A tap on the globe (not a drag, not the space around it), lng in [-180, 180]. Not in progress mode. */
   onTap?: (at: LngLat) => void;
   /** Progress mode: a tap inside one of the tier's features, by id. */
@@ -65,6 +86,15 @@ const FITTED_EPSILON = 0.01;
 
 /** MapLibre's globe lets the zoom go this far below minZoom at `lat` (see the opening jump). */
 const latAllowance = (lat: number) => Math.log2(Math.cos((lat * Math.PI) / 180));
+
+/**
+ * Wide screens, as `GlobeLayout.module.css` has them (Mantine's `sm`, 768px): the attribution is
+ * written out in full there, and compact (the ⓘ button) at phone width.
+ */
+const WIDE_SCREEN = '(min-width: 48em)';
+
+/** Map instances created so far, for the test hook's `instanceId`. */
+let instancesCreated = 0;
 
 export const NO_WEBGL = "This browser can't draw the globe: WebGL is off or unsupported.";
 
@@ -95,7 +125,7 @@ function applyLayers(map: maplibregl.Map, prev: LayerSet, next: LayerSet, before
  * `reveal` on top. One map per mount; props update its layers in place. Map movement never
  * re-renders it.
  */
-export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps) {
+export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [failed, setFailed] = useState(false);
@@ -107,6 +137,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     latest.current = { mode, onTap, onSelect };
   });
   const applied = useRef({ mode: EMPTY, reveal: EMPTY });
+  // The HTML markers now on the map, for the test hook.
+  const shownMarkers = useRef(new Map<maplibregl.Marker, Omit<MarkerReading, 'lngLat'>>());
   // Camera calls through the handle before the opening jump, which would undo them: the last one
   // is held and runs right after it.
   const camera = useRef<{ opened: boolean; held: ((map: maplibregl.Map) => void) | null }>({
@@ -137,7 +169,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
         // A tap is an answer, so two quick taps are two answers, not a zoom (mouse and touch).
         doubleClickZoom: false,
         pixelRatio: Math.min(window.devicePixelRatio, 2),
-        attributionControl: { compact: false },
+        // Added below, compact or not by screen width.
+        attributionControl: false,
       });
     } catch (error) {
       console.error(error);
@@ -148,6 +181,33 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     mapRef.current = map;
+    const instanceId = ++instancesCreated;
+
+    // In full on wide screens; at phone width, compact and collapsed to the ⓘ button, so the text
+    // does not cover the sphere (MapLibre's compact control starts expanded until a drag).
+    const wide = window.matchMedia(WIDE_SCREEN);
+    let attribution: maplibregl.AttributionControl | null = null;
+    const collapseAttribution = () => {
+      const el = container.querySelector('.maplibregl-ctrl-attrib');
+      // The control turns compact once it has text, after the imagery source has loaded.
+      if (!el?.classList.contains('maplibregl-compact')) return;
+      el.classList.remove('maplibregl-compact-show');
+      map.off('styledata', collapseAttribution);
+      map.off('sourcedata', collapseAttribution);
+    };
+    const placeAttribution = () => {
+      map.off('styledata', collapseAttribution);
+      map.off('sourcedata', collapseAttribution);
+      if (attribution) map.removeControl(attribution);
+      attribution = new maplibregl.AttributionControl({ compact: !wide.matches });
+      map.addControl(attribution);
+      if (wide.matches) return;
+      map.on('styledata', collapseAttribution);
+      map.on('sourcedata', collapseAttribution);
+      collapseAttribution();
+    };
+    placeAttribution();
+    wide.addEventListener('change', placeAttribution);
 
     // Follow the screen's pixel ratio when it changes (another monitor, browser zoom). A media
     // query matches one ratio, so each change re-arms it for the new one.
@@ -194,6 +254,8 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     // MapLibre pulls it in to it. The centre stays.
     let fitted = mountZoom;
     map.on('resize', () => {
+      // Hidden (a page hides the globe at phone width): nothing to fit until it shows again.
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
       const zoom = fit();
       if (!Number.isFinite(zoom)) return;
       const allowance = latAllowance(map.getCenter().lat);
@@ -237,12 +299,19 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
               .getStyle()
               .layers.map((l) => l.id)
               .filter((id) => id.startsWith(OUR_PREFIX)),
+          instanceId: () => instanceId,
+          markers: () =>
+            [...shownMarkers.current].map(([marker, reading]) => ({
+              ...reading,
+              lngLat: marker.getLngLat().toArray() as LngLat,
+            })),
         };
       }
     });
 
     return () => {
       ratioQuery.removeEventListener('change', onRatioChange);
+      wide.removeEventListener('change', placeAttribution);
       if (import.meta.env.DEV) delete window.__globe;
       map.remove();
       mapRef.current = null;
@@ -268,12 +337,43 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
     applyLayers(map, applied.current.reveal, next);
     applied.current.reveal = next;
     if (!reveal) return;
-    const markers = [
+    const shown = shownMarkers.current;
+    const added = [
       new maplibregl.Marker({ color: '#fa5252' }).setLngLat(reveal.tap).addTo(map),
       new maplibregl.Marker({ color: '#40c057' }).setLngLat(reveal.answer).addTo(map),
     ];
-    return () => markers.forEach((m) => m.remove());
+    for (const m of added) shown.set(m, { kind: 'reveal', text: '' });
+    return () =>
+      added.forEach((m) => {
+        m.remove();
+        shown.delete(m);
+      });
   }, [reveal, readyMap]);
+
+  useEffect(() => {
+    const map = readyMap;
+    if (!map || !markers?.length) return;
+    const shown = shownMarkers.current;
+    const added = markers.map((m) => {
+      let marker: maplibregl.Marker;
+      if (m.kind === 'pin') {
+        marker = new maplibregl.Marker();
+        shown.set(marker, { kind: 'pin', text: '' });
+      } else {
+        const element = document.createElement('div');
+        element.className = classes.name!;
+        element.textContent = m.text;
+        marker = new maplibregl.Marker({ element, anchor: 'top', offset: [0, 6] });
+        shown.set(marker, { kind: 'name', text: m.text });
+      }
+      return marker.setLngLat(m.at).addTo(map);
+    });
+    return () =>
+      added.forEach((m) => {
+        m.remove();
+        shown.delete(m);
+      });
+  }, [markers, readyMap]);
 
   useImperativeHandle(ref, () => {
     const move = (call: (map: maplibregl.Map) => void) => {
@@ -286,6 +386,15 @@ export default function Globe({ mode, reveal, onTap, onSelect, ref }: GlobeProps
       fitFeature: (feature) =>
         move((map) => map.fitBounds(featureBounds(feature), { padding: FIT_PADDING })),
       flyTo: (at, zoom) => move((map) => map.flyTo({ center: at, zoom })),
+      // minZoom is the fitted zoom at the equator; the same allowance below it as the opening jump.
+      worldView: () =>
+        move((map) =>
+          map.flyTo({ center: START, zoom: map.getMinZoom() + latAllowance(START[1]) }),
+        ),
+      stop: () => {
+        camera.current.held = null;
+        mapRef.current?.stop();
+      },
     };
   }, []);
 

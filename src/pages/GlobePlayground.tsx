@@ -1,10 +1,7 @@
-import '@mantine/core/styles.css';
 import {
   Anchor,
-  Box,
   Button,
   Group,
-  MantineProvider,
   SegmentedControl,
   Select,
   SimpleGrid,
@@ -13,9 +10,8 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { useHref } from 'react-router';
-import GlobeLayout from '../components/GlobeLayout';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import {
   loadCountries,
   loadPlaces,
@@ -26,7 +22,8 @@ import {
 import { maptapScore } from '../engine/grading';
 import type { Place } from '../engine/types';
 import { answerPoint, measureTap, type IdentifiedFeature, type LngLat } from '../maps/geo';
-import Globe, { type GlobeHandle } from '../maps/Globe';
+import type { GlobeMarker } from '../maps/Globe';
+import { useGlobe } from '../maps/globeContext';
 import type { GlobeMode, GlobeModeKind, Reveal } from '../maps/globeLayers';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
@@ -69,35 +66,30 @@ function mostPopulous(places: Place[], countryId: string): Place | undefined {
 const byName = (a: RegionFeature, b: RegionFeature) =>
   a.properties.name.localeCompare(b.properties.name);
 
-/**
- * Dev-only, loaded lazily from the playground so Mantine and MapLibre stay out of every other
- * page: the globe in the globe layout, with a panel to try its modes, taps and reveal.
- */
+/** Dev-only: the playground's Globe tab, a column to try the shared globe's modes, taps and reveal. */
 export default function GlobePlayground() {
-  // Full page loads, not router links: Mantine's global styles stay once loaded, and the other
-  // tabs render without them.
-  const mapsHref = useHref('/playground');
-  const exercisesHref = useHref('/playground?mode=exercises');
   const [data, retry] = useLoaded('globe-playground', () =>
     Promise.all([loadCountries(), loadPlaces()]),
   );
   return (
-    <MantineProvider forceColorScheme="dark">
-      <Status state={data} retry={retry}>
-        {([countries, places]) => (
-          <GlobeTab
-            countries={countries.features}
-            places={places}
-            nav={
-              <Group component="nav" aria-label="Playground tabs">
-                <Anchor href={mapsHref}>Maps</Anchor>
-                <Anchor href={exercisesHref}>Exercises</Anchor>
-              </Group>
-            }
-          />
-        )}
-      </Status>
-    </MantineProvider>
+    <Status state={data} retry={retry}>
+      {([countries, places]) => (
+        <GlobeTab
+          countries={countries.features}
+          places={places}
+          nav={
+            <Group component="nav" aria-label="Playground tabs">
+              <Anchor component={Link} to="/playground">
+                Maps
+              </Anchor>
+              <Anchor component={Link} to="/playground?mode=exercises">
+                Exercises
+              </Anchor>
+            </Group>
+          }
+        />
+      )}
+    </Status>
   );
 }
 
@@ -110,7 +102,6 @@ function GlobeTab({
   places: Place[];
   nav: ReactNode;
 }) {
-  const globe = useRef<GlobeHandle>(null);
   const [modeKind, setModeKind] = useState<GlobeModeKind>('countryBorders');
   const [countryId, setCountryId] = useState(DEFAULT_COUNTRY);
   const [highlightKind, setHighlightKind] = useState<HighlightKind>('country');
@@ -187,125 +178,118 @@ function GlobeTab({
   );
   const measured = reveal ? measureTap({ feature: country, answer }, reveal.tap) : null;
 
+  // The reveal names its target on the globe.
+  const markers = useMemo(
+    (): GlobeMarker[] | undefined =>
+      reveal ? [{ kind: 'name', at: answer, text: country.properties.name }] : undefined,
+    [reveal, answer, country],
+  );
+  const globe = useGlobe({ mode, reveal, markers, onTap: setLastTap, onSelect: setSelected });
+
   const usesCountry =
     modeKind === 'regionBorders' || modeKind === 'highlight' || modeKind === 'progress';
 
   return (
-    <GlobeLayout
-      panel={
-        <Stack>
-          {nav}
-          <Title order={1} size="h3">
-            Globe playground
-          </Title>
-          {/* First, so a question's four choices fit above the fold of a phone's panel. */}
-          <SimpleGrid cols={2}>
-            {DEMO_CHOICES.map((label) => (
-              <Button key={label} variant="default" data-testid="demo-choice">
-                {label}
-              </Button>
-            ))}
-          </SimpleGrid>
+    <Stack>
+      {nav}
+      <Title order={1} size="h3">
+        Globe playground
+      </Title>
+      {/* First, so a question's four choices fit above the fold of a phone's panel. */}
+      <SimpleGrid cols={2}>
+        {DEMO_CHOICES.map((label) => (
+          <Button key={label} variant="default" data-testid="demo-choice">
+            {label}
+          </Button>
+        ))}
+      </SimpleGrid>
+      <Select
+        label="Mode"
+        data={MODES}
+        value={modeKind}
+        onChange={(v) => v && setModeKind(v as GlobeModeKind)}
+        allowDeselect={false}
+      />
+      {usesCountry ? (
+        <Select
+          label="Country"
+          searchable
+          data={countryOptions}
+          value={country.id}
+          onChange={(v) => v && setCountryId(v)}
+          allowDeselect={false}
+        />
+      ) : null}
+      {modeKind === 'highlight' ? (
+        <>
+          <SegmentedControl
+            aria-label="Highlight target"
+            value={effectiveHighlight}
+            onChange={(v) => setHighlightKind(v as HighlightKind)}
+            data={[
+              { value: 'country', label: 'Country' },
+              { value: 'region', label: 'Region', disabled: !region },
+              { value: 'place', label: 'Place', disabled: !place },
+            ]}
+          />
           <Select
-            label="Mode"
-            data={MODES}
-            value={modeKind}
-            onChange={(v) => v && setModeKind(v as GlobeModeKind)}
+            label="Region"
+            data={(regions ?? []).map((r) => ({ value: r.id, label: r.properties.name }))}
+            value={region?.id ?? null}
+            onChange={(v) => v && setRegionId(v)}
+            disabled={!regions}
+            description={hasRegions ? undefined : 'No regions tier'}
             allowDeselect={false}
           />
-          {usesCountry ? (
-            <Select
-              label="Country"
-              searchable
-              data={countryOptions}
-              value={country.id}
-              onChange={(v) => v && setCountryId(v)}
-              allowDeselect={false}
-            />
+          {effectiveHighlight === 'place' && place ? (
+            <Text size="sm">Place: {place.name}</Text>
           ) : null}
-          {modeKind === 'highlight' ? (
-            <>
-              <SegmentedControl
-                aria-label="Highlight target"
-                value={effectiveHighlight}
-                onChange={(v) => setHighlightKind(v as HighlightKind)}
-                data={[
-                  { value: 'country', label: 'Country' },
-                  { value: 'region', label: 'Region', disabled: !region },
-                  { value: 'place', label: 'Place', disabled: !place },
-                ]}
-              />
-              <Select
-                label="Region"
-                data={(regions ?? []).map((r) => ({ value: r.id, label: r.properties.name }))}
-                value={region?.id ?? null}
-                onChange={(v) => v && setRegionId(v)}
-                disabled={!regions}
-                description={hasRegions ? undefined : 'No regions tier'}
-                allowDeselect={false}
-              />
-              {effectiveHighlight === 'place' && place ? (
-                <Text size="sm">Place: {place.name}</Text>
-              ) : null}
-            </>
-          ) : null}
-          {modeKind === 'progress' ? (
-            <SegmentedControl
-              aria-label="Progress tier"
-              value={effectiveTier}
-              onChange={(v) => setTier(v as ProgressTier)}
-              data={[
-                { value: 'countries', label: 'World countries' },
-                { value: 'regions', label: 'Its regions', disabled: !regions },
-              ]}
-            />
-          ) : null}
-          {hasRegions ? (
-            <Status state={regionsState} retry={retryRegions} failure="Could not load the regions:">
-              {() => null}
-            </Status>
-          ) : null}
-          <Group>
-            <Button variant="default" onClick={() => globe.current?.fitFeature(country)}>
-              Fit country
-            </Button>
-            <Switch
-              label="Show reveal"
-              checked={showReveal}
-              onChange={(e) => setShowReveal(e.currentTarget.checked)}
-            />
-          </Group>
-          <Text size="sm">
-            Last tap:{' '}
-            <span data-testid="globe-last-tap">
-              {lastTap ? `${lastTap[0].toFixed(2)}, ${lastTap[1].toFixed(2)}` : 'none'}
-            </span>
-          </Text>
-          {measured ? (
-            <Text size="sm">
-              {measured.inside ? 'Inside' : 'Outside'} {country.properties.name},{' '}
-              {Math.round(measured.kmFromAnswer)} km from its answer point, maptap score{' '}
-              {maptapScore(measured.kmFromAnswer, measured.inside)}
-            </Text>
-          ) : null}
-          {modeKind === 'progress' ? (
-            <Text size="sm">
-              Selected: <span data-testid="globe-selected">{selected ?? 'none'}</span>
-            </Text>
-          ) : null}
-        </Stack>
-      }
-      globe={
-        <Box data-testid="globe-slot" h="100%">
-          <Globe
-            ref={globe}
-            mode={mode}
-            reveal={reveal}
-            onTap={setLastTap}
-            onSelect={setSelected}
-          />
-        </Box>
-      }
-    />
+        </>
+      ) : null}
+      {modeKind === 'progress' ? (
+        <SegmentedControl
+          aria-label="Progress tier"
+          value={effectiveTier}
+          onChange={(v) => setTier(v as ProgressTier)}
+          data={[
+            { value: 'countries', label: 'World countries' },
+            { value: 'regions', label: 'Its regions', disabled: !regions },
+          ]}
+        />
+      ) : null}
+      {hasRegions ? (
+        <Status state={regionsState} retry={retryRegions} failure="Could not load the regions:">
+          {() => null}
+        </Status>
+      ) : null}
+      <Group>
+        <Button variant="default" onClick={() => globe.fitFeature(country)}>
+          Fit country
+        </Button>
+        <Switch
+          label="Show reveal"
+          checked={showReveal}
+          onChange={(e) => setShowReveal(e.currentTarget.checked)}
+        />
+      </Group>
+      <Text size="sm">
+        Last tap:{' '}
+        <span data-testid="globe-last-tap">
+          {lastTap ? `${lastTap[0].toFixed(2)}, ${lastTap[1].toFixed(2)}` : 'none'}
+        </span>
+      </Text>
+      {measured ? (
+        <Text size="sm">
+          {measured.inside ? 'Inside' : 'Outside'} {country.properties.name},{' '}
+          {Math.round(measured.kmFromAnswer)} km from its answer point, maptap score{' '}
+          {maptapScore(measured.kmFromAnswer, measured.inside)}
+        </Text>
+      ) : null}
+      {modeKind === 'progress' ? (
+        <Text size="sm">
+          Selected: <span data-testid="globe-selected">{selected ?? 'none'}</span>
+        </Text>
+      ) : null}
+    </Stack>
   );
 }

@@ -1,6 +1,6 @@
 import { geoContains } from 'd3-geo';
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
-import { Link, useHref, useSearchParams } from 'react-router';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
   loadCountries,
   loadRegions,
@@ -14,6 +14,7 @@ import OutlineView from '../maps/OutlineView';
 import TapMap from '../maps/TapMap';
 import { parseView, type GlobeView } from '../maps/view';
 import ExercisePlayground from './ExercisePlayground';
+import GlobePlayground from './GlobePlayground';
 import Status from './LoadStatus';
 import { useLoaded } from './useLoaded';
 
@@ -25,10 +26,6 @@ function Panel({ id, title, children }: { id: string; title: string; children: R
     </section>
   );
 }
-
-// Lazy, so Mantine and its CSS load only when the Globe tab opens. Pure, so a production build,
-// where the playground route is gone, drops the call and never emits the tab's chunk.
-const GlobePlayground = /* @__PURE__ */ lazy(() => import('./GlobePlayground'));
 
 const DEFAULT_COUNTRY = 'france';
 const NO_REGIONS: RegionFeature[] = [];
@@ -51,18 +48,9 @@ export default function Playground() {
         ? 'exercises'
         : 'maps';
   const current = (on: typeof tab) => (tab === on ? 'page' : undefined);
-  // A full page load, so the Globe tab is always its own document: Mantine's global styles, once
-  // loaded, never reach the other tabs, even through Back and Forward.
-  const globeHref = useHref('/playground?mode=globe');
 
-  if (tab === 'globe') {
-    // The Globe tab covers the whole page, and its panel carries its own links to the others.
-    return (
-      <Suspense fallback={<p>Loading…</p>}>
-        <GlobePlayground />
-      </Suspense>
-    );
-  }
+  // The Globe tab's column carries its own links to the others.
+  if (tab === 'globe') return <GlobePlayground />;
 
   return (
     <>
@@ -74,7 +62,7 @@ export default function Playground() {
         <Link to="/playground?mode=exercises" aria-current={current('exercises')}>
           Exercises
         </Link>
-        <a href={globeHref}>Globe</a>
+        <Link to="/playground?mode=globe">Globe</Link>
       </nav>
       <Status state={countries} retry={retry}>
         {(data) => {

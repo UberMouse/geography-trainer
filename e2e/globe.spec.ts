@@ -1,23 +1,16 @@
+import { globeReady, hook, viewport } from './globeHook';
 import { EOX_ROUTE, expect, test, type Page } from './test';
 
 const EOX_TILE = /\/s2cloudless-2025_3857\/default\/GoogleMapsCompatible\/\d+\/\d+\/\d+\.jpg/;
 
-/** The Globe tab, once its lazily loaded module has rendered. */
+/** The playground's Globe tab, once its column has rendered. */
 async function globeTab(page: Page) {
   await page.goto('/playground?mode=globe');
   const slot = page.getByTestId('globe-slot');
   await expect(slot).toBeVisible();
-  const heading = page.getByRole('heading', { name: 'Globe playground' });
-  return { slot, panel: page.locator('section', { has: heading }) };
+  await expect(page.getByRole('heading', { name: 'Globe playground' })).toBeVisible();
+  return { slot, panel: page.getByTestId('column') };
 }
-
-const viewport = (page: Page) =>
-  page.locator('html').evaluate((el) => ({
-    width: el.clientWidth,
-    height: el.clientHeight,
-    scrollWidth: el.scrollWidth,
-    scrollHeight: el.scrollHeight,
-  }));
 
 test('wide screens put a 320px panel left of the globe, and the page does not scroll', async ({
   page,
@@ -66,7 +59,9 @@ test('phone width puts the globe above the panel, all inside the viewport', asyn
 const playgroundTab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Playground', exact: true }).getByRole('link', { name });
 
-test('the panel links back to the Maps and Exercises tabs', async ({ page }) => {
+test('the column links back to the Maps and Exercises tabs', async ({ page }) => {
+  // The Maps tab's d3 canvas maps draw in one long render, which a busy machine stretches.
+  test.slow();
   for (const [name, url] of [
     ['Maps', /\/playground$/],
     ['Exercises', /\/playground\?mode=exercises$/],
@@ -75,7 +70,9 @@ test('the panel links back to the Maps and Exercises tabs', async ({ page }) => 
     const panelNav = page.getByRole('navigation', { name: 'Playground tabs' });
     await panelNav.getByRole('link', { name, exact: true }).click();
     await expect(page).toHaveURL(url);
-    await expect(page.getByTestId('globe-slot')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Globe playground' })).toHaveCount(0, {
+      timeout: 15_000,
+    });
     await expect(playgroundTab(page, name)).toHaveAttribute('aria-current', 'page');
   }
 });
@@ -85,55 +82,35 @@ test('the playground nav opens the Globe tab, without the page heading and nav',
 }) => {
   await page.goto('/playground');
   await playgroundTab(page, 'Globe').click();
-  await expect(page.getByTestId('globe-slot')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Globe playground' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Map playground' })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Playground', exact: true })).toHaveCount(0);
 });
 
-test('Back from the Globe tab shows the Maps tab without Mantine', async ({ page }) => {
+test('Back from the Globe tab shows the Maps tab on the same globe, its settings gone', async ({
+  page,
+}) => {
   await page.goto('/playground');
+  await globeReady(page);
+  const instance = await hook.instanceId(page);
   await playgroundTab(page, 'Globe').click();
-  await expect(page.getByTestId('globe-slot')).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'countryBorders');
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-country-borders');
+  await page.getByRole('switch', { name: 'Show reveal' }).check();
   await page.goBack();
   await expect(playgroundTab(page, 'Maps')).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('html')).not.toHaveAttribute('data-mantine-color-scheme');
-  // Mantine's global stylesheet defines its --mantine-* custom properties on :root.
-  const mantineVar = await page.locator('html').evaluate((el) => {
-    const { getComputedStyle } = globalThis as unknown as {
-      getComputedStyle(el: unknown): { getPropertyValue(name: string): string };
-    };
-    return getComputedStyle(el).getPropertyValue('--mantine-z-index-app');
-  });
-  expect(mantineVar).toBe('');
+  // The Maps tab sets nothing: the bare globe, no markers, still Mantine's dark scheme.
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'bare');
+  await expect.poll(() => hook.layerIds(page)).toEqual([]);
+  expect(await hook.markers(page)).toEqual([]);
+  await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
+  expect(await hook.instanceId(page)).toBe(instance);
 });
-
-type LngLat = [number, number];
-
-/** `window.__globe`, the dev-only hook the mounted globe exposes. */
-interface GlobeHook {
-  project(at: LngLat): { x: number; y: number };
-  center(): LngLat;
-  zoom(): number;
-  layerIds(): string[];
-}
-
-/** Calls on the page's `window.__globe` (the e2e specs have no DOM types, so no `window`). */
-const hook = {
-  project: (page: Page, at: LngLat) =>
-    page.evaluate((p) => (globalThis as unknown as { __globe: GlobeHook }).__globe.project(p), at),
-  center: (page: Page) =>
-    page.evaluate(() => (globalThis as unknown as { __globe: GlobeHook }).__globe.center()),
-  zoom: (page: Page) =>
-    page.evaluate(() => (globalThis as unknown as { __globe: GlobeHook }).__globe.zoom()),
-  layerIds: (page: Page) =>
-    page.evaluate(() => (globalThis as unknown as { __globe: GlobeHook }).__globe.layerIds()),
-};
 
 /** The Globe tab once the map has loaded its style and first gone idle. */
 async function readyGlobe(page: Page) {
   const tab = await globeTab(page);
-  await expect(page.locator('[data-ready="true"]')).toHaveCount(1, { timeout: 20_000 });
+  await globeReady(page);
   const box = (await tab.slot.boundingBox())!;
   return { ...tab, box, lastTap: page.getByTestId('globe-last-tap') };
 }
@@ -189,10 +166,8 @@ test('with EOX never answering, the borders still draw and a tap still registers
   // Left hanging: the imagery never arrives.
   await page.route(EOX_ROUTE, () => {});
   await globeTab(page);
-  const layerIds = () =>
-    page.evaluate(
-      () => (globalThis as unknown as { __globe?: GlobeHook }).__globe?.layerIds() ?? [],
-    );
+  // The hook is there once the style has loaded, which does not wait for the imagery.
+  const layerIds = () => hook.layerIds(page).catch(() => []);
   await expect.poll(layerIds).toContain('gt-country-borders');
   const lastTap = page.getByTestId('globe-last-tap');
   await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
@@ -302,6 +277,30 @@ test('a tap on a reveal marker is not a tap on the globe', async ({ page, isMobi
   await (isMobile ? answer.tap() : answer.click());
   await nextFrame(page);
   await expect(lastTap).toHaveText(tapped!);
+});
+
+test('the reveal shows its pins and the target named as a marker, read through the hook', async ({
+  page,
+  isMobile,
+}) => {
+  const { lastTap } = await readyGlobe(page);
+  expect(await hook.markers(page)).toEqual([]);
+  await tapAt(page, isMobile, await hook.project(page, [2.35, 48.85]));
+  await expect(lastTap).not.toHaveText('none');
+  await page.getByRole('switch', { name: 'Show reveal' }).check();
+  await expect
+    .poll(async () => (await hook.markers(page)).map((m) => [m.kind, m.text]))
+    .toEqual([
+      ['reveal', ''],
+      ['reveal', ''],
+      ['name', 'France'],
+    ]);
+  const [tap, answer, name] = await hook.markers(page);
+  expect(Math.abs(tap!.lngLat[0] - 2.35)).toBeLessThan(0.5);
+  expect(name!.lngLat).toEqual(answer!.lngLat);
+  await expect(page.locator('.maplibregl-marker', { hasText: 'France' })).toBeVisible();
+  await page.getByRole('switch', { name: 'Show reveal' }).uncheck();
+  await expect.poll(() => hook.markers(page)).toEqual([]);
 });
 
 test('a lost WebGL context shows the message until the context comes back', async ({ page }) => {
