@@ -459,9 +459,26 @@ Scenario: a reload after answering, before Next
   Then the session carries on at the next question, not the one just answered
 
 Scenario: a reload on a summary
-  Given a round's summary is showing
+  Given a round's summary is showing, with questions left in the session
   When they reload the page
-  Then the same summary shows, and Keep going carries on with the rest of the queue
+  Then the same summary shows, with the same unlock lines and Test out links
+    And Keep going carries on with the rest of the queue
+
+Scenario: a reload on the last summary of the day
+  Given the summary of a round that left nothing to ask is showing
+  When they reload the page
+  Then the same summary shows, with the same unlock lines and Test out links
+    And it says that is everything for today, with no Keep going
+
+Scenario: a reload mid-round keeps what the round has mastered
+  Given an item was mastered earlier in the round
+  When the learner reloads the page and finishes the round
+  Then the summary still says what that item unlocked, a region naming its country
+
+Scenario: Keep going starts the next round's list afresh
+  Given a summary listed what the round unlocked
+  When the learner presses Keep going and then reloads the page
+  Then the next round's summary lists only what that round mastered
 ```
 
 ### SES-26 A saved round that cannot carry on is dropped
@@ -477,9 +494,9 @@ Scenario Outline: a fresh session is built instead
     | why                                                               |
     | it was saved on another local day                                 |
     | what was saved is not valid                                       |
-    | it has nothing left to ask                                        |
+    | it has nothing left to ask, and nothing was answered in it        |
     | progress was reset or imported, so a queued rung has no card      |
-    | a queued item is no longer in the data                            |
+    | a queued or mastered item is no longer in the data                |
     | the browser's session storage is missing or refuses access        |
 ```
 

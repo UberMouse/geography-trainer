@@ -98,7 +98,7 @@ itemsDone(run): number                // itemTotal - distinct item ids in queue;
 - `answered` keys the exercise on screen, so a skip still remounts it.
 
 ### SES-C05 The saved run
-Up: SES-25, SES-26, SES-27
+Up: SES-23, SES-24, SES-25, SES-26, SES-27
 
 The run in progress is kept in the tab's `sessionStorage` under the key
 `geography-trainer:session-run`, as JSON:
@@ -106,16 +106,35 @@ The run in progress is kept in the tab's `sessionStorage` under the key
 ```json
 { "dayKey": "2026-03-01", "run": { "queue": [{ "itemId": "country:peru", "rung": 1 }],
   "answered": 1, "answeredInRound": 1, "correctInRound": 1,
-  "asks": { "country:france": 1 }, "roundTotal": 2, "itemTotal": 2 } }
+  "asks": { "country:france": 1 }, "roundTotal": 2, "itemTotal": 2 },
+  "mastered": ["country:france"], "testable": ["country:france"] }
 ```
 
-- Written after every answer or skip (as already answered) and on Keep going; removed when the
-  Session page unmounts (leaving it). A reload runs no cleanup, so the run survives it.
-- `parseSavedRun(text, dayKey, progress, isKnown)` returns the run, or null when the text is null
-  or not JSON, `dayKey` differs, a field is missing or not a non-negative integer, a rung is not
-  1–3, the queue is empty, or a queued question is unanswerable: `isKnown(itemId)` is false, or
-  the item has progress without a card at that rung or with the rung above `highestRung`, or has
-  no progress and the rung is not 1.
+```ts
+interface SavedSession { run: SessionRun; mastered: readonly string[]; testable: readonly string[] }
+
+saveSessionRun(dayKey, run, mastered, testable): void
+parseSavedRun(text, dayKey, progress, isKnown): SavedSession | null
+loadSessionRun(dayKey, progress, isKnown): SavedSession | null
+```
+
+- `mastered` is the ids of the items that passed from not mastered to mastered in the current
+  round, in answer order; `testable` is those of them whose unlock line links to a test-out, as
+  judged when each was mastered. They are what the summary's unlock lines and Test out links are
+  drawn from.
+- Written after every answer or skip (as already answered, with that answer's mastery included)
+  and on Keep going (with `mastered` and `testable` empty); removed when the Session page unmounts
+  (leaving it). A reload runs no cleanup, so the run survives it.
+- `parseSavedRun(text, dayKey, progress, isKnown)` returns the saved session, or null when the
+  text is null or not JSON, `dayKey` differs, a field is missing or not a non-negative integer, a
+  rung is not 1–3, the queue is empty and `run.answered` is 0, or a queued question is
+  unanswerable: `isKnown(itemId)` is false, or the item has progress without a card at that rung
+  or with the rung above `highestRung`, or has no progress and the rung is not 1.
+- An empty queue with `run.answered` above 0 is the last summary of the day: it is returned, and
+  the page shows that summary rather than "nothing to study".
+- A missing `mastered` or `testable` reads as `[]` (a run saved before they existed). Either makes
+  the result null when present but not an array of strings, when it holds an id `isKnown` rejects, or,
+  for `testable`, an id not in `mastered`.
 - `loadSessionRun`, `saveSessionRun` and `clearSessionRun` swallow storage errors: a load that
   throws is null, a save or clear that throws does nothing.
 
@@ -143,9 +162,10 @@ Up: SES-10, SES-14, SES-21, SES-23
 - `questionHeader(run)`: the question number `answeredInRound + 1`, then `itemsDone(run)` of
   `itemTotal` done.
 - `countriesNeedingRegions(curriculum, questions)`: the bare ids of the countries owning a region
-  question or a place question under a region, once each in first-seen order. Only these region
-  files are loaded, at session load. Throws `Unknown item` for an id not in the curriculum, which
-  fails the load (with Retry).
+  question or a place question under a region, once each in first-seen order. At session load
+  the page passes the queued questions and, for a resumed round, its `mastered` items, so a
+  mastered region's unlock line can name it; only these region files are loaded. Throws
+  `Unknown item` for an id not in the curriculum, which fails the load (with Retry).
 - `unlockLines(curriculum, masteredIds, nameOf)`: for each distinct mastered id that unlocks a
   tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and for a region
   its country. All in `src/pages/sessionView.ts`.
