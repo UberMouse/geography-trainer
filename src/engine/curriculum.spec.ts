@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Rating } from 'ts-fsrs';
+import { Rating, type Grade } from 'ts-fsrs';
 import {
   bandDifficulty,
   buildCurriculum,
@@ -15,7 +15,14 @@ import {
 } from './curriculum';
 import realPlaces from '../../public/data/places.json';
 import realCountries from '../../public/data/countries.topo.json';
-import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
+import {
+  DIFFICULTY_LEVELS,
+  DIFFICULTY_MEAN_LEVEL_WEIGHT,
+  MASTERY_DISTINCT_DAYS,
+  REGIONS_TIER_MIN_PLACES,
+  REGIONS_TIER_MIN_REGIONS,
+} from './config';
+import { applyAnswer, createProgress, isMastered, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
 const T0 = new Date('2026-03-01T00:00:00Z');
@@ -483,5 +490,115 @@ describe('unlockedBy', () => {
     const p = { 'country:france': mastered('country:france') };
     for (const id of unlockedBy(c, 'country:france')!.childIds) expect(itemState(c, p, id)).toBe('new');
     for (const id of unlockedBy(c, 'country:germany')!.childIds) expect(itemState(c, p, id)).toBe('locked');
+  });
+});
+
+/** The committed countries, with each country's `hasRegions` as generated. */
+function committedCountries(): Country[] {
+  const geoms = (
+    realCountries as unknown as {
+      objects: { countries: { geometries: { id: string; properties: { hasRegions: boolean } }[] } };
+    }
+  ).objects.countries.geometries;
+  return geoms.map((g) => country(g.id, 0, g.properties.hasRegions));
+}
+
+describe('[CUR-02, CUR-C01] the regions tier', () => {
+  it('needs 4 regions holding a place and 15 places', () => {
+    expect(REGIONS_TIER_MIN_REGIONS).toBe(4);
+    expect(REGIONS_TIER_MIN_PLACES).toBe(15);
+  });
+
+  it('is given in the committed data to exactly the countries that meet both thresholds', () => {
+    const ps = realPlaces as unknown as Place[];
+    const regionsOf = new Map<string, Set<string>>();
+    const placesOf = new Map<string, number>();
+    for (const p of ps) {
+      placesOf.set(p.country, (placesOf.get(p.country) ?? 0) + 1);
+      if (p.region !== null) regionsOf.set(p.country, (regionsOf.get(p.country) ?? new Set()).add(p.region));
+    }
+    const all = committedCountries();
+    const tier = all.filter((c) => c.hasRegions).map((c) => c.id);
+    const meets = all
+      .filter(
+        (c) =>
+          (regionsOf.get(c.id)?.size ?? 0) >= REGIONS_TIER_MIN_REGIONS &&
+          (placesOf.get(c.id) ?? 0) >= REGIONS_TIER_MIN_PLACES,
+      )
+      .map((c) => c.id);
+    expect(tier.length).toBeGreaterThan(0);
+    expect(tier.length).toBeLessThan(all.length);
+    expect(tier).toEqual(meets);
+  });
+});
+
+describe('[CUR-04] landmarks on the committed data', () => {
+  it('makes every place type a place item under its region or country, as a city is', { timeout: 30_000 }, () => {
+    const all = committedCountries();
+    const ps = realPlaces as unknown as Place[];
+    const c = buildCurriculum(all, regionsFromPlaces(all, ps), ps);
+    const tiered = new Set(all.filter((x) => x.hasRegions).map((x) => x.id));
+    const types = new Set<string>();
+    for (const p of ps) {
+      types.add(p.type);
+      const item = c.items.get(`place:${p.id}`)!;
+      expect(item.tier).toBe('place');
+      expect(item.parent).toBe(tiered.has(p.country) ? `region:${p.region}` : `country:${p.country}`);
+      expect(c.items.get(item.parent!)!.children).toContain(item.id);
+    }
+    for (const t of ['city', 'capital', 'monument', 'mountain', 'island', 'natural_wonder', 'national_park']) {
+      expect(types, t).toContain(t);
+    }
+  });
+});
+
+describe('[CUR-13, CUR-C02] mastery', () => {
+  const ID = 'country:tuvalu';
+  const answerOn = (p: ItemProgress, day: number, rating: Grade = Rating.Good) => {
+    const now = new Date(T0.getTime() + day * DAY);
+    return applyAnswer(p, p.rung, rating, now, localDayKey(now, 0));
+  };
+  /** Climbed to the top rung on day 0, with no pass there yet. */
+  const atTopRung = () => {
+    const p = answerOn(answerOn(createProgress(ID, T0), 0), 0);
+    expect(p.rung).toBe(3);
+    expect(p.l3PassDays).toEqual([]);
+    return p;
+  };
+  const stateOf = (p: ItemProgress) => itemState(fixture(), { [ID]: p }, ID);
+
+  it('takes passes on 2 different days', () => {
+    expect(MASTERY_DISTINCT_DAYS).toBe(2);
+  });
+
+  it.each([
+    [1, 'learning'],
+    [2, 'mastered'],
+  ] as const)('an item that passed the top rung on %d day(s) is %s', (days, state) => {
+    let p = atTopRung();
+    for (let d = 0; d < days; d++) p = answerOn(p, d * 3);
+    expect(p.l3PassDays).toHaveLength(days);
+    expect(stateOf(p)).toBe(state);
+  });
+
+  it('counts two passes on one day once', () => {
+    const p = answerOn(answerOn(atTopRung(), 0), 0);
+    expect(p.l3PassDays).toHaveLength(1);
+    expect(isMastered(p)).toBe(false);
+    expect(stateOf(p)).toBe('learning');
+  });
+
+  it('keeps mastery through a later miss', () => {
+    const p = answerOn(answerOn(answerOn(atTopRung(), 0), 3), 30, Rating.Again);
+    expect(p.rung).toBe(2);
+    expect(isMastered(p)).toBe(true);
+    expect(stateOf(p)).toBe('mastered');
+  });
+});
+
+describe('[CUR-C03] difficulty constants', () => {
+  it('bands into 8 levels, weighing the mean place level by 0.4', () => {
+    expect(DIFFICULTY_LEVELS).toBe(8);
+    expect(DIFFICULTY_MEAN_LEVEL_WEIGHT).toBe(0.4);
   });
 });
