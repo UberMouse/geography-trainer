@@ -27,7 +27,7 @@ beforeAll(() => {
 
 describe('committed map data, as the loaders return it', () => {
   it(
-    'has no feature that covers more than a hemisphere (d3 winding)',
+    '[DAT-30] has no feature that covers more than a hemisphere (d3 winding)',
     { timeout: 120_000 },
     async () => {
       const { features, countries } = await loadCountries();
@@ -51,7 +51,7 @@ describe('committed map data, as the loaders return it', () => {
     },
   );
 
-  it('gives the point and zero-area countries a tappable disc', async () => {
+  it('[DAT-30] gives the point and zero-area countries a tappable disc', async () => {
     const { features } = await loadCountries();
     const bonaire = features.find((f) => f.id === 'bonaire')!;
     // The committed point, dequantized.
@@ -85,7 +85,7 @@ describe('committed map data, as the loaders return it', () => {
     expect(geoContains(vatican, answerPoint(vatican))).toBe(true);
   });
 
-  it('measures taps against France', async () => {
+  it('[DAT-31] measures taps against France', async () => {
     const { features } = await loadCountries();
     const france = features.find((f) => f.id === 'france')!;
     const target = { feature: france, answer: answerPoint(france) };
@@ -104,7 +104,7 @@ describe('committed map data, as the loaders return it', () => {
   });
 });
 
-describe('main parts of the committed countries', () => {
+describe('[DAT-31] main parts of the committed countries', () => {
   const country = async (id: string) => (await loadCountries()).features.find((f) => f.id === id)!;
 
   // A point on each island, checked against the whole country first so a miss is the main part's.
@@ -154,7 +154,7 @@ describe('main parts of the committed countries', () => {
   });
 });
 
-describe('answer points of the committed countries and regions', () => {
+describe('[DAT-30] answer points of the committed countries and regions', () => {
   it('lie inside the main part of every feature', { timeout: 600_000 }, async () => {
     const { features, countries } = await loadCountries();
     const all: AreaFeature[] = [...features];
@@ -166,7 +166,7 @@ describe('answer points of the committed countries and regions', () => {
   });
 });
 
-describe('city/county pairs are distinct items', () => {
+describe('[DAT-18] city/county pairs are distinct items', () => {
   it('have their own names, no twins, and unique candidate names without their own', async () => {
     const regions = await loadRegions('ireland');
     const data = { countries: await loadCountries(), places: await loadPlaces(), regions };

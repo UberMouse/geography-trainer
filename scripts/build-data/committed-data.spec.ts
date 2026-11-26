@@ -8,17 +8,17 @@ const dataDir = fileURLToPath(new URL('../../public/data', import.meta.url));
 
 // The committed data, against the current allow-list: a hand-edited or stale entry fails here,
 // and so does a missing data directory (no skip).
-describe('public/data', () => {
-  it('passes validation', async () => {
+describe('[DAT-29] public/data', () => {
+  it('passes validation', { timeout: 60_000 }, async () => {
     expect(
       existsSync(`${dataDir}/manifest.json`),
       `${dataDir}/manifest.json is missing: run npm run build:data and commit public/data`,
     ).toBe(true);
     expect(await validateDataDir(dataDir)).toEqual([]);
-  }, 60_000);
+  });
 });
 
-describe('public/data/regions', () => {
+describe('[DAT-18] public/data/regions', () => {
   it("no country's regions share a name", () => {
     const dir = `${dataDir}/regions`;
     const files = readdirSync(dir).filter((f) => f.endsWith('.topo.json'));

@@ -24,7 +24,7 @@ const SUBUNITS = [
 const match = (names: string[], overrides: Record<string, Override> = {}) =>
   matchCountries(names, UNITS, SUBUNITS, overrides);
 
-describe('normalizeName and slugify', () => {
+describe('[DAT-C03] normalizeName and slugify', () => {
   it('ignore case, diacritics, & versus and, and punctuation', () => {
     expect(normalizeName("Côte d'Ivoire")).toBe('cote d ivoire');
     expect(normalizeName('Turks & Caicos')).toBe(normalizeName('turks and caicos'));
@@ -35,7 +35,7 @@ describe('normalizeName and slugify', () => {
 });
 
 describe('matchCountries', () => {
-  it('matches by normalized name across diacritics and punctuation', () => {
+  it('[DAT-06] matches by normalized name across diacritics and punctuation', () => {
     const { countries } = match(["Cote d'Ivoire", 'Guinea Bissau', 'Turks & Caicos Islands']);
     expect(countries.map((c) => [c.id, c.ne, c.how])).toEqual([
       ['cote-d-ivoire', ['CIV'], 'name'],
@@ -44,7 +44,7 @@ describe('matchCountries', () => {
     ]);
   });
 
-  it('takes the UK nations from their own map units, not the ADMIN-level name', () => {
+  it('[DAT-07] takes the UK nations from their own map units, not the ADMIN-level name', () => {
     const { countries } = match(['England', 'Scotland', 'United Kingdom'], {
       'United Kingdom': { kind: 'units', codes: ['GIB', 'WSB', 'ESB'] },
     });
@@ -58,17 +58,17 @@ describe('matchCountries', () => {
     expect(uk.area?.type === 'MultiPolygon' && uk.area.coordinates).toHaveLength(3);
   });
 
-  it('applies a single-unit override', () => {
+  it('[DAT-08] applies a single-unit override', () => {
     const { countries } = match(['Türkiye'], { Türkiye: { kind: 'units', codes: ['TUR'] } });
     expect(countries).toMatchObject([{ id: 'turkiye', name: 'Türkiye', ne: ['TUR'] }]);
   });
 
-  it('unions every map unit sharing an ADMIN name', () => {
+  it('[DAT-06] unions every map unit sharing an ADMIN name', () => {
     const { countries } = match(['France']);
     expect(countries[0]!.ne).toEqual(['FXX', 'GUF']);
   });
 
-  it('gives point-only countries a circle and no geometry', () => {
+  it('[DAT-08] gives point-only countries a circle and no geometry', () => {
     const { countries } = match(['Saba'], {
       Saba: { kind: 'point', lng: -63.2, lat: 17.6, radiusKm: 4 },
     });
@@ -77,7 +77,7 @@ describe('matchCountries', () => {
     ]);
   });
 
-  it('lists explicit exclusions with their reason', () => {
+  it('[DAT-08] lists explicit exclusions with their reason', () => {
     const result = match(['England', 'Pacific Ocean'], {
       'Pacific Ocean': { kind: 'exclude', reason: 'open ocean' },
     });
@@ -85,19 +85,19 @@ describe('matchCountries', () => {
     expect(result.excluded).toEqual([{ name: 'Pacific Ocean', reason: 'open ocean' }]);
   });
 
-  it('fails listing every unmatched name', () => {
+  it('[DAT-09] fails listing every unmatched name', () => {
     expect(() => match(['England', 'Atlantis', 'Lemuria'])).toThrow(
       /2 maptap countries match no Natural Earth unit.*"Atlantis", "Lemuria"/,
     );
   });
 
-  it('fails when two countries share a unit', () => {
+  it('[DAT-09] fails when two countries share a unit', () => {
     expect(() =>
       match(['England', 'Albion'], { Albion: { kind: 'units', codes: ['ENG'] } }),
     ).toThrow(/"Albion" and "England" share Natural Earth unit\(s\) ENG/);
   });
 
-  it('lets two countries use different subunits of one geounit', () => {
+  it('[DAT-08, DAT-09] lets two countries use different subunits of one geounit', () => {
     const { countries } = match(['Ascension Island', 'Saint Helena'], {
       'Ascension Island': { kind: 'units', codes: ['BAC'], subunits: true },
       'Saint Helena': { kind: 'units', codes: ['SHS'], subunits: true },
@@ -105,14 +105,14 @@ describe('matchCountries', () => {
     expect(countries.map((c) => c.ne)).toEqual([['BAC'], ['SHS']]);
   });
 
-  it('fails on an override naming an unknown unit', () => {
+  it('[DAT-09] fails on an override naming an unknown unit', () => {
     expect(() => match(['X'], { X: { kind: 'units', codes: ['NOPE'] } })).toThrow(
       /no NE unit NOPE/,
     );
   });
 });
 
-describe('resolveBorderCountry', () => {
+describe('[DAT-10] resolveBorderCountry', () => {
   const a = polygonCountry('a', [0, 0]);
   const b = polygonCountry('b', [1, 0]);
   const point = {

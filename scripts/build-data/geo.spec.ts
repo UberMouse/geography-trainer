@@ -23,7 +23,7 @@ const UNSPLIT: Polygon = {
   ],
 };
 
-describe('areaContains', () => {
+describe('[DAT-C12] areaContains', () => {
   it('finds a point on either side of ±180 in a split polygon', () => {
     const box = bboxOf(SPLIT);
     expect(areaContains(SPLIT, box, 179.5, 0.5)).toBe(true);
@@ -32,7 +32,7 @@ describe('areaContains', () => {
   });
 });
 
-describe('distanceToEdgeKm', () => {
+describe('[DAT-C12] distanceToEdgeKm', () => {
   it('measures across ±180 to a split polygon', () => {
     expect(distanceToEdgeKm(SPLIT, -178.5, 0.5)).toBeCloseTo(55.6, 0);
     expect(distanceToEdgeKm(SPLIT, 178.5, 0.5)).toBeCloseTo(55.6, 0);
@@ -74,13 +74,13 @@ describe('distanceToEdgeKm', () => {
   });
 });
 
-describe('haversineKm', () => {
+describe('[DAT-C12] haversineKm', () => {
   it('gives great-circle km', () => {
     expect(haversineKm(0, 0, 1, 0)).toBeCloseTo(111.2, 0);
   });
 });
 
-describe('interiorPoint', () => {
+describe('[DAT-C12] interiorPoint', () => {
   const inStrictly = (area: Polygon | MultiPolygon, p: [number, number]) =>
     booleanPointInPolygon(p, area, { ignoreBoundary: true });
 

@@ -22,7 +22,7 @@ const ROWS = [
 ];
 
 describe('buildRegions', () => {
-  it('keeps admin-1 rows as they are by default, with <country>.<slug> ids', () => {
+  it('[DAT-17] keeps admin-1 rows as they are by default, with <country>.<slug> ids', () => {
     const regions = buildRegions('aland', ROWS, false);
     expect(regions.map((r) => [r.id, r.name])).toEqual([
       ['aland.coast', 'Coast'],
@@ -31,7 +31,7 @@ describe('buildRegions', () => {
     ]);
   });
 
-  it('dissolves rows by region when asked, keeping a row without one on its own', () => {
+  it('[DAT-16] dissolves rows by region when asked, keeping a row without one on its own', () => {
     const rows = [...ROWS, admin1('AAA-4', 'Far Isles', [9, 9])];
     const regions = buildRegions('aland', rows, true);
     expect(regions.map((r) => [r.id, r.units.map((u) => u.row.code)])).toEqual([
@@ -41,7 +41,7 @@ describe('buildRegions', () => {
     ]);
   });
 
-  it('keeps ids unique when two rows share a name', () => {
+  it('[DAT-17] keeps ids unique when two rows share a name', () => {
     const rows = [admin1('AAA-1', 'Limburg', [0, 0]), admin1('AAA-2', 'Limburg', [1, 0])];
     expect(buildRegions('x', rows, false).map((r) => r.id)).toEqual([
       'x.limburg-aaa-1',
@@ -50,7 +50,7 @@ describe('buildRegions', () => {
   });
 });
 
-describe('admin1Rows', () => {
+describe('[DAT-15] admin1Rows', () => {
   it("takes the country's ADM0 rows, minus another country's geounit or label point", () => {
     const home = { ...polygonCountry('home', [0, 0], 10), adm0: ['AAA'], guA3: ['AAA'] };
     const islet = { ...polygonCountry('islet', [80, 80]), guA3: ['ISL'] };
@@ -78,52 +78,52 @@ describe('assignRegion', () => {
   const regions = buildRegions('aland', ROWS, false);
   const byId = (id: string) => regions.find((r) => r.id === id)!;
 
-  it('assigns the region containing the point', () => {
+  it('[DAT-19, DAT-20] assigns the region containing the point', () => {
     const a = assignRegion(regions, 1.5, 0.5, undefined);
     expect([a.region.id, a.how]).toEqual(['aland.south', 'inside']);
     expect(adminDisagrees(a, undefined)).toBe(false);
   });
 
-  it("prefers the region maptap's admin names when the point is within tolerance of it", () => {
+  it("[DAT-19, DAT-20] prefers the region maptap's admin names when the point is within tolerance of it", () => {
     const a = assignRegion(regions, 1.95, 0.5, 'Coast');
     expect([a.region.id, a.how, a.inside?.id]).toEqual(['aland.coast', 'admin', 'aland.south']);
     expect(adminDisagrees(a, 'Coast')).toBe(true);
   });
 
-  it('keeps the point-in-polygon result when the admin region is beyond tolerance', () => {
+  it('[DAT-19, DAT-20] keeps the point-in-polygon result when the admin region is beyond tolerance', () => {
     const a = assignRegion(regions, 1.5, 0.5, 'Coast');
     expect([a.region.id, a.how]).toEqual(['aland.south', 'inside']);
     expect(adminDisagrees(a, 'Coast')).toBe(true);
   });
 
-  it('matches admin against name_en and name_alt, normalized', () => {
+  it('[DAT-19] matches admin against name_en and name_alt, normalized', () => {
     expect(assignRegion(regions, 2.05, 0.5, 'southshire').region).toBe(byId('aland.south'));
     expect(assignRegion(regions, 1.05, 0.5, 'Nordland').region).toBe(byId('aland.north'));
   });
 
-  it('matches admin against a dissolved region and its underlying rows', () => {
+  it('[DAT-19] matches admin against a dissolved region and its underlying rows', () => {
     const dissolved = buildRegions('aland', ROWS, true);
     expect(assignRegion(dissolved, 2.05, 0.5, 'Upland').region.id).toBe('aland.upland');
     expect(assignRegion(dissolved, 2.05, 0.5, 'Top').region.id).toBe('aland.upland');
   });
 
-  it('reports an admin that names no region, keeping the point-in-polygon result', () => {
+  it('[DAT-19, DAT-20] reports an admin that names no region, keeping the point-in-polygon result', () => {
     const a = assignRegion(regions, 0.5, 0.5, 'Atlantis');
     expect([a.region.id, a.how]).toEqual(['aland.north', 'inside']);
     expect(adminDisagrees(a, 'Atlantis')).toBe(true);
   });
 
-  it('agrees when admin and the point name the same region', () => {
+  it('[DAT-20] agrees when admin and the point name the same region', () => {
     expect(adminDisagrees(assignRegion(regions, 0.5, 0.5, 'North'), 'North')).toBe(false);
   });
 
-  it('snaps a point outside every region to the one with the nearest edge', () => {
+  it('[DAT-19] snaps a point outside every region to the one with the nearest edge', () => {
     const a = assignRegion(regions, 3.2, 0.5, undefined);
     expect([a.region.id, a.how]).toEqual(['aland.coast', 'snapped']);
     expect(a.snappedKm).toBeCloseTo(22.2, 0);
   });
 
-  it('reports an admin naming a region other than the one a point was snapped to', () => {
+  it('[DAT-20] reports an admin naming a region other than the one a point was snapped to', () => {
     const a = assignRegion(regions, 3.2, 0.5, 'North');
     expect([a.region.id, a.how]).toEqual(['aland.coast', 'snapped']);
     expect(adminDisagrees(a, 'North')).toBe(true);
@@ -131,7 +131,7 @@ describe('assignRegion', () => {
   });
 });
 
-describe('hasRegionsTier', () => {
+describe('[DAT-21, DAT-C07] hasRegionsTier', () => {
   it(`needs ≥ ${REGIONS_TIER_MIN_REGIONS} regions with places and ≥ ${REGIONS_TIER_MIN_PLACES} places`, () => {
     expect(REGIONS_TIER_MIN_REGIONS).toBe(4);
     expect(REGIONS_TIER_MIN_PLACES).toBe(15);
@@ -141,7 +141,7 @@ describe('hasRegionsTier', () => {
   });
 });
 
-describe('region name overrides', () => {
+describe('[DAT-18] region name overrides', () => {
   const rows = [
     admin1('AAA-1', 'Galway', [0, 0]),
     admin1('AAA-2', 'Galway', [1, 0]),
@@ -224,7 +224,7 @@ describe('region name overrides', () => {
     expect(() => assertOverridesReachRegions(overrides, new Map())).toThrow(/AAA-1/);
   });
 
-  it('rejects aliases on an override that is not a mislabel', () => {
+  it('[DAT-C08] rejects aliases on an override that is not a mislabel', () => {
     // @ts-expect-error aliases need mislabel: true
     const bad: RegionNameOverrides = { 'AAA-1': { name: 'X', reason: 'r', aliases: ['Y'] } };
     expect(bad).toBeDefined();

@@ -74,7 +74,7 @@ function problemsAfter(
   return validateData(files, allowList);
 }
 
-describe('validateData', () => {
+describe('[DAT-25] validateData', () => {
   it('passes consistent data', () => {
     expect(validateData(valid(), {})).toEqual([]);
   });
@@ -141,7 +141,7 @@ describe('validateData', () => {
     ]);
   });
 
-  it('fails when a file is over its size bound', () => {
+  it('[DAT-C11] fails when a file is over its size bound', () => {
     expect(problemsAfter((f) => (f.sizes['countries.topo.json'] = MAX_COUNTRIES_BYTES))).toEqual(
       [],
     );
@@ -178,7 +178,7 @@ describe('validateData', () => {
   });
 });
 
-describe('validateDataDir', () => {
+describe('[DAT-25] validateDataDir', () => {
   it('reads a public/data layout from disk', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'build-data-'));
     try {

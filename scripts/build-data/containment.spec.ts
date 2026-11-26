@@ -17,7 +17,7 @@ const place = (id: string, lng: number, region: string | null = null): PlaceOut 
   level: 1,
 });
 
-describe('checkContainment', () => {
+describe('[DAT-23] checkContainment', () => {
   let countries: Topology;
   let regions: Record<string, Topology>;
   const check = (places: PlaceOut[], allowList: Record<string, string> = {}) =>
@@ -38,7 +38,7 @@ describe('checkContainment', () => {
     };
   });
 
-  it('allows 10 km', () => {
+  it('[DAT-C09] allows 10 km', () => {
     expect(CONTAINMENT_TOLERANCE_KM).toBe(10);
   });
 

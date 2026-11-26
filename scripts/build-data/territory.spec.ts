@@ -29,7 +29,7 @@ const inside = (area: Area | null | undefined, lng: number) =>
   !!area && areaContains(area, bboxOf(area), lng, 0.5);
 
 describe('applyTerritoryMoves', () => {
-  it('moves an admin-1 row from A to B: its geometry and its region land in B', () => {
+  it('[DAT-11] moves an admin-1 row from A to B: its geometry and its region land in B', () => {
     const moved = applyTerritoryMoves(countries(), rows, new Map(), [
       { from: 'aaa', to: 'bbb', territory: { admin1: ['AAA-2'] }, region: 'Moved' },
     ]);
@@ -47,7 +47,7 @@ describe('applyTerritoryMoves', () => {
     expect(regionIds(1)).toEqual(['bbb.home', 'bbb.moved']);
   });
 
-  it('clips a row a disputed area straddles, giving B the clipped-off piece', () => {
+  it('[DAT-11] clips a row a disputed area straddles, giving B the clipped-off piece', () => {
     const moved = applyTerritoryMoves(
       countries(),
       rows,
@@ -66,7 +66,7 @@ describe('applyTerritoryMoves', () => {
     expect(inside(east[0]!.geometry, 1.75)).toBe(false);
   });
 
-  it('reports a sliver it leaves with the losing row', () => {
+  it('[DAT-12] reports a sliver it leaves with the losing row', () => {
     const moved = applyTerritoryMoves(
       countries(),
       rows,
@@ -79,7 +79,7 @@ describe('applyTerritoryMoves', () => {
     expect(moved.slivers[0]!.km2).toBeCloseTo(0.005 * 111.195 ** 2, -1);
   });
 
-  it('reports the sliver of a moved row left outside the territory', () => {
+  it('[DAT-12] reports the sliver of a moved row left outside the territory', () => {
     const moved = applyTerritoryMoves(
       countries(),
       rows,
@@ -92,7 +92,7 @@ describe('applyTerritoryMoves', () => {
     expect(moved.admin1.map((r) => r.code)).toEqual(['AAA-1', 'BBB-1', 'AAA-2>bbb']);
   });
 
-  it("clips the gaining country's own row by the moved territory, so its rows tile", () => {
+  it("[DAT-11] clips the gaining country's own row by the moved territory, so its rows tile", () => {
     const moved = applyTerritoryMoves(
       countries(),
       rows,
@@ -105,7 +105,7 @@ describe('applyTerritoryMoves', () => {
     expect(moved.slivers).toEqual([]);
   });
 
-  it("drops a gaining country's row the territory covers, and reports it", () => {
+  it("[DAT-12] drops a gaining country's row the territory covers, and reports it", () => {
     const moved = applyTerritoryMoves(
       countries(),
       rows,
@@ -118,7 +118,7 @@ describe('applyTerritoryMoves', () => {
     ]);
   });
 
-  it('labels a clipped row inside its rest, never on the cut, so the country keeps it', () => {
+  it('[DAT-12] labels a clipped row inside its rest, never on the cut, so the country keeps it', () => {
     // AAA-2's rest is an L whose box centre (1.5, 0.5), turf's point-on-feature, is the cut corner.
     const moved = applyTerritoryMoves(countries(), rows, disputed(rect(1.5, 0.5, 2, 1.5)), MOVE_D1);
     const east = moved.admin1.find((r) => r.code === 'AAA-2')!;
@@ -128,7 +128,7 @@ describe('applyTerritoryMoves', () => {
     expect([kept.rows.map((r) => r.code), kept.dropped]).toEqual([['AAA-1', 'AAA-2'], []]);
   });
 
-  it('fails on a territory that names no row', () => {
+  it('[DAT-13] fails on a territory that names no row', () => {
     expect(() =>
       applyTerritoryMoves(countries(), rows, new Map(), [
         { from: 'aaa', to: 'bbb', territory: { admin1: ['AAA-9'] } },

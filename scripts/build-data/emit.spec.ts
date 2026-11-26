@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type DataOut, type Manifest, publishData, toTopology } from './emit';
 import { square } from './fixtures/geometry';
 
-describe('toTopology', () => {
+describe('[DAT-22] toTopology', () => {
   it('merges point-only shapes into the object, sorted by id, with their properties', async () => {
     const topology = await toTopology('countries', [
       { id: 'zed', areas: [square(0, 0)], properties: { name: 'Zed' } },
@@ -32,7 +32,7 @@ describe('toTopology', () => {
   });
 });
 
-describe('publishData', () => {
+describe('[DAT-24] publishData', () => {
   let root: string;
   let target: string;
   let staging: string;
