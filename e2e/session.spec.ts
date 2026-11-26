@@ -93,9 +93,32 @@ test('a round ends in a summary, and progress survives a reload', async ({ page,
   await expect(page.getByRole('button', { name: 'Keep going' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible();
 
+  // The tab resumes its run: the same summary, then the rest of the queue.
   await page.reload();
+  await expect(summary(page)).toHaveText(/ of 20 right$/, WAIT);
+  await page.getByRole('button', { name: 'Keep going' }).click();
   const again = await current(page);
   expect(again.rung === 1 && again.itemId === first.itemId).toBe(false);
+});
+
+test('a reload mid-round carries on at the next question, with the round counted as before', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/session');
+  for (let i = 0; i < 3; i++) {
+    await answer(page, isMobile, await current(page), { miss: i === 1 });
+    await next(page);
+  }
+  const header = page.getByText(/^Question \d+ · \d+ of \d+ done$/);
+  await expect(header).toHaveText(/^Question 4 · /, WAIT);
+  const before = await current(page);
+  const counted = await header.innerText();
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  await page.reload();
+  await expect(header).toHaveText(counted, WAIT);
+  expect(await current(page)).toEqual(before);
 });
 
 test('a missed tap is incorrect, with its km and a low score', async ({ page, isMobile }) => {
