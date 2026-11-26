@@ -1,8 +1,8 @@
 import { Rating } from 'ts-fsrs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { answerCurrent, startRun, type SessionRun } from '../engine/sessionRun';
 import { applyAnswer, createProgress } from '../engine/srs';
-import { parseSavedRun } from './sessionRunStore';
+import { clearSessionRun, loadSessionRun, parseSavedRun, saveSessionRun } from './sessionRunStore';
 
 const NOW = new Date('2026-03-01T09:00:00Z');
 const DAY = '2026-03-01';
@@ -55,5 +55,50 @@ describe('parseSavedRun', () => {
     // An item the curriculum no longer has.
     const { progress } = midRun();
     expect(parseSavedRun(saved(DAY, run), DAY, progress, (id) => id !== 'country:peru')).toBeNull();
+  });
+});
+
+describe('[SES-C05] the saved run in sessionStorage', () => {
+  const KEY = 'geography-trainer:session-run';
+
+  /** A Map-backed stand-in for the tab's sessionStorage (the specs run in node, which has none). */
+  function memoryStorage() {
+    const items = new Map<string, string>();
+    return {
+      items,
+      getItem: (k: string) => items.get(k) ?? null,
+      setItem: (k: string, v: string) => void items.set(k, v),
+      removeItem: (k: string) => void items.delete(k),
+    };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('saves { dayKey, run } as JSON under its key, loads it back, and clears it', () => {
+    const storage = memoryStorage();
+    vi.stubGlobal('sessionStorage', storage);
+    const { run, progress } = midRun();
+    saveSessionRun(DAY, run);
+    expect([...storage.items.keys()]).toEqual([KEY]);
+    expect(JSON.parse(storage.items.get(KEY)!)).toEqual({ dayKey: DAY, run });
+    expect(loadSessionRun(DAY, progress, known)).toEqual(run);
+    clearSessionRun();
+    expect(storage.items.size).toBe(0);
+    expect(loadSessionRun(DAY, progress, known)).toBeNull();
+  });
+
+  it('[SES-26] starts afresh, without throwing, when storage is missing or refuses access', () => {
+    const { run, progress } = midRun();
+    vi.stubGlobal('sessionStorage', undefined);
+    expect(loadSessionRun(DAY, progress, known)).toBeNull();
+    const refuses = () => {
+      throw new Error('SecurityError');
+    };
+    vi.stubGlobal('sessionStorage', { getItem: refuses, setItem: refuses, removeItem: refuses });
+    expect(() => saveSessionRun(DAY, run)).not.toThrow();
+    expect(loadSessionRun(DAY, progress, known)).toBeNull();
+    expect(() => clearSessionRun()).not.toThrow();
   });
 });

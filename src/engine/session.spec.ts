@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as config from './config';
 import { DAILY_NEW_CAP } from './config';
 import {
   buildCurriculum,
@@ -306,5 +307,23 @@ describe('[SES-C02] dueQuestions', () => {
     const session = buildSession({ curriculum: cur, progress, now: NOW, introducedToday: 0 });
     expect(session).toContainEqual(due[0]);
     expect(session.length).toBeGreaterThan(due.length);
+  });
+});
+
+describe('[SES-C01] session constants', () => {
+  it('match the spec', () => {
+    expect({
+      DAILY_NEW_CAP: config.DAILY_NEW_CAP,
+      SESSION_MAX_RUN: config.SESSION_MAX_RUN,
+      SESSION_ROUND_SIZE: config.SESSION_ROUND_SIZE,
+      SESSION_REQUEUE_GAP: config.SESSION_REQUEUE_GAP,
+      SESSION_MAX_ASKS_PER_ITEM: config.SESSION_MAX_ASKS_PER_ITEM,
+    }).toEqual({
+      DAILY_NEW_CAP: 15,
+      SESSION_MAX_RUN: 2,
+      SESSION_ROUND_SIZE: 20,
+      SESSION_REQUEUE_GAP: 3,
+      SESSION_MAX_ASKS_PER_ITEM: 6,
+    });
   });
 });

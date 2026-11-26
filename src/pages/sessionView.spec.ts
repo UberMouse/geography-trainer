@@ -14,6 +14,10 @@ describe('[SES-17] questionSeed', () => {
     expect(questionSeed('country:france', 3, 7)).not.toBe(questionSeed('country:spain', 3, 7));
     expect(questionSeed('country:france', 3, 7)).not.toBe(questionSeed('country:france', 3, 8));
   });
+
+  it('[SES-C06] is 32-bit FNV-1a of salt, item and position', () => {
+    expect(questionSeed('country:france', 3, 7)).toBe(49630588);
+  });
 });
 
 describe('[SES-14, SES-C07] questionHeader', () => {
