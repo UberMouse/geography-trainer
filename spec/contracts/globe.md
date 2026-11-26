@@ -173,6 +173,8 @@ type CameraMove =
 | `pairBounds(a, b)` | `[[west, south], [east, north]]` of two points, the shorter way in longitude; across 180° east is above 180 |
 | `unionBounds(a, b)` | the narrowest box holding both, `b` tried shifted by 0 and ±360° |
 | `featureBounds(f)` | `geoBounds(mainPart(f))`, east raised by 360 when it is below west |
+| `boundsCentre(b)` | the middle of `[[west, south], [east, north]]` in longitude and latitude, longitude wrapped to [−180, 180) |
+| `featureSpanKm(f)` | for `featureBounds(f)` and its middle latitude `φ`: `max(north − south, (east − west) · cos φ) · π/180 · EARTH_RADIUS_KM`, the larger of its height and its width along `φ` |
 
 | Constant | Value | Lives in |
 |---|---|---|
