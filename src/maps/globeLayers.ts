@@ -76,10 +76,30 @@ export type GlobeMode =
   /** `regions` absent: the country has no regions tier (or they failed to load), so its outline only. */
   | { kind: 'regionBorders'; country: CountryFeature; regions?: RegionFeature[] }
   | { kind: 'highlight'; target: HighlightTarget }
-  /** One tier's features, each filled with its colour in `fills` (id → CSS colour) or left unfilled. */
-  | { kind: 'progress'; features: IdentifiedFeature[]; fills: Record<string, string> };
+  /**
+   * One tier's features, each filled with its colour in `fills` (id → colour) or left unfilled,
+   * and `dots` over them. Colours are ones MapLibre parses (hex, `rgb()`), not CSS variables.
+   */
+  | {
+      kind: 'progress';
+      features: IdentifiedFeature[];
+      fills: Record<string, string>;
+      dots?: ProgressDot[];
+    };
 
 export type GlobeModeKind = GlobeMode['kind'];
+
+/** A dot in progress mode: a place, or a country too small to see filled, by id. */
+export interface ProgressDot {
+  id: string;
+  at: LngLat;
+  colour: string;
+}
+
+/** Progress mode's dot layer, which the globe hit-tests a tap against before the features. */
+export const PROGRESS_DOTS_LAYER = 'gt-progress-dots';
+/** A progress dot's radius in CSS px, at every zoom. */
+export const PROGRESS_DOT_RADIUS = 6;
 
 /** The highlighted item with the data for its tier's context borders. */
 export type HighlightTarget =
@@ -167,13 +187,17 @@ const line = (id: string, source: string, colour: string, width: number): GlobeL
   paint: { 'line-color': colour, 'line-width': width, 'line-opacity': 0.85 },
 });
 
-const dot = (id: string, source: string, colour: string): GlobeLayer => ({
+const dot = (
+  id: string,
+  source: string,
+  colour: string | ['get', string],
+): GlobeLayer => ({
   id,
   type: 'circle',
   source,
   paint: {
     'circle-color': colour,
-    'circle-radius': 6,
+    'circle-radius': PROGRESS_DOT_RADIUS,
     'circle-stroke-color': '#ffffff',
     'circle-stroke-width': 2,
   },
@@ -235,7 +259,11 @@ function highlight(target: HighlightTarget): LayerSet {
   };
 }
 
-function progress(features: IdentifiedFeature[], fills: Record<string, string>): LayerSet {
+function progress(
+  features: IdentifiedFeature[],
+  fills: Record<string, string>,
+  dots: ProgressDot[] = [],
+): LayerSet {
   // The colour rides on each feature as a property, so one fill layer draws every one of them.
   const coloured = features.map((f) => {
     const fill = fills[f.id];
@@ -245,6 +273,14 @@ function progress(features: IdentifiedFeature[], fills: Record<string, string>):
     sources: {
       'gt-progress': collection(coloured),
       'gt-progress-borders': collection(borderLines(features)),
+      // MapLibre drops string feature ids, so the id rides as a property.
+      ...(dots.length
+        ? {
+            [PROGRESS_DOTS_LAYER]: collection(
+              dots.map(({ id, at, colour }) => ({ ...point(at), properties: { id, colour } })),
+            ),
+          }
+        : {}),
     },
     layers: [
       {
@@ -255,6 +291,8 @@ function progress(features: IdentifiedFeature[], fills: Record<string, string>):
         paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.55 },
       },
       line('gt-progress-borders', 'gt-progress-borders', BORDER, 1),
+      // Above the fills and borders; absent without dots (the globe's hit test checks for it).
+      ...(dots.length ? [dot(PROGRESS_DOTS_LAYER, PROGRESS_DOTS_LAYER, ['get', 'colour'])] : []),
     ],
   };
 }
@@ -271,7 +309,7 @@ export function modeLayers(mode: GlobeMode): LayerSet {
     case 'highlight':
       return highlight(mode.target);
     case 'progress':
-      return progress(mode.features, mode.fills);
+      return progress(mode.features, mode.fills, mode.dots);
   }
 }
 

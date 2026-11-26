@@ -14,10 +14,13 @@ import {
   MAX_ZOOM,
   modeLayers,
   OUR_PREFIX,
+  PROGRESS_DOT_RADIUS,
+  PROGRESS_DOTS_LAYER,
   revealLayers,
   SPACE_COLOUR,
   type GlobeMode,
   type LayerSet,
+  type ProgressDot,
   type Reveal,
 } from './globeLayers';
 
@@ -59,6 +62,8 @@ export interface GlobeTestHook {
   instanceId(): number;
   /** The HTML markers now on the globe, in the order they were added. */
   markers(): MarkerReading[];
+  /** In progress mode, its fills (id → colour) and dots; null in any other mode. */
+  progress(): { fills: Record<string, string>; dots: ProgressDot[] } | null;
 }
 
 declare global {
@@ -75,7 +80,7 @@ export interface GlobeProps {
   markers?: GlobeMarker[];
   /** A tap on the globe (not a drag, not the space around it), lng in [-180, 180]. Not in progress mode. */
   onTap?: (at: LngLat) => void;
-  /** Progress mode: a tap inside one of the tier's features, by id. */
+  /** Progress mode: a tap on one of its dots, else inside one of its features, by id. */
   onSelect?: (id: string) => void;
   ref?: Ref<GlobeHandle>;
 }
@@ -88,6 +93,8 @@ const START: LngLat = [0, 20];
 /** A tap whose point, unprojected and projected back, moves more than this is off the globe. */
 const OFF_GLOBE_PX = 2;
 const FIT_PADDING = 40;
+/** How far from a progress dot's centre, in CSS px, a tap still lands on it: a fingertip's slack. */
+const DOT_HIT_PX = PROGRESS_DOT_RADIUS + 8;
 /** Zoom slack when telling a view at the fitted zoom from one the user zoomed in. */
 const FITTED_EPSILON = 0.01;
 
@@ -106,6 +113,27 @@ let instancesCreated = 0;
 export const NO_WEBGL = "This browser can't draw the globe: WebGL is off or unsupported.";
 
 const EMPTY: LayerSet = { sources: {}, layers: [] };
+
+/** The id of the progress dot drawn nearest `point` and within `DOT_HIT_PX` of it, if any. */
+function dotAt(map: maplibregl.Map, point: maplibregl.Point): string | undefined {
+  if (!map.getLayer(PROGRESS_DOTS_LAYER)) return undefined;
+  const r = DOT_HIT_PX;
+  let nearest: { id: string; px: number } | undefined;
+  const hits = map.queryRenderedFeatures(
+    [
+      [point.x - r, point.y - r],
+      [point.x + r, point.y + r],
+    ],
+    { layers: [PROGRESS_DOTS_LAYER] },
+  );
+  for (const hit of hits) {
+    if (hit.geometry.type !== 'Point') continue;
+    const at = map.project(hit.geometry.coordinates as LngLat);
+    const px = Math.hypot(at.x - point.x, at.y - point.y);
+    if (px <= r && (!nearest || px < nearest.px)) nearest = { id: String(hit.properties.id), px };
+  }
+  return nearest?.id;
+}
 
 /**
  * Replace the `prev` group of our layers and sources with `next`: sources that stay get their
@@ -249,7 +277,8 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
       const { lng, lat } = e.lngLat.wrap();
       const { mode: current, onTap: tap, onSelect: select } = latest.current;
       if (current.kind === 'progress') {
-        const id = featureAt(current.features, [lng, lat]);
+        // A dot sits over the features, so a tap on it is the dot's.
+        const id = dotAt(map, e.point) ?? featureAt(current.features, [lng, lat]);
         if (id !== undefined) select?.(id);
       } else {
         tap?.([lng, lat]);
@@ -317,6 +346,12 @@ export default function Globe({ mode, reveal, markers, onTap, onSelect, ref }: G
               ...reading,
               lngLat: marker.getLngLat().toArray() as LngLat,
             })),
+          progress: () => {
+            const current = latest.current.mode;
+            return current.kind === 'progress'
+              ? { fills: current.fills, dots: current.dots ?? [] }
+              : null;
+          },
         };
       }
     });

@@ -34,7 +34,7 @@ export interface GlobeSettings {
   markers?: GlobeMarker[];
   /** A tap on the globe (not a drag, not the space around it). Not in progress mode. */
   onTap?: (at: LngLat) => void;
-  /** Progress mode: a tap inside one of the tier's features, by id. */
+  /** Progress mode: a tap on one of its dots, else inside one of its features, by id. */
   onSelect?: (id: string) => void;
 }
 

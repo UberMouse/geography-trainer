@@ -18,6 +18,13 @@ interface GlobeHook {
   layerIds(): string[];
   instanceId(): number;
   markers(): MarkerReading[];
+  progress(): ProgressReading | null;
+}
+
+/** Progress mode as the hook reports it (see `GlobeTestHook` in `src/maps/Globe.tsx`). */
+export interface ProgressReading {
+  fills: Record<string, string>;
+  dots: { id: string; at: LngLat; colour: string }[];
 }
 
 /** The page's `window.__globe` (the e2e specs have no DOM types, so no `window`). */
@@ -41,6 +48,10 @@ export const hook = {
     page.evaluate(() => (globalThis as unknown as HookWindow).__globe.instanceId()),
   markers: (page: Page) =>
     page.evaluate(() => (globalThis as unknown as HookWindow).__globe.markers()),
+  progress: (page: Page) =>
+    page.evaluate(
+      () => (globalThis as unknown as Partial<HookWindow>).__globe?.progress() ?? null,
+    ),
 };
 
 /** The page's size and how far it scrolls. */

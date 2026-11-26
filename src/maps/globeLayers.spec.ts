@@ -18,6 +18,8 @@ import {
   greatCircle,
   imageryStyle,
   modeLayers,
+  PROGRESS_DOT_RADIUS,
+  PROGRESS_DOTS_LAYER,
   revealLayers,
   type GlobeMode,
   type LayerSet,
@@ -186,12 +188,48 @@ describe('modeLayers', () => {
     expect(dataOf(set, sourceOf(set, 'gt-progress-borders')!)).toEqual(borderLines(frRegions));
   });
 
+  it('progress draws its dots as circles over the fills, each its colour, with its id as a property', () => {
+    const set = modeLayers({
+      kind: 'progress',
+      features: frRegions,
+      fills: {},
+      dots: [
+        { id: 'paris', at: [2.35, 48.85], colour: '#ff0000' },
+        { id: 'lyon', at: [4.83, 45.76], colour: '#00ff00' },
+      ],
+    });
+    expect(layerIds(set)).toEqual(['gt-progress-fill', 'gt-progress-borders', PROGRESS_DOTS_LAYER]);
+    expect(set.layers[2]).toMatchObject({
+      type: 'circle',
+      source: PROGRESS_DOTS_LAYER,
+      paint: { 'circle-color': ['get', 'colour'], 'circle-radius': PROGRESS_DOT_RADIUS },
+    });
+    const dots = dataOf(set, PROGRESS_DOTS_LAYER);
+    expect(dots.map((f) => f.geometry)).toEqual([
+      { type: 'Point', coordinates: [2.35, 48.85] },
+      { type: 'Point', coordinates: [4.83, 45.76] },
+    ]);
+    expect(dots.map((f) => f.properties)).toEqual([
+      { id: 'paris', colour: '#ff0000' },
+      { id: 'lyon', colour: '#00ff00' },
+    ]);
+  });
+
+  it('progress without dots, or with none, has no dot layer or source', () => {
+    for (const dots of [undefined, []]) {
+      const set = modeLayers({ kind: 'progress', features: frRegions, fills: {}, dots });
+      expect(layerIds(set)).not.toContain(PROGRESS_DOTS_LAYER);
+      expect(set.sources).not.toHaveProperty(PROGRESS_DOTS_LAYER);
+    }
+  });
+
   it('every layer of every mode uses only its own sources', () => {
     const modes: GlobeMode[] = [
       { kind: 'countryBorders', countries },
       { kind: 'regionBorders', country: france, regions: frRegions },
       { kind: 'highlight', target: { kind: 'place', place, country: france } },
       { kind: 'progress', features: countries, fills: {} },
+      { kind: 'progress', features: countries, fills: {}, dots: [{ id: 'a', at: [0, 0], colour: '#fff' }] },
     ];
     for (const mode of modes) {
       const set = modeLayers(mode);
