@@ -39,6 +39,13 @@ describe('mixOklab', () => {
     // Halfway from black to white is Oklab lightness 0.5: sRGB 99, not the channel midpoint 128.
     expect(mixOklab('#000000', '#ffffff', 0.5)).toBe('#636363');
   });
+
+  it("matches Chromium's color-mix(in oklab, …) between hues", () => {
+    // Read off Chromium: `color-mix(in oklab, <to> <share>, <from>)` drawn to a canvas pixel.
+    expect(mixOklab('#4d8f63', '#4ade80', 0.5)).toBe('#4eb672');
+    expect(mixOklab('#4d8f63', '#4ade80', 0.25)).toBe('#4ea26a');
+    expect(mixOklab('#a16207', '#4ade80', 0.5)).toBe('#8fa14c');
+  });
 });
 
 describe('startedCountries', () => {

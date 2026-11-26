@@ -120,6 +120,31 @@ test("a tap on a point-only country's dot, beside its few-km disc, goes to its p
   await expect(page).toHaveURL(new RegExp(`/progress/${dot.id}$`), WAIT);
 });
 
+test("a tap where a dot on the far side projects to does not open the dot's country", async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/');
+  const { dots } = await progressShowing(page, 'germany');
+  const dot = dots[0]!;
+  // Zoomed out, centred 120° of longitude from the dot: the dot is on the hidden hemisphere, and
+  // `project` still puts it inside the disc, mirrored onto the near side.
+  const [lng, lat] = dot.at;
+  await hook.jumpTo(page, [lng > 0 ? lng - 120 : lng + 120, lat], 0);
+  await page.evaluate(() => {
+    const frame = (globalThis as unknown as { requestAnimationFrame(cb: () => void): void })
+      .requestAnimationFrame;
+    return new Promise<void>((done) => frame(() => frame(done)));
+  });
+  const { x, y } = await hook.project(page, dot.at);
+  const slot = (await page.getByTestId('globe-slot').boundingBox())!;
+  expect(x > slot.x && x < slot.x + slot.width && y > slot.y && y < slot.y + slot.height).toBe(true);
+  await tap(page, isMobile, x, y);
+  // Give a wrong selection time to navigate before checking it did not.
+  await page.waitForTimeout(1_000);
+  await expect(page).not.toHaveURL(new RegExp(`/progress/${dot.id}$`));
+});
+
 test('a country can be opened from the Go to a country control using only the keyboard', async ({
   page,
 }) => {

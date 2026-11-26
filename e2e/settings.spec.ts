@@ -43,6 +43,9 @@ test('import and reset each ask in a dialog; reset needs "reset" typed, then cle
   await expect(confirm).toContainText('This browser: nothing started.');
   await confirm.getByRole('button', { name: 'Cancel' }).click();
   await expect(confirm).toBeHidden();
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await expect(page.getByTestId('today-learned')).toHaveText('0', WAIT);
+  await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByLabel('Import progress').setInputFiles(file);
   await confirm.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
