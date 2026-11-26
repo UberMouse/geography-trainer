@@ -1,4 +1,5 @@
 import { Button, Stack, Text } from '@mantine/core';
+import type { ReactNode } from 'react';
 import { RATING_LABEL, formatKm } from './result';
 import type { ExerciseItem, ExerciseResult } from './types';
 
@@ -11,10 +12,13 @@ export default function Reveal({
   item,
   result,
   onNext,
+  note,
 }: {
   item: ExerciseItem;
   result: ExerciseResult | null;
   onNext: () => void;
+  /** Shown above Next once answered. */
+  note?: ReactNode;
 }) {
   return (
     <Stack gap="xs">
@@ -40,6 +44,7 @@ export default function Reveal({
           )}
         </Text>
       )}
+      {result && note}
       {result && (
         <Button onClick={onNext} autoFocus>
           Next

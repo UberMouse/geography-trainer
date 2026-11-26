@@ -6,17 +6,19 @@ import { emptyPoolText, placementHeader, resultLines, saveFailureText, type Plac
 /** A result with the given number of items of each outcome. */
 function result(
   estimate: number,
-  n: { passed?: number; below?: number; failed?: number; above?: number },
+  n: { passed?: number; known?: number; close?: number; below?: number; failed?: number; above?: number },
 ): PlacementResult {
   const outcomes: Record<string, PlacementOutcome> = {};
   const add = (count: number | undefined, outcome: PlacementOutcome) => {
     for (let i = 0; i < (count ?? 0); i++) outcomes[`${outcome}:${i}`] = outcome;
   };
   add(n.passed, 'passed');
+  add(n.known, 'likelyKnown');
+  add(n.close, 'close');
   add(n.below, 'untestedAtOrBelow');
   add(n.failed, 'failed');
   add(n.above, 'aboveEstimate');
-  return { estimate, outcomes };
+  return { estimate, outcomes, confidence: {} };
 }
 
 describe('placementHeader', () => {
@@ -76,8 +78,23 @@ describe('resultLines', () => {
     expect(resultLines(result(5, { passed: 4, below: 12, failed: 1, above: 30 }), 'countries')).toEqual([
       'Your level: 5 of 8.',
       '4 countries you got right come back within a couple of days to confirm.',
-      '12 countries at or below your level start at tapping on a bordered map.',
+      '12 countries you probably know start at tapping on a bordered map.',
       'The other 31 start from the beginning.',
+    ]);
+  });
+
+  it('says what the likely-known and close countries do', () => {
+    expect(resultLines(result(6, { passed: 9, known: 120, close: 3, below: 10, failed: 2, above: 90 }), 'countries')).toEqual([
+      'Your level: 6 of 8.',
+      '9 countries you got right come back within a couple of days to confirm.',
+      '120 countries you very likely know come back one at a time over the next few weeks to confirm.',
+      '13 countries you were close on or probably know start at tapping on a bordered map.',
+      'The other 92 start from the beginning.',
+    ]);
+    expect(resultLines(result(0, { close: 2, failed: 3 }), 'countries')).toEqual([
+      'No level placed yet.',
+      '2 countries you were close on start at tapping on a bordered map.',
+      'The other 3 start from the beginning.',
     ]);
   });
 
@@ -85,7 +102,7 @@ describe('resultLines', () => {
     expect(resultLines(result(3, { passed: 1, below: 1, above: 1 }), 'countries')).toEqual([
       'Your level: 3 of 8.',
       '1 country you got right comes back within a couple of days to confirm.',
-      '1 country at or below your level starts at tapping on a bordered map.',
+      '1 country you probably know starts at tapping on a bordered map.',
       'The other 1 starts from the beginning.',
     ]);
   });
@@ -97,7 +114,7 @@ describe('resultLines', () => {
     ]);
     expect(resultLines(result(4, { below: 3 }), 'countries')).toEqual([
       'Your level: 4 of 8.',
-      '3 countries at or below your level start at tapping on a bordered map.',
+      '3 countries you probably know start at tapping on a bordered map.',
     ]);
     expect(resultLines(result(4, { failed: 2 }), 'countries')).toEqual([
       'Your level: 4 of 8.',
@@ -117,13 +134,13 @@ describe('resultLines', () => {
   it('words an estimate of 0 with something placed or left over as no level yet, then the rest', () => {
     expect(resultLines(result(0, { below: 1, failed: 3, above: 5 }), 'countries')).toEqual([
       'No level placed yet.',
-      '1 country at or below your level starts at tapping on a bordered map.',
+      '1 country you probably know starts at tapping on a bordered map.',
       'The other 8 start from the beginning.',
     ]);
     expect(resultLines(result(0, { passed: 1, below: 2, failed: 1 }), 'countries')).toEqual([
       'No level placed yet.',
       '1 country you got right comes back within a couple of days to confirm.',
-      '2 countries at or below your level start at tapping on a bordered map.',
+      '2 countries you probably know start at tapping on a bordered map.',
       'The other 1 starts from the beginning.',
     ]);
   });
@@ -135,6 +152,6 @@ describe('resultLines', () => {
   ])('names the %s tier', (tier, one, many) => {
     const lines = resultLines(result(6, { passed: 1, below: 2 }), tier);
     expect(lines[1]).toBe(`1 ${one} you got right comes back within a couple of days to confirm.`);
-    expect(lines[2]).toBe(`2 ${many} at or below your level start at tapping on a bordered map.`);
+    expect(lines[2]).toBe(`2 ${many} you probably know start at tapping on a bordered map.`);
   });
 });

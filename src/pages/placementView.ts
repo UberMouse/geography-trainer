@@ -54,9 +54,11 @@ export const NOTHING_TO_ASK_TEXT = 'There are no questions to ask here yet.';
 export function resultLines(result: PlacementResult, tier: PlacementTier): string[] {
   const outcomes = Object.values(result.outcomes);
   const passed = outcomes.filter((o) => o === 'passed').length;
+  const known = outcomes.filter((o) => o === 'likelyKnown').length;
+  const close = outcomes.filter((o) => o === 'close').length;
   const below = outcomes.filter((o) => o === 'untestedAtOrBelow').length;
-  const rest = outcomes.length - passed - below;
-  if (result.estimate === 0 && passed === 0 && below === 0) {
+  const rest = outcomes.length - passed - known - close - below;
+  if (result.estimate === 0 && passed + known + close + below === 0) {
     return ['No level placed yet: everything starts from the beginning.'];
   }
   const lines = [result.estimate === 0 ? 'No level placed yet.' : `Your level: ${result.estimate} of ${PLACEMENT_MAX_LEVEL}.`];
@@ -64,9 +66,14 @@ export function resultLines(result: PlacementResult, tier: PlacementTier): strin
     const verb = passed === 1 ? 'comes' : 'come';
     lines.push(`${count(passed, tier)} you got right ${verb} back within a couple of days to confirm.`);
   }
-  if (below > 0) {
-    const verb = below === 1 ? 'starts' : 'start';
-    lines.push(`${count(below, tier)} at or below your level ${verb} at tapping on a bordered map.`);
+  if (known > 0) {
+    const verb = known === 1 ? 'comes' : 'come';
+    lines.push(`${count(known, tier)} you very likely know ${verb} back one at a time over the next few weeks to confirm.`);
+  }
+  if (close + below > 0) {
+    const verb = close + below === 1 ? 'starts' : 'start';
+    const who = close > 0 && below > 0 ? 'you were close on or probably know' : close > 0 ? 'you were close on' : 'you probably know';
+    lines.push(`${count(close + below, tier)} ${who} ${verb} at tapping on a bordered map.`);
   }
   if (rest > 0) lines.push(`The other ${rest} ${rest === 1 ? 'starts' : 'start'} from the beginning.`);
   return lines;

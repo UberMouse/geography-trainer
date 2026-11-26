@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
 import {
+  bandDifficulty,
   buildCurriculum,
   itemState,
   masteredShare,
@@ -90,13 +91,34 @@ describe('buildCurriculum', () => {
     expect(c.items.size).toBe(2);
   });
 
-  it('derives difficulty from the minimum place level and counts places per country', () => {
+  it("bands countries among countries and regions among their country's, and counts places per country", () => {
     const c = fixture();
     expect(c.items.get('place:brest')!.difficulty).toBe(3);
-    expect(c.items.get('region:france.bretagne')!.difficulty).toBe(2);
-    expect(c.items.get('country:france')!.difficulty).toBe(2);
-    expect(c.items.get('region:france.corse')!.difficulty).toBe(4);
+    // germany (2 places, mean 1.5), france (3, mean 3), tuvalu (1, mean 3): bands 1, 3, 6 of 8.
+    expect(c.items.get('country:germany')!.difficulty).toBe(1);
+    expect(c.items.get('country:france')!.difficulty).toBe(3);
+    expect(c.items.get('country:tuvalu')!.difficulty).toBe(6);
+    // bretagne (2, mean 2.5) before corse (1, mean 4) within france; bayern alone in germany.
+    expect(c.items.get('region:france.bretagne')!.difficulty).toBe(1);
+    expect(c.items.get('region:france.corse')!.difficulty).toBe(5);
+    expect(c.items.get('region:germany.bayern')!.difficulty).toBe(1);
     expect(c.countryPlaceCount.get('country:france')).toBe(3);
+  });
+
+  it('gives a country and a region the spherical mean of its places as its centre', () => {
+    const c = buildCurriculum(
+      [country('fiji', 2, false)],
+      [],
+      [
+        { ...place('a', 'fiji', null, 1), lng: 179, lat: -17 },
+        { ...place('b', 'fiji', null, 1), lng: -179, lat: -17 },
+      ],
+    );
+    const [lng, lat] = c.items.get('country:fiji')!.center!;
+    // Across the antimeridian: 180, not 0.
+    expect(Math.abs(Math.abs(lng) - 180)).toBeLessThan(1e-6);
+    expect(lat).toBeCloseTo(-17, 1);
+    expect(c.items.get('place:a')!.center).toEqual([179, -17]);
   });
 
   it('leaves out regions with no places, including those of a country without a regions tier', () => {
@@ -267,8 +289,8 @@ describe('newItems', () => {
         place('pc3', 'c', null, 5),
       ],
     );
-    // All three countries have difficulty 2: b and c (3 places) before a (1), b before c by id
-    // (c is inserted first, so only the id key can put b ahead).
+    // b and c (3 places, mean 4) rank before a (1 place, mean 2), b before c by id (c is inserted
+    // first, so only the id key can put b ahead).
     expect(ids(newItems(c, {}))).toEqual(['country:b', 'country:c', 'country:a']);
   });
 
@@ -285,13 +307,39 @@ describe('newItems', () => {
   it('sorts across tiers and ignores the place-type filter for difficulty and counts', () => {
     const progress = { 'country:france': mastered('country:france') };
     const got = ids(newItems(fixture(), progress, { placeTypes: new Set(['city', 'monument', 'capital']) }));
-    // Difficulties: germany 1, bretagne 2, tuvalu 3, corse 4 (the empty crozet is not an item).
+    // Difficulties: bretagne 1 (france has 3 places), germany 1 (2 places), corse 5, tuvalu 6
+    // (the empty crozet is not an item).
     expect(got).toEqual([
-      'country:germany',
       'region:france.bretagne',
-      'country:tuvalu',
+      'country:germany',
       'region:france.corse',
+      'country:tuvalu',
     ]);
+  });
+});
+
+describe('bandDifficulty', () => {
+  it('cuts the ranking into 8 equal bands, easiest first, and gives an item with no places Infinity', () => {
+    const stats = new Map<string, { count: number; meanLevel: number }>(
+      Array.from({ length: 16 }, (_, i) => [`c${String(i).padStart(2, '0')}`, { count: 16 - i, meanLevel: 3 }] as const),
+    );
+    stats.set('empty', { count: 0, meanLevel: 0 });
+    const bands = bandDifficulty(stats);
+    expect(bands.get('c00')).toBe(1);
+    expect(bands.get('c01')).toBe(1);
+    expect(bands.get('c02')).toBe(2);
+    expect(bands.get('c15')).toBe(8);
+    expect(bands.get('empty')).toBe(Infinity);
+  });
+
+  it('weighs place levels too: fewer, harder places rank harder', () => {
+    const bands = bandDifficulty(
+      new Map([
+        ['famous', { count: 10, meanLevel: 3 }],
+        ['obscure', { count: 10, meanLevel: 7 }],
+      ]),
+    );
+    expect(bands.get('famous')!).toBeLessThan(bands.get('obscure')!);
   });
 });
 
@@ -325,6 +373,18 @@ describe('the committed data', () => {
     expect(regions.length).toBeGreaterThan(0);
     const c = buildCurriculum(all, regions, ps);
     expect(c.items.size).toBeGreaterThan(ps.length);
+
+    // Countries spread evenly over the 8 bands, famous ones at the easy end.
+    const countries = [...c.items.values()].filter((i) => i.tier === 'country' && Number.isFinite(i.difficulty));
+    for (let band = 1; band <= 8; band++) {
+      const n = countries.filter((i) => i.difficulty === band).length;
+      expect(n, `band ${band}`).toBeGreaterThanOrEqual(Math.floor(countries.length / 8));
+      expect(n, `band ${band}`).toBeLessThanOrEqual(Math.ceil(countries.length / 8));
+    }
+    const level = (id: string) => c.items.get(`country:${id}`)!.difficulty;
+    for (const id of ['united-states', 'china', 'brazil', 'japan', 'france']) expect(level(id), id).toBe(1);
+    for (const id of ['djibouti', 'lithuania', 'paraguay']) expect(level(id), id).toBeGreaterThanOrEqual(4);
+    expect(level('tuvalu')).toBeGreaterThanOrEqual(7);
   }, 30_000);
 });
 

@@ -47,14 +47,36 @@ export const SESSION_REQUEUE_GAP = 3;
 /** An item is answered at most this many times in one session. */
 export const SESSION_MAX_ASKS_PER_ITEM = 6;
 
-// Placement staircase.
+// Difficulty. A country's difficulty is its band (1-DIFFICULTY_LEVELS) when every country is ranked
+// by `-ln(place count) + DIFFICULTY_MEAN_LEVEL_WEIGHT * mean place level`: maptap asks more about
+// the countries people know, and their places are easier. A region is banded the same way among its
+// country's regions.
+export const DIFFICULTY_LEVELS = 8;
+export const DIFFICULTY_MEAN_LEVEL_WEIGHT = 0.4;
+
+// Placement: an ability estimate over a grid, updated after every answer.
 export const PLACEMENT_MIN_LEVEL = 1;
-export const PLACEMENT_MAX_LEVEL = 8;
-/** The estimate when nothing was passed: no level was shown, below PLACEMENT_MIN_LEVEL. */
+export const PLACEMENT_MAX_LEVEL = DIFFICULTY_LEVELS;
+/** The estimate when nothing was shown: below PLACEMENT_MIN_LEVEL. */
 export const PLACEMENT_NO_ESTIMATE = 0;
+/** The prior's centre: where the first question aims. */
 export const PLACEMENT_START_LEVEL = 4;
+/** The prior's spread, in levels. */
+export const PLACEMENT_PRIOR_SD = 2.5;
+/** How sharply knowing an item falls off with its level above the learner's ability (logistic slope). */
+export const PLACEMENT_SLOPE = 1.5;
+export const PLACEMENT_MIN_QUESTIONS = 12;
 export const PLACEMENT_MAX_QUESTIONS = 20;
-/** The test stops once the staircase has turned this many times. */
-export const PLACEMENT_REVERSALS = 6;
-/** The estimate is the mean level of this many most recent reversals. */
-export const PLACEMENT_ESTIMATE_REVERSALS = 4;
+/** The test stops (after PLACEMENT_MIN_QUESTIONS) once the ability's spread is below this, in levels. */
+export const PLACEMENT_STOP_SD = 0.45;
+/** A miss this close still shows the learner roughly knows where it is: half credit. Countries
+ * and regions measure outside the border, places from the point. */
+export const PLACEMENT_CLOSE_KM = { country: 400, region: 150, place: 200 } as const;
+/** An untested item the learner knows with at least this probability is sent to L3 review to confirm. */
+export const PLACEMENT_LIKELY_KNOWN = 0.85;
+/** ...and with at least this probability (below the one above) it starts at L2. */
+export const PLACEMENT_PROBABLY_KNOWN = 0.5;
+/** Confirmation reviews start this many days after the test... */
+export const PLACEMENT_CONFIRM_START_DAYS = 2;
+/** ...and at most this many fall due per day, least certain first. */
+export const PLACEMENT_CONFIRM_PER_DAY = 6;

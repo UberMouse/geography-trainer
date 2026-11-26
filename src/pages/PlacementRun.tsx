@@ -5,14 +5,15 @@ import {
   answerPlacement,
   finishPlacement,
   nextQuestion,
+  placementCredit,
   placementSeeds,
   startPlacement,
+  type PlacementCredit,
   type PlacementItem,
   type PlacementQuestion,
   type PlacementResult,
   type PlacementState,
 } from '../engine/placement';
-import { isPass } from '../engine/grading';
 import { localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import Exercise from '../exercises/Exercise';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
@@ -58,6 +59,8 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   );
   // The state after the current question's answer; it replaces `asking` when the learner presses Next.
   const [answered, setAnswered] = useState<PlacementState | null>(null);
+  // The credit the answer on screen earned, for the note under its reveal.
+  const [credit, setCredit] = useState<PlacementCredit | null>(null);
   // Set when the test has ended: the result, and how saving its seeds is going.
   const [ended, setEnded] = useState<PlacementResult | null>(null);
   const [saving, setSaving] = useState<{ status: 'saving' | 'saved' } | { status: 'failed'; error: string }>(
@@ -169,9 +172,11 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   const item = items.get(question.itemId)!;
 
   const onAnswer = (result: ExerciseResult) => {
-    const after = answerPlacement(asking!.state, question.itemId, result.rating);
+    const earned = placementCredit(item.tier, result.rating, result.km);
+    const after = answerPlacement(asking!.state, question.itemId, earned);
     setAnswered(after);
-    if (!isPass(result.rating)) return;
+    setCredit(earned);
+    if (earned !== 1) return;
     // A pass is stored at once, so quitting partway keeps it.
     const now = new Date();
     progressStore.seedProgress([seedFromPlacement(question.itemId, 'passed', now, dayKeyOf(now))]).then(
@@ -187,6 +192,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
     if (!answered) return;
     const following = nextQuestion(answered, Math.random);
     setAnswered(null);
+    setCredit(null);
     if (following) setAsking(following);
     else finish(answered);
   };
@@ -220,6 +226,13 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           onAnswer={onAnswer}
           onNext={onNext}
           opening={position === 0}
+          note={
+            credit === 0.5 && (
+              <Text c="yellow" data-testid="placement-close">
+                Close: that counts as roughly knowing where it is.
+              </Text>
+            )
+          }
         />
       </div>
       {saveFailure !== null && <Alert color="red">{saveFailure}</Alert>}

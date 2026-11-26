@@ -1,5 +1,5 @@
 import { Button, SimpleGrid, Stack, Text } from '@mantine/core';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { mulberry32 } from '../engine/rng';
 import { buildChoices } from './options';
 import { choiceResult } from './result';
@@ -26,7 +26,7 @@ const LOOK = {
  * click. The reveal marks the right option and a wrong choice, and the options are then
  * aria-disabled (still focusable; a click is ignored).
  */
-export default function HighlightExercise({ item, seed, onAnswer, onNext, opening }: ExerciseProps) {
+export default function HighlightExercise({ item, seed, onAnswer, onNext, opening, note }: ExerciseProps & { note?: ReactNode }) {
   const [choices] = useState(() => buildChoices(item, mulberry32(seed)));
   const [chosen, setChosen] = useState<string | null>(null);
   const { result, answer } = useQuestion(onAnswer);
@@ -63,7 +63,7 @@ export default function HighlightExercise({ item, seed, onAnswer, onNext, openin
           );
         })}
       </SimpleGrid>
-      <Reveal item={item} result={result} onNext={onNext} />
+      <Reveal item={item} result={result} onNext={onNext} note={note} />
     </Stack>
   );
 }

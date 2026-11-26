@@ -1,5 +1,6 @@
 // The country -> region -> place tree, which items are unlocked, and the order new items arrive in.
 
+import { DIFFICULTY_LEVELS, DIFFICULTY_MEAN_LEVEL_WEIGHT } from './config';
 import { isIntroduced, isMastered, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
@@ -15,9 +16,13 @@ export interface CurriculumItem {
   readonly children: readonly string[];
   /** Namespaced id of the owning country (itself for a country). */
   readonly countryId: string;
-  /** A place's `level`; a country's or region's is the minimum `level` among all its places
-   * (a region always has one; a country with no places has Infinity). */
+  /** A place's `level`. A country's is its band (1-DIFFICULTY_LEVELS) among all countries, a
+   * region's its band among its country's regions (`bandDifficulty`); a country with no places
+   * has Infinity. */
   readonly difficulty: number;
+  /** `[lng, lat]`: a place's point, or the spherical mean of a country's or region's places; null
+   * for a country with no places. */
+  readonly center: readonly [number, number] | null;
   /** The underlying place, for place items. */
   readonly place?: Readonly<Place>;
 }
@@ -43,6 +48,46 @@ export const placeItemId = (id: string) => `place:${id}`;
 
 /** An item while the tree is being built: `children` and `difficulty` still change. */
 type DraftItem = { -readonly [K in keyof CurriculumItem]: CurriculumItem[K] } & { children: string[] };
+
+/** What banding needs of an item's places: how many and their mean level. */
+export interface PlaceStats {
+  count: number;
+  meanLevel: number;
+}
+
+/**
+ * Difficulty bands for a group of sibling items: each is ranked by
+ * `-ln(count) + DIFFICULTY_MEAN_LEVEL_WEIGHT * meanLevel` (ties by id) and the ranking cut into
+ * DIFFICULTY_LEVELS equal bands, 1 the easiest. An item with no places gets Infinity.
+ */
+export function bandDifficulty(stats: ReadonlyMap<string, PlaceStats>): Map<string, number> {
+  const out = new Map<string, number>();
+  const ranked: { id: string; score: number }[] = [];
+  for (const [id, { count, meanLevel }] of stats) {
+    if (count === 0) out.set(id, Infinity);
+    else ranked.push({ id, score: -Math.log(count) + DIFFICULTY_MEAN_LEVEL_WEIGHT * meanLevel });
+  }
+  ranked.sort((a, b) => a.score - b.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  ranked.forEach(({ id }, i) => out.set(id, 1 + Math.floor((i * DIFFICULTY_LEVELS) / ranked.length)));
+  return out;
+}
+
+const RAD = Math.PI / 180;
+
+/** The spherical mean of `[lng, lat]` points (so a group across the antimeridian stays together);
+ * null for none. */
+function sphericalMean(points: readonly (readonly [number, number])[]): readonly [number, number] | null {
+  if (points.length === 0) return null;
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (const [lng, lat] of points) {
+    x += Math.cos(lat * RAD) * Math.cos(lng * RAD);
+    y += Math.cos(lat * RAD) * Math.sin(lng * RAD);
+    z += Math.sin(lat * RAD);
+  }
+  return [Math.atan2(y, x) / RAD, Math.atan2(z, Math.hypot(x, y)) / RAD];
+}
 
 /**
  * One `{ id, country }` per distinct region id named by a place of a country with `hasRegions`, in
@@ -74,11 +119,12 @@ export function buildCurriculum(
   const items = new Map<string, DraftItem>();
   const countryPlaceCount = new Map<string, number>();
   const hasRegions = new Map<string, boolean>();
+  const placesOf = new Map<string, Place[]>();
 
   for (const c of countries) {
     const id = countryItemId(c.id);
     if (items.has(id)) throw new Error(`Duplicate country id ${c.id}`);
-    items.set(id, { id, tier: 'country', parent: null, children: [], countryId: id, difficulty: Infinity });
+    items.set(id, { id, tier: 'country', parent: null, children: [], countryId: id, difficulty: Infinity, center: null });
     countryPlaceCount.set(id, 0);
     hasRegions.set(id, c.hasRegions);
   }
@@ -94,6 +140,7 @@ export function buildCurriculum(
       children: [],
       countryId: country.id,
       difficulty: Infinity,
+      center: null,
     });
     country.children.push(id);
   }
@@ -112,11 +159,36 @@ export function buildCurriculum(
     }
     const id = placeItemId(p.id);
     if (items.has(id)) throw new Error(`Duplicate place id ${p.id}`);
-    items.set(id, { id, tier: 'place', parent: parent.id, children: [], countryId, difficulty: p.level, place: p });
+    const center = [p.lng, p.lat] as const;
+    items.set(id, { id, tier: 'place', parent: parent.id, children: [], countryId, difficulty: p.level, center, place: p });
     parent.children.push(id);
     countryPlaceCount.set(countryId, (countryPlaceCount.get(countryId) ?? 0) + 1);
-    country.difficulty = Math.min(country.difficulty, p.level);
-    parent.difficulty = Math.min(parent.difficulty, p.level);
+    for (const owner of new Set([country, parent])) {
+      const list = placesOf.get(owner.id) ?? [];
+      list.push(p);
+      placesOf.set(owner.id, list);
+    }
+  }
+  const statsOf = (ids: readonly string[]) =>
+    new Map(
+      ids.map((id): [string, PlaceStats] => {
+        const list = placesOf.get(id) ?? [];
+        const meanLevel = list.reduce((sum, p) => sum + p.level, 0) / Math.max(1, list.length);
+        return [id, { count: list.length, meanLevel }];
+      }),
+    );
+  const setBands = (ids: readonly string[]) => {
+    for (const [id, band] of bandDifficulty(statsOf(ids))) {
+      const item = items.get(id)!;
+      item.difficulty = band;
+      item.center = sphericalMean((placesOf.get(id) ?? []).map((p) => [p.lng, p.lat] as const));
+    }
+  };
+  const countryIds = [...items.values()].filter((i) => i.tier === 'country').map((i) => i.id);
+  setBands(countryIds);
+  for (const id of countryIds) {
+    const regionIds = items.get(id)!.children.filter((c) => items.get(c)!.tier === 'region');
+    setBands(regionIds);
   }
   for (const r of regions) {
     const region = items.get(regionItemId(r.id))!;

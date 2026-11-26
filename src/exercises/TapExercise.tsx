@@ -1,5 +1,5 @@
 import { Button, Stack, Text } from '@mantine/core';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { LngLat } from '../maps/geo';
 import { tapResult } from './result';
 import Reveal from './Reveal';
@@ -18,7 +18,8 @@ export default function TapExercise({
   onAnswer,
   onNext,
   opening,
-}: ExerciseProps & { rung: 2 | 3 }) {
+  note,
+}: ExerciseProps & { rung: 2 | 3; note?: ReactNode }) {
   const [pin, setPin] = useState<LngLat | null>(null);
   const { result, answer } = useQuestion(onAnswer);
   useQuestionGlobe({ item, rung, opening, pin, answered: result !== null, onTap: setPin });
@@ -34,7 +35,7 @@ export default function TapExercise({
       <Button disabled={!pin || !!result} onClick={confirm}>
         Confirm
       </Button>
-      <Reveal item={item} result={result} onNext={onNext} />
+      <Reveal item={item} result={result} onNext={onNext} note={note} />
     </Stack>
   );
 }

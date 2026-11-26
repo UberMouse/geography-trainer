@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import HighlightExercise from './HighlightExercise';
 import TapExercise from './TapExercise';
 import type { ExerciseProps } from './types';
@@ -9,7 +10,10 @@ import type { ExerciseProps } from './types';
  * same rung does not, so the caller must key each new question (e.g. by a session's question
  * index).
  */
-export default function Exercise(props: ExerciseProps) {
+/** An exercise's props, plus a line for its reveal (above Next). */
+export type ExerciseViewProps = ExerciseProps & { note?: ReactNode };
+
+export default function Exercise(props: ExerciseViewProps) {
   const key = `${props.item.id}:${props.rung}`;
   return props.rung === 1 ? (
     <HighlightExercise key={key} {...props} />

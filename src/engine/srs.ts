@@ -43,11 +43,18 @@ export interface ItemProgress {
 }
 
 /**
- * How a placement test left an item: `passed` (answered correctly), `failed` (tested and missed),
- * `aboveEstimate` (above the estimated level, untested) or `untestedAtOrBelow` (at or below the
- * estimate but never tested). Only `untestedAtOrBelow` skips ahead to L2.
+ * How a placement test left an item: `passed` (answered correctly), `close` (a close miss),
+ * `failed` (tested and missed far off), `likelyKnown` (untested, very likely known: an L3 review
+ * to confirm), `untestedAtOrBelow` (untested, probably known) or `aboveEstimate` (untested, likely
+ * not known). `close` and `untestedAtOrBelow` skip ahead to L2.
  */
-export type PlacementOutcome = 'passed' | 'failed' | 'aboveEstimate' | 'untestedAtOrBelow';
+export type PlacementOutcome =
+  | 'passed'
+  | 'close'
+  | 'failed'
+  | 'likelyKnown'
+  | 'aboveEstimate'
+  | 'untestedAtOrBelow';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -165,35 +172,46 @@ export function nextDue(progress: ItemProgress): number {
  * It builds fresh progress, so use it only for items that have no progress yet: storing a seed
  * replaces the record. A caller re-running placement (testing out of a newly unlocked tier) must
  * skip items that already have progress.
+ *
+ * A `likelyKnown` seed is an L3 review card like a `passed` one, due at `due` (default: in
+ * PLACEMENT_SEED_STABILITY_DAYS days), with its stability the days until then; it was never
+ * answered, so it credits no L3 pass day.
  */
 export function seedFromPlacement(
   itemId: string,
   outcome: PlacementOutcome,
   now: Date,
   dayKey: string,
+  due?: Date,
 ): ItemProgress {
   const base = createProgress(itemId, now);
+  const review = (dueMs: number): StoredCard => {
+    const days = Math.max(PLACEMENT_SEED_STABILITY_DAYS, Math.round((dueMs - now.getTime()) / MS_PER_DAY));
+    // ts-fsrs's initial difficulty for a first Good.
+    const initial = scheduler.next(createEmptyCard(now), now, Rating.Good).card;
+    return {
+      due: now.getTime() + days * MS_PER_DAY,
+      stability: days,
+      difficulty: initial.difficulty,
+      scheduled_days: days,
+      learning_steps: 0,
+      reps: 1,
+      lapses: 0,
+      state: State.Review,
+      last_review: now.getTime(),
+    };
+  };
+  const defaultDue = now.getTime() + PLACEMENT_SEED_STABILITY_DAYS * MS_PER_DAY;
   switch (outcome) {
     case 'aboveEstimate':
     case 'failed':
       return base;
+    case 'close':
     case 'untestedAtOrBelow':
       return { ...base, rung: 2, highestRung: 2, cards: { 2: newCard(now) } };
-    case 'passed': {
-      // ts-fsrs's initial difficulty for a first Good.
-      const initial = scheduler.next(createEmptyCard(now), now, Rating.Good).card;
-      const seeded: StoredCard = {
-        due: now.getTime() + PLACEMENT_SEED_STABILITY_DAYS * MS_PER_DAY,
-        stability: PLACEMENT_SEED_STABILITY_DAYS,
-        difficulty: initial.difficulty,
-        scheduled_days: PLACEMENT_SEED_STABILITY_DAYS,
-        learning_steps: 0,
-        reps: 1,
-        lapses: 0,
-        state: State.Review,
-        last_review: now.getTime(),
-      };
-      return { ...base, rung: 3, highestRung: 3, cards: { 3: seeded }, l3PassDays: [dayKey] };
-    }
+    case 'passed':
+      return { ...base, rung: 3, highestRung: 3, cards: { 3: review(defaultDue) }, l3PassDays: [dayKey] };
+    case 'likelyKnown':
+      return { ...base, rung: 3, highestRung: 3, cards: { 3: review(due?.getTime() ?? defaultDue) } };
   }
 }
