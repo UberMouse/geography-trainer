@@ -479,6 +479,16 @@ Scenario: Keep going starts the next round's list afresh
   Given a summary listed what the round unlocked
   When the learner presses Keep going and then reloads the page
   Then the next round's summary lists only what that round mastered
+
+Scenario: an unlock the saved progress does not back is left out
+  Given the round mastered an item, but that answer was not saved before a reload
+  When the page reloads
+  Then the round carries on, and its summary does not list that item
+
+Scenario: reloading the same summary again
+  Given a summary was shown again after a reload
+  When they reload the page again
+  Then the same summary still shows
 ```
 
 ### SES-26 A saved round that cannot carry on is dropped
@@ -496,8 +506,8 @@ Scenario Outline: a fresh session is built instead
     | what was saved is not valid                                         |
     | it has nothing left to ask, and nothing was answered in it          |
     | progress was reset or imported, so a queued rung has no card        |
-    | an item the round mastered is no longer mastered                    |
     | it has nothing left to ask, and an item asked in it has no progress |
+    | it has nothing left to ask, and a review has come due since         |
     | a queued or mastered item is no longer in the data                  |
     | the browser's session storage is missing or refuses access          |
 ```

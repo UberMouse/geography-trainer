@@ -123,8 +123,10 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
   judged when each was mastered. They are what the summary's unlock lines and Test out links are
   drawn from.
 - Written after every answer or skip (as already answered, with that answer's mastery included)
-  and on Keep going (with `mastered` and `testable` empty); removed when the Session page unmounts
-  (leaving it). A reload runs no cleanup, so the run survives it.
+  and on Keep going (with `mastered` and `testable` empty); written again, as resumed, when the
+  Session page mounts on a resumed run; removed when the Session page unmounts (leaving it). A
+  reload runs no cleanup, so the run survives it, and the write on mount keeps it through a dev
+  build's StrictMode remount, so reloading the same summary twice shows it twice.
 - `parseSavedRun(text, dayKey, progress, isKnown)` returns the saved session, or null when the
   text is null or not JSON, `dayKey` differs, a field is missing or not a non-negative integer, a
   rung is not 1–3, the queue is empty and `run.answered` is 0, or a queued question is
@@ -135,11 +137,15 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
 - A missing `mastered` or `testable` reads as `[]` (a run saved before they existed). Either makes
   the result null when present but not an array of strings, when it holds an id `isKnown` rejects, or,
   for `testable`, an id not in `mastered`.
-- The result is also null when a `mastered` id has no progress or its progress is not `isMastered`,
-  and, when the queue is empty, when an id in `run.asks` has no progress. With no queued question
-  left to check against, these are what notice that progress was reset or imported since (in
-  another tab), or that an answer could not be recorded (SES-15): the session is then rebuilt from
-  the progress as it is.
+- A `mastered` id whose progress is missing or not `isMastered` (its answer was not saved before
+  the reload) is left out of `mastered`, and out of `testable`; the rest of the session is
+  returned.
+- When the queue is empty, the result is also null when an id in `run.asks` has no progress, and
+  the page builds a fresh session instead of the resumed one when `dueQuestions` (curriculum,
+  progress, now) is not empty. With no queued question left to check against, these notice that an
+  answer could not be recorded (SES-15), that a review has come due since, and most resets and
+  imports in another tab: the session is then rebuilt from the progress as it is. New items,
+  including those the round unlocked, do not count, so the summary keeps its unlock lines.
 - `loadSessionRun`, `saveSessionRun` and `clearSessionRun` swallow storage errors: a load that
   throws is null, a save or clear that throws does nothing.
 
@@ -173,4 +179,7 @@ Up: SES-10, SES-14, SES-21, SES-23, SES-25
   `Unknown item` for an id not in the curriculum, which fails the load (with Retry).
 - `unlockLines(curriculum, masteredIds, nameOf)`: for each distinct mastered id that unlocks a
   tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and for a region
-  its country. All in `src/pages/sessionView.ts`.
+  its country.
+- `withMastered(round, itemId, testOut)`: `round` (`{ mastered, testable }`, a `RoundMastery`)
+  with `itemId` appended to `mastered`, and to `testable` when `testOut`; the page's bookkeeping
+  for SES-C05's two lists. All in `src/pages/sessionView.ts`.
