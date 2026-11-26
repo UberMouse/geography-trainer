@@ -504,7 +504,7 @@ Scenario: the bar
 Scenario: pages do not repeat the bar
   When a page is shown
   Then it has no links of its own to Home, Progress or Settings
-    But a session or a test keeps its own way out, which says where it leads: its Quit link
+    But a session or a test keeps its own way out, which says where it leads: its link out
       while it runs, and a link back on its summary, its result or its nothing-to-ask message
 
 Scenario: phone width
@@ -515,8 +515,8 @@ Scenario: phone width
 Scenario: leaving a session or a test by the bar
   Given a session or a test is in progress
   When the learner follows a link in the bar
-  Then it is the same as quitting it: a session ends (SES-27), and a test keeps the answers
-    already saved and stores no finished-test marker (PLC-19)
+  Then it is the same as leaving by its own link: a session keeps its round for the day (SES-27), and a
+    test keeps the answers already saved and stores no finished-test marker (PLC-19)
     And no pin or reveal is left on the globe
 ```
 

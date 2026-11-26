@@ -98,7 +98,7 @@ itemsDone(run): number                // itemTotal - distinct item ids in queue;
 - `answered` keys the exercise on screen, so a skip still remounts it.
 
 ### SES-C05 The saved run
-Up: SES-23, SES-24, SES-25, SES-26, SES-27
+Up: SES-23, SES-24, SES-25, SES-26, SES-27, SES-28
 
 The run in progress is kept in the tab's `sessionStorage` under the key
 `geography-trainer:session-run`, as JSON:
@@ -124,9 +124,10 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
   drawn from.
 - Written after every answer or skip (as already answered, with that answer's mastery included)
   and on Keep going (with `mastered` and `testable` empty); written again, as resumed, when the
-  Session page mounts on a resumed run; removed when the Session page unmounts (leaving it). A
-  reload runs no cleanup, so the run survives it, and the write on mount keeps it through a dev
-  build's StrictMode remount, so reloading the same summary twice shows it twice.
+  Session page mounts on a resumed run. Leaving the Session page does not remove it (SES-27), so
+  the run survives both a reload and a visit to another page, and reloading or reopening the same
+  summary twice shows it twice. A saved run that cannot carry on is not removed either: it is
+  ignored, and the fresh session's first write replaces it.
 - `parseSavedRun(text, dayKey, progress, isKnown)` returns the saved session, or null when the
   text is null or not JSON, `dayKey` differs, a field is missing or not a non-negative integer, a
   rung is not 1–3, the queue is empty and `run.answered` is 0, or a queued question is

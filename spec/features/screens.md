@@ -40,8 +40,8 @@ Scenario Outline: the new-today line
     | 10      | 5     | the count, then the limit named apart    |
 ```
 
-### SCR-03 Start, or nothing to study
-Up: PRD-06
+### SCR-03 Start, Continue, or nothing to study
+Up: PRD-06, PRD-17
 
 ```gherkin
 Scenario: there is something to study
@@ -54,6 +54,19 @@ Scenario: there is nothing to study
   When the learner opens Home
   Then there is no Start link
     And Home says there is nothing to study right now
+
+Scenario: a session was left part-way
+  Given this tab kept a session round that can carry on (SES-27), with questions left in it
+  When the learner opens Home
+  Then in place of Start, Home shows a Continue link to the session page that says how many
+    of the session's items are left to do
+  When they follow it
+  Then the session carries on where it was left
+
+Scenario: a kept session that cannot carry on
+  Given the kept round would be dropped (SES-26), or has no questions left
+  When the learner opens Home
+  Then Home shows Start or nothing to study, as if no round were kept
 ```
 
 ### SCR-04 Home's numbers follow the clock

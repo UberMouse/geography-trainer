@@ -37,8 +37,8 @@ is skipped outright: items the learner passes come back soon to confirm.
 
 ## PRD-06 A daily session
 A session asks the reviews that are due first, then introduces new items, up to a daily limit.
-It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and it
-ends with a summary.
+It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and the
+learner can leave it and carry on later the same day. It ends with a summary.
 
 ## PRD-07 Progress is visible on the globe
 Home says what there is to study today and shows progress on the globe. The Progress pages color
