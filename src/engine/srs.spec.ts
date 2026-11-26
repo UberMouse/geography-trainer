@@ -30,7 +30,7 @@ function atRung3(): ItemProgress {
   return p;
 }
 
-describe('localDayKey', () => {
+describe('[GRD-16] localDayKey', () => {
   it('uses minutes east of UTC', () => {
     const now = new Date('2026-12-31T20:00:00Z');
     expect(localDayKey(now, 0)).toBe('2026-12-31');
@@ -39,7 +39,7 @@ describe('localDayKey', () => {
   });
 });
 
-describe('createProgress', () => {
+describe('[GRD-08] createProgress', () => {
   it('starts at rung 1 with a new card due now', () => {
     const p = createProgress('a', T0);
     expect(p).toMatchObject({
@@ -56,21 +56,21 @@ describe('createProgress', () => {
 });
 
 describe('FSRS scheduling', () => {
-  it('schedules Good later than Again on a new card', () => {
+  it('[GRD-20] schedules Good later than Again on a new card', () => {
     const p = createProgress('a', T0);
     const good = answer(p, 1, Rating.Good).cards[1];
     const again = answer(p, 1, Rating.Again).cards[1];
     expect(good?.due).toBeGreaterThan(again?.due ?? Infinity);
   });
 
-  it('increments lapses on Again for a review card', () => {
+  it('[GRD-20] increments lapses on Again for a review card', () => {
     const p = seedFromPlacement('a', 'passed', T0, DK);
     const lapsed = answer(p, 3, Rating.Again, 3);
     expect(lapsed.cards[3]?.lapses).toBe(1);
     expect(lapsed.cards[3]?.state).toBe(State.Relearning);
   });
 
-  it('does not mutate its input', () => {
+  it('[GRD-21] does not mutate its input', () => {
     const p = createProgress('a', T0);
     const frozen = JSON.stringify(p);
     answer(p, 1, Rating.Good);
@@ -79,7 +79,7 @@ describe('FSRS scheduling', () => {
 });
 
 describe('ladder', () => {
-  it('moves up on Good and Easy, up to rung 3', () => {
+  it('[GRD-09] moves up on Good and Easy, up to rung 3', () => {
     let p = createProgress('a', T0);
     p = answer(p, 1, Rating.Good);
     expect(p).toMatchObject({ rung: 2, highestRung: 2 });
@@ -89,7 +89,7 @@ describe('ladder', () => {
     expect(p).toMatchObject({ rung: 3, highestRung: 3 });
   });
 
-  it('skips a rung on Easy: L1 Easy goes straight to L3 with a new L3 card and no L2 card', () => {
+  it('[GRD-09, GRD-11] skips a rung on Easy: L1 Easy goes straight to L3 with a new L3 card and no L2 card', () => {
     const p = answer(createProgress('a', T0), 1, Rating.Easy, 2);
     expect(p).toMatchObject({ rung: 3, highestRung: 3, inL3Lapse: false });
     expect(p.cards[2]).toBeUndefined();
@@ -97,40 +97,40 @@ describe('ladder', () => {
     expect(dueRung(p)).toBe(3);
   });
 
-  it('a skipped L2 is created fresh when an L3 lapse first needs it', () => {
+  it('[GRD-11] a skipped L2 is created fresh when an L3 lapse first needs it', () => {
     let p = answer(createProgress('a', T0), 1, Rating.Easy);
     p = answer(p, 3, Rating.Again, 1);
     expect(p).toMatchObject({ rung: 2, inL3Lapse: true });
     expect(p.cards[2]).toMatchObject({ state: State.New, due: at(1).getTime() });
   });
 
-  it('climbs on Hard at L1, a slow but correct multiple-choice answer', () => {
+  it('[GRD-09] climbs on Hard at L1, a slow but correct multiple-choice answer', () => {
     const p = answer(createProgress('a', T0), 1, Rating.Hard);
     expect(p).toMatchObject({ rung: 2, highestRung: 2 });
     expect(p.cards[1]?.reps).toBe(1);
   });
 
-  it('Hard at L2 and L3, a near-miss tap, stays put', () => {
+  it('[GRD-09] Hard at L2 and L3, a near-miss tap, stays put', () => {
     const l2 = answer(createProgress('a', T0), 1, Rating.Good);
     expect(answer(l2, 2, Rating.Hard)).toMatchObject({ rung: 2, highestRung: 2 });
     expect(answer(atRung3(), 3, Rating.Hard)).toMatchObject({ rung: 3, inL3Lapse: false, l3PassDays: [] });
   });
 
-  it('Again at L1 stays at L1', () => {
+  it('[GRD-09] Again at L1 stays at L1', () => {
     expect(answer(createProgress('a', T0), 1, Rating.Again)).toMatchObject({ rung: 1, highestRung: 1 });
   });
 
-  it('Again at L2 drops to L1 with no lapse flag', () => {
+  it('[GRD-09, GRD-10] Again at L2 drops to L1 with no lapse flag', () => {
     const p = answer(answer(createProgress('a', T0), 1, Rating.Good), 2, Rating.Again);
     expect(p).toMatchObject({ rung: 1, highestRung: 2, inL3Lapse: false });
   });
 
-  it('creates a rung card when first reached, due immediately', () => {
+  it('[GRD-11] creates a rung card when first reached, due immediately', () => {
     const p = answer(createProgress('a', T0), 1, Rating.Good, 5);
     expect(p.cards[2]).toMatchObject({ state: State.New, due: at(5).getTime() });
   });
 
-  it('lapses at L3 to L2 and returns to L3 on the next L2 pass', () => {
+  it('[GRD-10, GRD-14] lapses at L3 to L2 and returns to L3 on the next L2 pass', () => {
     let p = answer(atRung3(), 3, Rating.Again, 10);
     expect(p).toMatchObject({ rung: 2, highestRung: 3, inL3Lapse: true });
     expect(dueRung(p)).toBe(2);
@@ -139,7 +139,7 @@ describe('ladder', () => {
     expect(p).toMatchObject({ rung: 3, inL3Lapse: false });
   });
 
-  it('keeps the lapse through Hard and Again at L2', () => {
+  it('[GRD-10] keeps the lapse through Hard and Again at L2', () => {
     let p = answer(atRung3(), 3, Rating.Again, 10);
     p = answer(p, 2, Rating.Hard, 11);
     expect(p).toMatchObject({ rung: 2, inL3Lapse: true });
@@ -149,29 +149,29 @@ describe('ladder', () => {
     expect(p).toMatchObject({ rung: 3, inL3Lapse: false });
   });
 
-  it('Hard at L1 during a lapse climbs back to L2, keeping the flag', () => {
+  it('[GRD-10] Hard at L1 during a lapse climbs back to L2, keeping the flag', () => {
     let p = answer(answer(atRung3(), 3, Rating.Again, 10), 2, Rating.Again, 11);
     p = answer(p, 1, Rating.Hard, 12);
     expect(p).toMatchObject({ rung: 2, inL3Lapse: true });
   });
 
-  it('schedules a lower rung without moving the ladder', () => {
+  it('[GRD-13] schedules a lower rung without moving the ladder', () => {
     const before = atRung3();
     const p = answer(before, 1, Rating.Good, 3);
     expect(p.rung).toBe(3);
     expect(p.cards[1]?.due).not.toBe(before.cards[1]?.due);
   });
 
-  it('Easy at L3 records a pass day and stays at 3', () => {
+  it('[GRD-09, GRD-15] Easy at L3 records a pass day and stays at 3', () => {
     expect(answer(atRung3(), 3, Rating.Easy)).toMatchObject({ rung: 3, l3PassDays: ['2026-03-01'] });
   });
 
-  it('Easy at L2 during a lapse returns to L3 and clears the flag', () => {
+  it('[GRD-10] Easy at L2 during a lapse returns to L3 and clears the flag', () => {
     const p = answer(answer(atRung3(), 3, Rating.Again, 10), 2, Rating.Easy, 11);
     expect(p).toMatchObject({ rung: 3, inL3Lapse: false });
   });
 
-  it('a lapse at L3 is due again at once at L2, keeping the old L2 card otherwise', () => {
+  it('[GRD-12] a lapse at L3 is due again at once at L2, keeping the old L2 card otherwise', () => {
     let p = answer(createProgress('a', T0), 1, Rating.Good);
     p = answer(p, 2, Rating.Easy);
     const oldL2 = p.cards[2];
@@ -182,7 +182,7 @@ describe('ladder', () => {
     expect(p.cards[2]).toEqual({ ...oldL2, due: at(0.0007).getTime() });
   });
 
-  it('every step down brings the lower rung due now (L2 to L1 during a lapse)', () => {
+  it('[GRD-12] every step down brings the lower rung due now (L2 to L1 during a lapse)', () => {
     let p = answer(createProgress('a', T0), 1, Rating.Easy);
     p = answer(p, 3, Rating.Again, 1);
     p = answer(p, 2, Rating.Good, 1);
@@ -195,12 +195,12 @@ describe('ladder', () => {
     expect(p.cards[1]).toEqual({ ...oldL1, due: at(2).getTime() });
   });
 
-  it('throws for a rung above the highest reached', () => {
+  it('[GRD-13] throws for a rung above the highest reached', () => {
     expect(() => answer(createProgress('a', T0), 3, Rating.Good)).toThrow();
   });
 });
 
-describe('mastery', () => {
+describe('[GRD-15] mastery', () => {
   it('needs L3 passes on two different days', () => {
     let p = atRung3();
     p = answer(p, 3, Rating.Good, 0);
@@ -235,7 +235,7 @@ describe('mastery', () => {
   });
 });
 
-describe('serialisation', () => {
+describe('[GRD-21] serialisation', () => {
   it('round-trips through JSON and behaves identically', () => {
     const p = answer(atRung3(), 3, Rating.Good, 1);
     const copy = JSON.parse(JSON.stringify(p)) as ItemProgress;
@@ -244,7 +244,7 @@ describe('serialisation', () => {
   });
 });
 
-describe('introducedAt', () => {
+describe('[GRD-17] introducedAt', () => {
   it('is null for a fresh item and every seed outcome', () => {
     expect(createProgress('a', T0).introducedAt).toBeNull();
     for (const o of ['passed', 'failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
@@ -273,7 +273,7 @@ describe('introducedAt', () => {
   });
 });
 
-describe('L3 pass during a lapse', () => {
+describe('[GRD-13] L3 pass during a lapse', () => {
   it('adds no further pass day and leaves the ladder alone', () => {
     const lapsed = answer(seedFromPlacement('a', 'passed', T0, DK), 3, Rating.Again, 1);
     expect(lapsed).toMatchObject({ rung: 2, inL3Lapse: true });
@@ -283,7 +283,7 @@ describe('L3 pass during a lapse', () => {
 });
 
 describe('seedFromPlacement', () => {
-  it('passed: rung 3, a single review card with seed stability, not mastered', () => {
+  it('[GRD-19, GRD-C08] passed: rung 3, a single review card with seed stability, not mastered', () => {
     const p = seedFromPlacement('a', 'passed', T0, DK);
     expect(p).toMatchObject({ rung: 3, highestRung: 3, l3PassDays: [DK], inL3Lapse: false, introducedAt: null });
     expect(Object.keys(p.cards)).toEqual(['3']);
@@ -301,7 +301,7 @@ describe('seedFromPlacement', () => {
     expect(nextDue(p)).toBe(T0.getTime() + PLACEMENT_SEED_STABILITY_DAYS * DAY);
   });
 
-  it('passed: the seed is the first L3 pass day; one Good on another day masters, the same day does not', () => {
+  it('[GRD-19] passed: the seed is the first L3 pass day; one Good on another day masters, the same day does not', () => {
     const p = seedFromPlacement('a', 'passed', T0, DK);
     expect(p.l3PassDays).toEqual([DK]);
     expect(isMastered(p)).toBe(false);
@@ -309,15 +309,15 @@ describe('seedFromPlacement', () => {
     expect(isMastered(answer(p, 3, Rating.Good, 3))).toBe(true);
   });
 
-  it('aboveEstimate: rung 1', () => {
+  it('[GRD-19] aboveEstimate: rung 1', () => {
     expect(seedFromPlacement('a', 'aboveEstimate', T0, DK)).toEqual(createProgress('a', T0));
   });
 
-  it('failed: rung 1 with a new card', () => {
+  it('[GRD-19] failed: rung 1 with a new card', () => {
     expect(seedFromPlacement('a', 'failed', T0, DK)).toEqual(createProgress('a', T0));
   });
 
-  it('only a passed seed counts as introduced', () => {
+  it('[GRD-17] only a passed seed counts as introduced', () => {
     expect(isIntroduced(seedFromPlacement('a', 'passed', T0, DK))).toBe(true);
     for (const o of ['failed', 'aboveEstimate', 'untestedAtOrBelow'] as const) {
       expect(isIntroduced(seedFromPlacement('a', o, T0, DK))).toBe(false);
@@ -326,7 +326,7 @@ describe('seedFromPlacement', () => {
     expect(isIntroduced(answer(createProgress('a', T0), 1, Rating.Again))).toBe(true);
   });
 
-  it('untestedAtOrBelow: rung 2 with one new card due now', () => {
+  it('[GRD-19] untestedAtOrBelow: rung 2 with one new card due now', () => {
     const p = seedFromPlacement('a', 'untestedAtOrBelow', T0, DK);
     expect(p).toMatchObject({ rung: 2, highestRung: 2, l3PassDays: [], inL3Lapse: false });
     expect(Object.keys(p.cards)).toEqual(['2']);

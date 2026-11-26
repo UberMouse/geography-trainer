@@ -9,7 +9,7 @@ import {
   type TapInput,
 } from './grading';
 
-describe('isPass', () => {
+describe('[GRD-01] isPass', () => {
   it('passes Good and Easy, not Hard or Again', () => {
     expect([Rating.Again, Rating.Hard, Rating.Good, Rating.Easy].map(isPass)).toEqual([
       false,
@@ -20,7 +20,7 @@ describe('isPass', () => {
   });
 });
 
-describe('maptapScore', () => {
+describe('[GRD-07] maptapScore', () => {
   it('is 100 at 0 km', () => expect(maptapScore(0)).toBe(100));
   it('is about 81 at 1000 km', () => expect(maptapScore(1000)).toBe(81));
   it('is at least 99.5 unrounded at 23 km', () =>
@@ -40,12 +40,12 @@ describe('maptapScore', () => {
   });
 });
 
-describe('gradeMultipleChoice', () => {
+describe('[GRD-02] gradeMultipleChoice', () => {
   it('wrong is Again at any speed', () => {
     expect(gradeMultipleChoice(false, 0)).toBe(Rating.Again);
     expect(gradeMultipleChoice(false, 50_000)).toBe(Rating.Again);
   });
-  it('grades correct answers by speed, both sides of each boundary', () => {
+  it('[GRD-C02] grades correct answers by speed, both sides of each boundary', () => {
     expect(gradeMultipleChoice(true, 3_999)).toBe(Rating.Easy);
     expect(gradeMultipleChoice(true, 4_000)).toBe(Rating.Good);
     expect(gradeMultipleChoice(true, 12_000)).toBe(Rating.Good);
@@ -66,28 +66,28 @@ describe('gradeTap', () => {
     featureSizeKm: 1000,
   };
 
-  it.each(['country', 'region'] as const)('%s inside: Easy at 25% of size, Good just past', (tier) => {
+  it.each(['country', 'region'] as const)('[GRD-03, GRD-C03] %s inside: Easy at 25% of size, Good just past', (tier) => {
     expect(gradeTap({ ...base, tier, kmFromAnswer: 250 })).toBe(Rating.Easy);
     expect(gradeTap({ ...base, tier, kmFromAnswer: 250.1 })).toBe(Rating.Good);
   });
-  it('inside ignores kmOutsideBorder', () => {
+  it('[GRD-03] inside ignores kmOutsideBorder', () => {
     expect(gradeTap({ ...base, kmFromAnswer: 900, kmOutsideBorder: 99_999 })).toBe(Rating.Good);
   });
-  it('featureSizeKm <= 0 never gives Easy', () => {
+  it('[GRD-03, GRD-C04] featureSizeKm <= 0 never gives Easy', () => {
     expect(gradeTap({ ...base, kmFromAnswer: 0, featureSizeKm: 0 })).toBe(Rating.Good);
     expect(gradeTap({ ...base, kmFromAnswer: 0, featureSizeKm: -5 })).toBe(Rating.Good);
   });
-  it('country outside: Hard to 150 km from the border, else Again', () => {
+  it('[GRD-04, GRD-C03] country outside: Hard to 150 km from the border, else Again', () => {
     const out = { ...base, inside: false };
     expect(gradeTap({ ...out, kmOutsideBorder: 150 })).toBe(Rating.Hard);
     expect(gradeTap({ ...out, kmOutsideBorder: 150.1 })).toBe(Rating.Again);
   });
-  it('region outside: Hard to 50 km from the border, else Again', () => {
+  it('[GRD-04, GRD-C03] region outside: Hard to 50 km from the border, else Again', () => {
     const out = { ...base, tier: 'region' as const, inside: false };
     expect(gradeTap({ ...out, kmOutsideBorder: 50 })).toBe(Rating.Hard);
     expect(gradeTap({ ...out, kmOutsideBorder: 50.1 })).toBe(Rating.Again);
   });
-  it('place: thresholds on kmFromAnswer, inside and border ignored', () => {
+  it('[GRD-05, GRD-C03] place: thresholds on kmFromAnswer, inside and border ignored', () => {
     const place = { ...base, tier: 'place' as const, inside: false, kmOutsideBorder: 0 };
     const at = (km: number) => gradeTap({ ...place, kmFromAnswer: km });
     expect(at(24.9)).toBe(Rating.Easy);
@@ -98,7 +98,7 @@ describe('gradeTap', () => {
     expect(at(200)).toBe(Rating.Again);
     expect(gradeTap({ ...place, inside: true, kmFromAnswer: 500 })).toBe(Rating.Again);
   });
-  describe('bad input throws RangeError for the distances the branch uses', () => {
+  describe('[GRD-06, GRD-C04] bad input throws RangeError for the distances the branch uses', () => {
     it('place: NaN or negative kmFromAnswer', () => {
       const place = { ...base, tier: 'place' as const };
       expect(() => gradeTap({ ...place, kmFromAnswer: NaN })).toThrow(RangeError);

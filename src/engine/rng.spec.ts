@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from './rng';
 
-describe('mulberry32', () => {
+describe('[GRD-26] mulberry32', () => {
   it('repeats for the same seed and differs between seeds', () => {
     const take = (seed: number) => {
       const r = mulberry32(seed);

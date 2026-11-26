@@ -20,7 +20,7 @@ const line = Array.from({ length: 12 }, (_, i) => ({
 const nearest6 = line.slice(0, 6).map((c) => c.id);
 
 describe('pickDistractors', () => {
-  it('returns 3 distinct ids from the 6 nearest, never the target', () => {
+  it('[GRD-23, GRD-C10] returns 3 distinct ids from the 6 nearest, never the target', () => {
     for (let seed = 0; seed < 50; seed++) {
       const out = pickDistractors(target, [{ ...target }, ...line], mulberry32(seed));
       expect(out).toHaveLength(3);
@@ -30,13 +30,13 @@ describe('pickDistractors', () => {
     }
   });
 
-  it('is deterministic for a seed and varies across seeds', () => {
+  it('[GRD-22] is deterministic for a seed and varies across seeds', () => {
     const run = (seed: number) => pickDistractors(target, line, mulberry32(seed));
     expect(run(5)).toEqual(run(5));
     expect(new Set(Array.from({ length: 30 }, (_, s) => run(s).join())).size).toBeGreaterThan(1);
   });
 
-  it('breaks distance ties by id', () => {
+  it('[GRD-23] breaks distance ties by id', () => {
     const tied = ['b', 'a', 'd', 'c'].map((id) => ({ id, lat: 0, lng: 1 }));
     // With count 1 the pool is the two lowest ids.
     for (let seed = 0; seed < 20; seed++) {
@@ -44,17 +44,17 @@ describe('pickDistractors', () => {
     }
   });
 
-  it('honours count', () => {
+  it('[GRD-C11] honours count', () => {
     expect(pickDistractors(target, line, mulberry32(1), 5)).toHaveLength(5);
   });
 
-  it('returns all candidates when there are fewer than count', () => {
+  it('[GRD-23] returns all candidates when there are fewer than count', () => {
     expect(pickDistractors(target, line.slice(0, 2), mulberry32(1)).sort()).toEqual(['c00', 'c01']);
     expect(pickDistractors(target, [], mulberry32(1))).toEqual([]);
   });
 });
 
-describe('multipleChoice', () => {
+describe('[GRD-22] multipleChoice', () => {
   it('contains the target and distractors exactly once, deterministic per seed', () => {
     const out = multipleChoice('t', ['a', 'b', 'c'], mulberry32(9));
     expect([...out].sort()).toEqual(['a', 'b', 'c', 't']);
@@ -72,7 +72,7 @@ describe('multipleChoice', () => {
 
 const cand = (id: string, name: string, lng: number) => ({ id, name, lat: 0, lng });
 
-describe('distinctCandidates', () => {
+describe('[GRD-24] distinctCandidates', () => {
   it('drops the target name and keeps the nearest candidate of each name', () => {
     const out = distinctCandidates(
       [
@@ -88,7 +88,7 @@ describe('distinctCandidates', () => {
   });
 });
 
-describe('countryCandidates', () => {
+describe('[GRD-24, GRD-25] countryCandidates', () => {
   const rec = (id: string, name: string, lng: number) => ({ id, name, lat: 0, lng });
 
   it('offers every other country, namespaced, without the target or its name', () => {
@@ -102,7 +102,7 @@ describe('countryCandidates', () => {
   });
 });
 
-describe('regionCandidates', () => {
+describe('[GRD-25] regionCandidates', () => {
   const rec = (id: string, name: string, lng: number, places: number) => ({
     id,
     name,
@@ -122,7 +122,7 @@ describe('regionCandidates', () => {
   });
 });
 
-describe('placeCandidates', () => {
+describe('[GRD-25] placeCandidates', () => {
   const place = (id: string, country: string, region: string | null, name = id): Place => ({
     id,
     name,
@@ -160,7 +160,7 @@ describe('placeCandidates', () => {
     expect(ids(out)).toEqual(['place:p1', 'place:p2', 'place:p3', 'place:p4', 'place:p5']);
   });
 
-  it('drops places within PLACE_EASY_KM of the target before widening', () => {
+  it('[GRD-C10] drops places within PLACE_EASY_KM of the target before widening', () => {
     // One degree of latitude is about 111 km: 0.09 degrees is 10 km, 0.27 degrees is 30 km.
     const at = (id: string, lat: number, region: string | null = 'r1', country = 'c1'): Place => ({
       ...place(id, country, region),
@@ -176,7 +176,7 @@ describe('placeCandidates', () => {
     expect(ids(out)).toEqual(['place:p2', 'place:p4', 'place:p5']);
   });
 
-  it('dedupes a pool by name before testing its size', () => {
+  it('[GRD-24] dedupes a pool by name before testing its size', () => {
     const twins = ['p1', 'p2', 'p3'].map((id) => place(id, 'c1', 'r1', 'Twin'));
     const out = placeCandidates(target, [target, ...twins, ...countryMates, ...elsewhere]);
     expect(ids(out)).toEqual(['place:p1', 'place:p4', 'place:p5']);
