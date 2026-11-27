@@ -174,7 +174,7 @@ non-empty country, and a region id of exactly two non-empty dot-separated parts;
 with seeds in one transaction (`finishPlacement` in the repo).
 
 ### PLC-C09 Placement routes
-Up: PLC-21, PLC-23
+Up: PLC-18, PLC-21, PLC-23
 
 | Path | Page |
 |---|---|
@@ -183,6 +183,8 @@ Up: PLC-21, PLC-23
 | `/placement/:country/:region` | test-out of a region; `:region` is the full id, e.g. `/placement/france/france.bretagne` |
 
 `testOutPath(itemId)` builds these from an item id. `resolveTestOutRoute` returns
-`{ kind: 'run', itemId, countryId, tier: 'regions' | 'places', needsRegions }` or
+`{ kind: 'run', itemId, countryId, tier: 'regions' | 'places', needsRegions, back }`, where
+`back` is the tested item's drill-down page (`/progress/<country>` or
+`/progress/<country>/<country>.<region>`), or
 `{ kind: 'unavailable', back: '/progress' | '/progress/<country>' }`; an unknown country is
 rejected before any region data is loaded.

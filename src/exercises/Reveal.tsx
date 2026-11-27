@@ -30,7 +30,7 @@ export default function Reveal({
             <Text span fw={700} c={TONE_COLOUR[verdictText(result).tone]}>
               {verdictText(result).text}
             </Text>
-            {!result.correct && <> · it is {item.name}</>}
+            {!result.correct && <> · it is {item.label}</>}
           </>
         )}
       </Text>

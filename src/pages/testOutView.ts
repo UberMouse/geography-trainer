@@ -20,6 +20,8 @@ export type TestOutRoute =
       tier: TestOutTier;
       /** Whether the questions need the country's regions loaded (it has a regions tier). */
       needsRegions: boolean;
+      /** The tested item's drill-down page: where the test's links lead back to. */
+      back: string;
     }
   /** `back` is where the message links: the country's progress page when valid, else Progress. */
   | { kind: 'unavailable'; back: string };
@@ -68,6 +70,7 @@ export function resolveTestOutRoute(
     countryId,
     tier: unlocked.tier === 'region' ? 'regions' : 'places',
     needsRegions: country.hasRegions,
+    back: regionId === undefined ? `/progress/${countryId}` : `/progress/${countryId}/${regionId}`,
   };
 }
 

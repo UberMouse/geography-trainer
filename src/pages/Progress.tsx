@@ -22,6 +22,7 @@ import {
 } from './progressView';
 import { useCountriesGlobe } from './useCountriesGlobe';
 import { useLoaded } from './useLoaded';
+import { usePageTitle } from '../components/usePageTitle';
 import { loadWorldData, type WorldData } from './worldData';
 
 const TIERS: Tier[] = ['country', 'region', 'place'];
@@ -30,6 +31,7 @@ const LEGEND: ItemState[] = ['locked', 'new', 'learning', 'mastered'];
 
 /** The per-tier counts, the legend, a way to any country and the started countries, beside the globe. */
 export default function Progress() {
+  usePageTitle('Progress');
   const [data, reload] = useLoaded('progress', loadWorldData);
   return (
     <Stack>

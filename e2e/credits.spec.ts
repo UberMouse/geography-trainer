@@ -1,10 +1,13 @@
-import { expect, test } from './test';
+import { appBar, expect, test } from './test';
 
 test('[SCR-27] the footer opens the Credits page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('contentinfo').getByRole('link', { name: 'Credits' }).click();
   await expect(page).toHaveURL(/\/credits$/);
   await expect(page.getByRole('heading', { name: 'Credits' })).toBeVisible();
+  // The app bar leads back to Home; the page has no link of its own to it.
+  await expect(appBar(page).getByRole('link', { name: 'Geography Trainer' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('main').getByRole('link', { name: /Back to Home|Progress|Settings/ })).toHaveCount(0);
   await expect(page.getByRole('main').getByRole('link', { name: 'MapTap.gg' })).toBeVisible();
   await expect(page.getByRole('main').getByRole('link', { name: 'Natural Earth' })).toBeVisible();
   await expect(page.getByRole('main')).toContainText(

@@ -28,6 +28,12 @@ An item is learned in rungs, all on the globe. First the learner picks its name 
 choices while it is highlighted. Then they tap it with borders drawn. Finally they tap it on the
 bare globe, as in maptap. An item reviewed later is asked at the highest rung it has reached.
 
+A region is always asked within its country: its name comes with its country's, and at the top
+rung the camera goes to the country with only the country's outline drawn. The region tier
+teaches where in the country a region lies, as a step towards the places in it; maptap itself
+never asks a region. Places keep maptap's own top rung: maptap's name for them (which already
+names the country, and the region where maptap gives one), on the bare globe.
+
 ## PRD-04 Spaced repetition keeps what was learned
 Every answer is graded and fed to an FSRS scheduler, which decides when each item comes back. Fast
 and close answers push an item further out; misses bring it back soon. Mastered items stay in
@@ -40,8 +46,8 @@ is skipped outright: items the learner passes come back soon to confirm.
 
 ## PRD-06 A daily session
 A session asks the reviews that are due first, then introduces new items, up to a daily limit.
-It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and it
-ends with a summary.
+It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and the
+learner can leave it and carry on later the same day. It ends with a summary.
 
 ## PRD-07 Progress is visible on the globe
 Home says what there is to study today and shows progress on the globe. The Progress pages color
@@ -88,3 +94,9 @@ apart unnoticed.
 ## PRD-16 Developers can see the globe and exercises in isolation
 A development-only playground shows the globe's layer modes and each exercise type with sample
 data, for checking changes by eye.
+
+## PRD-17 The learner can always find their way
+Every page offers Home, Progress and Settings in one step, from the same place, including while a
+session or a test is running and when a page fails to load. Leaving an activity goes back to where
+it began: a session and the placement test to Home, a test-out to the page of the country or region
+it tests.

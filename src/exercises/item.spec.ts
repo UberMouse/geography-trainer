@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALPHA_REGIONS, COUNTRIES, DATA, DATA_WITH_ALPHA, PLACES } from './fixtures';
-import { buildExerciseItem, distinctCandidates } from './item';
+import { buildExerciseItem, COUNTRIES_WITH_THE, countryInText, distinctCandidates } from './item';
 
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id).sort();
 
@@ -154,6 +154,34 @@ describe('[EXR-02, EXR-C01] buildExerciseItem: the globe modes', () => {
   });
 });
 
+describe('[EXR-C01, EXR-24, EXR-02] buildExerciseItem: label, countryName and bareMode', () => {
+  const [alpha] = COUNTRIES.features;
+
+  it('a country: its name alone, on the shared bare mode', () => {
+    const item = buildExerciseItem('country:alpha', DATA);
+    expect(item).toMatchObject({ label: 'Alpha', countryName: 'Alpha', bareMode: { kind: 'bare' } });
+  });
+
+  it('a region: its name then its country’s, over its country’s outline alone', () => {
+    const item = buildExerciseItem('region:alpha.north', DATA_WITH_ALPHA);
+    expect(item.label).toBe(`${item.name}, Alpha`);
+    expect(item.countryName).toBe('Alpha');
+    expect(item.bareMode).toEqual({ kind: 'regionBorders', country: alpha });
+    expect(item.bareMode).not.toHaveProperty('regions');
+  });
+
+  it('a place: maptap’s name unchanged, and its country’s name', () => {
+    const item = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
+    expect(item).toMatchObject({ label: 'N1', name: 'N1', countryName: 'Alpha' });
+  });
+
+  it('a country and a place share one bare mode object', () => {
+    expect(buildExerciseItem('country:beta', DATA).bareMode).toBe(
+      buildExerciseItem('place:n1', DATA_WITH_ALPHA).bareMode,
+    );
+  });
+});
+
 describe('[EXR-22] buildExerciseItem: empty regions data', () => {
   const regions = { features: [], regions: [] };
 
@@ -235,5 +263,21 @@ describe('buildExerciseItem: same-named siblings', () => {
       regions: { ...ALPHA_REGIONS, features },
     });
     expect(item.candidates.map((c) => c.name)).toEqual(['Isle']);
+  });
+});
+
+describe('[EXR-C08, EXR-03] countryInText', () => {
+  it('pins COUNTRIES_WITH_THE to the four countries that take "the"', () => {
+    expect([...COUNTRIES_WITH_THE].sort()).toEqual([
+      'country:democratic-republic-of-the-congo',
+      'country:netherlands',
+      'country:philippines',
+      'country:united-states',
+    ]);
+  });
+
+  it('puts "the" before a country in the set and leaves another as it is', () => {
+    expect(countryInText('country:united-states', 'United States')).toBe('the United States');
+    expect(countryInText('country:france', 'France')).toBe('France');
   });
 });

@@ -19,7 +19,7 @@ Scenario Outline: a question's globe and answer by rung
     | rung | globe                                                              | answer                                      |
     | L1   | the item shaded (a place as a dot) with its tier's context borders | choosing its name from the options          |
     | L2   | the borders of the item's tier                                     | tapping where it is, then confirming        |
-    | L3   | imagery only: no borders, no highlight                             | tapping where it is, then confirming        |
+    | L3   | imagery only: no borders, no highlight (a region: see EXR-02)       | tapping where it is, then confirming        |
 ```
 
 ### EXR-02 The borders drawn follow the item's tier
@@ -36,7 +36,17 @@ Scenario Outline: context borders at L1 and borders at L2
     | region                                 | its country's outline and its region borders    |
     | place in a country with a regions tier | its country's outline and its region borders    |
     | place in a country without one         | its country's outline alone                     |
+
+Scenario: a region at L3 is asked within its country's outline
+  Given a region item
+  When it is asked at L3
+  Then its country's outline is drawn, and no region borders and no other country's border
+    And a country or a place at L3 still has no borders at all
 ```
+
+*Why:* the region tier tests where in its country a region lies, not where on the globe. An
+overseas region's island shows in its country's outline; that give-away is accepted (L2 has it
+too).
 
 ### EXR-03 The L1 prompt says what is shown
 Up: PRD-03
@@ -45,12 +55,12 @@ Up: PRD-03
 Scenario Outline: the multiple-choice prompt by tier
   Given a <tier> item asked at L1
   When the question starts
-  Then the prompt asks which <tier> is <shown>
+  Then the prompt asks <asks>
   Examples:
-    | tier    | shown       |
-    | country | highlighted |
-    | region  | highlighted |
-    | place   | marked      |
+    | tier    | asks                                                    |
+    | country | which country is highlighted                            |
+    | region  | which region of its country is highlighted (of France, of the United States) |
+    | place   | which place is marked                                   |
 ```
 
 ### EXR-04 L1 offers the item and three wrong names
@@ -106,6 +116,30 @@ Scenario: taps after the answer are ignored
   Then no pin appears, Confirm stays disabled and the reported result is unchanged
 ```
 
+### EXR-24 A tap question names a region with its country
+Up: PRD-01, PRD-03
+
+*Why:* maptap names a place with its country (and its region where it gives one), so the
+learner is never asked to find a name anywhere on Earth. A region is asked the same way.
+
+```gherkin
+Scenario Outline: the name a tap question asks for
+  Given a <tier> item asked at L2 or L3
+  When the question starts
+  Then the prompt asks the learner to tap <named>
+  Examples:
+    | tier    | named                                                   |
+    | country | its name (France)                                       |
+    | region  | its name, then its country's (Texas, United States)     |
+    | place   | maptap's name for it, unchanged (Abilene, Texas, USA)   |
+
+Scenario: a wrong answer names a region with its country
+  Given a region question at any rung
+  When it is answered incorrectly
+  Then the verdict says which region it was, with its country (Bretagne, France)
+    And the name shown on the globe at its answer point is the region's alone
+```
+
 ### EXR-08 Nothing names the item on the globe before the answer
 Up: PRD-08
 
@@ -159,24 +193,35 @@ Scenario: an item outside the main part stays in view at L2
   Given a region or place outside its country's main part
   When it is asked at L2
   Then its answer point is well on the near side of the globe and inside the globe's area
+
+Scenario Outline: a region at L3 is framed as at L2
+  Given a <region>
+  When it is asked at L3
+  Then the camera goes to <view>, as it does at L2
+  Examples:
+    | region                                 | view                                                                   |
+    | region                                 | fit its country's main part                                            |
+    | region outside its country's main part | the whole world, centred halfway between the main part and the region |
 ```
 
-### EXR-10 L3 never moves the camera
+### EXR-10 L3 never moves the camera for a country or a place
 Up: PRD-01, PRD-08
 
-*Why:* in a maptap round the globe stays where the last question left it.
+*Why:* in a maptap round the globe stays where the last question left it. maptap never asks a
+region, so an L3 region is framed on its country instead (EXR-09).
 
 ```gherkin
-Scenario: an L3 question keeps the view
+Scenario: an L3 country or place question keeps the view
   Given the camera is where the last question left it
-  When an L3 question starts
+  When an L3 country or place question starts
   Then the camera does not move
 
 Scenario: the first question a page shows
-  Given a page opens on an L3 question
+  Given a page opens on an L3 country or place question
   When it starts
   Then the camera goes to the whole world first
-    And L1 and L2 questions make their own move whether or not they open a page
+    And L1 and L2 questions, and L3 region questions, make their own move whether or not they
+      open a page
 ```
 
 ### EXR-11 A new question's move replaces the reveal's flight

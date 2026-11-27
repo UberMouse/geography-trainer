@@ -5,14 +5,17 @@ import { buildChoices } from './options';
 import { choiceResult } from './result';
 import Reveal from './Reveal';
 import type { ExerciseViewProps } from './Exercise';
+import { countryInText } from './item';
 import { useQuestion } from './useQuestion';
+import type { ExerciseItem } from './types';
 import { useQuestionGlobe } from './useQuestionGlobe';
 
-const PROMPT = {
-  country: 'Which country is highlighted?',
-  region: 'Which region is highlighted?',
-  place: 'Which place is marked?',
-} as const;
+const prompt = (item: ExerciseItem) =>
+  ({
+    country: 'Which country is highlighted?',
+    region: `Which region of ${countryInText(item.countryId, item.countryName)} is highlighted?`,
+    place: 'Which place is marked?',
+  })[item.tier];
 
 /** A choice's look: the right option and a wrong choice are marked after the answer. */
 const LOOK = {
@@ -42,7 +45,7 @@ export default function HighlightExercise({ item, seed, onAnswer, onNext, openin
 
   return (
     <Stack gap="sm">
-      <Text size="lg">{PROMPT[item.tier]}</Text>
+      <Text size="lg">{prompt(item)}</Text>
       <SimpleGrid cols={2} spacing="xs" role="group" aria-label="Options">
         {choices.map((c) => {
           const m = mark(c.id);

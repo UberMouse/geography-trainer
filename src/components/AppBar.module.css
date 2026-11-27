@@ -1,0 +1,13 @@
+/* Sticks to the top of the column; its padding covers the column's own 16px so nothing shows above it. */
+.bar {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  margin: -16px -16px 8px;
+  padding: 16px;
+  background: var(--mantine-color-body);
+}
+
+.bar a[aria-current='page'] {
+  text-decoration: underline;
+}

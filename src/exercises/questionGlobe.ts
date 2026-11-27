@@ -11,11 +11,12 @@ import type { GlobeMarker } from '../maps/Globe';
 import { featureBounds, type GlobeMode, type Reveal } from '../maps/globeLayers';
 import type { ExerciseItem } from './types';
 
-const BARE: GlobeMode = { kind: 'bare' };
-
-/** The globe's mode for a question: L1 the highlight, L2 the borders, L3 bare. */
+/**
+ * The globe's mode for a question: L1 the highlight, L2 the borders, L3 `bareMode` (bare, except
+ * a region's country outline).
+ */
 export function questionMode(item: ExerciseItem, rung: Rung): GlobeMode {
-  return rung === 1 ? item.highlightMode : rung === 2 ? item.bordersMode : BARE;
+  return rung === 1 ? item.highlightMode : rung === 2 ? item.bordersMode : item.bareMode;
 }
 
 /** An L1 area's view is this many times its main part's span, so the part takes about 2/5 of the shorter side. */
@@ -42,11 +43,12 @@ const neighbourhood = (at: LngLat): CameraMove => ({
  * - L2: a country, the whole world; a region or place, to fit its country (the neighbourhood of a
  *   point-only one); when it lies outside that frame (`outsideFrame`), the whole world centred
  *   halfway between the frame's answer point and the target's, so both are well on the near side.
- * - L3: nowhere (any flight stops where it is), except for a page's `opening` question, which
- *   starts from the whole world.
+ * - L3: a country or place: nowhere (any flight stops where it is), except for a page's `opening`
+ *   question, which starts from the whole world; a region: its L2 move, `opening` or not.
  */
 export function questionCamera(item: ExerciseItem, rung: Rung, opening = false): CameraMove {
   const { target } = item;
+  if (rung === 3 && item.tier === 'region') return questionCamera(item, 2);
   if (rung === 1) {
     if ('point' in target) return neighbourhood(target.point);
     if (item.pointOnly) return neighbourhood(target.answer);
@@ -102,7 +104,7 @@ export function revealCamera(item: ExerciseItem, tap: LngLat): CameraMove {
 
 /**
  * The question's markers: the pin while it is unanswered (none before the first tap); once
- * answered, the target's name at its answer point, and no pin (the reveal has its own).
+ * answered, the target's `name` (not its label) at its answer point, and no pin (the reveal has its own).
  */
 export function questionMarkers(
   item: ExerciseItem,

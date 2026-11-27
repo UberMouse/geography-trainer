@@ -108,6 +108,15 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByTestId('last-km')).toHaveText('–');
   });
 
+  test('[EXR-24] L1: a wrong answer names the region with its country', async ({ page }) => {
+    await openExercise(page, 'item=region:france.bretagne&rung=1');
+    await options(page)
+      .filter({ hasNotText: /^Bretagne$/ })
+      .first()
+      .click();
+    await expect(page.getByRole('status')).toContainText('it is Bretagne, France');
+  });
+
   test('[EXR-06, EXR-C07] a click after the answer changes nothing', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
     await option(page, 'France').click();
@@ -147,11 +156,20 @@ test.describe('L1 highlighted → name', () => {
     expect(view.zoom).toBeGreaterThan(4);
   });
 
-  test('[EXR-03] a region: the prompt asks which region is highlighted', async ({ page }) => {
+  test('[EXR-03] a region: the prompt asks which region of its country is highlighted', async ({
+    page,
+  }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=1');
-    await expect(page.getByText('Which region is highlighted?')).toBeVisible();
+    await expect(page.getByText('Which region of France is highlighted?')).toBeVisible();
     await expect(mode(page)).toHaveAttribute('data-mode', 'highlight');
     await expect(options(page)).toHaveCount(4);
+  });
+
+  test('[EXR-03] a region of a country that takes "the": the prompt says of the United States', async ({
+    page,
+  }) => {
+    await openExercise(page, 'item=region:united-states.texas&rung=1');
+    await expect(page.getByText('Which region of the United States is highlighted?')).toBeVisible();
   });
 
   test('[EXR-18, EXR-13, EXR-C07] a right answer after the slow limit is correct but slow', async ({
@@ -345,6 +363,44 @@ test.describe('L2 and L3 name → tap', () => {
     await expect.poll(() => hook.markers(page)).toEqual([]);
   });
 
+  for (const rung of [2, 3]) {
+    test(`[EXR-24] L${rung}: a tap prompt names a region with its country, a country and a place as they are`, async ({
+      page,
+    }) => {
+      const prompt = (text: string) => page.getByText(text, { exact: true });
+      await openExercise(page, `item=region:france.bretagne&rung=${rung}`);
+      await expect(prompt('Tap Bretagne, France')).toBeVisible();
+      await openExercise(page, `item=country:france&rung=${rung}`);
+      await expect(prompt('Tap France')).toBeVisible();
+      await openExercise(page, `item=place:honolulu_hawaii&rung=${rung}`);
+      await expect(prompt('Tap Honolulu, Hawaii, USA')).toBeVisible();
+    });
+
+    test(`[EXR-24] L${rung}: a wrong answer names the region with its country, the globe by its name alone`, async ({
+      page,
+      isMobile,
+    }) => {
+      await openExercise(page, `item=region:france.bretagne&rung=${rung}`);
+      await tapGlobe(page, isMobile, [-150, -40]);
+      await confirm(page).click();
+      await expect(verdict(page)).toHaveText(/^Incorrect · it is Bretagne, France/);
+      await expect
+        .poll(async () => (await hook.markers(page)).filter((m) => m.kind === 'name').map((m) => m.text))
+        .toEqual(['Bretagne']);
+    });
+  }
+
+  test('[EXR-02, EXR-09] L3 region: its country’s outline alone, the camera fitting its main part', async ({
+    page,
+  }) => {
+    await openExercise(page, 'item=region:france.bretagne&rung=3');
+    await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
+    await expect.poll(() => hook.layerIds(page)).toContain('gt-country-outline');
+    expect(await hook.layerIds(page)).not.toContain('gt-region-borders');
+    const view = await settled(page);
+    expect(near(view.center, [2, 46.5], 3)).toBe(true);
+  });
+
   test('[EXR-02, EXR-09] L2 region: the camera fits its country, whose region borders show', async ({ page }) => {
     await openExercise(page, 'item=region:france.bretagne&rung=2');
     await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
@@ -362,29 +418,32 @@ test.describe('L2 and L3 name → tap', () => {
     ['place:saint_denis_reunion', [2.5, 46.5]],
   ];
   for (const [item, mainland] of outlying) {
-    test(`[EXR-09, EXR-12] L2 outside its country’s main part (${item}): the whole world, with it in view`, async ({
-      page,
-    }) => {
-      await openExercise(page, `item=${item}&rung=2`);
-      await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
-      const view = await settled(page);
-      const answer = await itemAnswer(page);
-      // The whole sphere, as the opening view zooms (`worldView`), centred halfway between the
-      // main part and the answer.
-      expect(near(view.center, arcMidpoint(mainland, answer), 3)).toBe(true);
-      const worldZoom =
-        (await hook.minZoom(page)) + Math.log2(Math.cos((view.center[1] * Math.PI) / 180));
-      expect(view.zoom).toBeCloseTo(worldZoom, 1);
-      // Well on the near side of the globe (`project` does not cull the far side), and in the slot.
-      expect(arcDegrees(view.center, answer)).toBeLessThan(80);
-      const at = await hook.project(page, answer);
-      const slot = await page.getByTestId('globe-slot').boundingBox();
-      expect(slot).not.toBeNull();
-      expect(at.x).toBeGreaterThanOrEqual(slot!.x);
-      expect(at.x).toBeLessThanOrEqual(slot!.x + slot!.width);
-      expect(at.y).toBeGreaterThanOrEqual(slot!.y);
-      expect(at.y).toBeLessThanOrEqual(slot!.y + slot!.height);
-    });
+    // A region at L3 is framed as at L2; a place at L3 keeps the view.
+    for (const rung of item.startsWith('region:') ? [2, 3] : [2]) {
+      test(`[EXR-09, EXR-12] L${rung} outside its country’s main part (${item}): the whole world, with it in view`, async ({
+        page,
+      }) => {
+        await openExercise(page, `item=${item}&rung=${rung}`);
+        await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
+        const view = await settled(page);
+        const answer = await itemAnswer(page);
+        // The whole sphere, as the opening view zooms (`worldView`), centred halfway between the
+        // main part and the answer.
+        expect(near(view.center, arcMidpoint(mainland, answer), 3)).toBe(true);
+        const worldZoom =
+          (await hook.minZoom(page)) + Math.log2(Math.cos((view.center[1] * Math.PI) / 180));
+        expect(view.zoom).toBeCloseTo(worldZoom, 1);
+        // Well on the near side of the globe (`project` does not cull the far side), and in the slot.
+        expect(arcDegrees(view.center, answer)).toBeLessThan(80);
+        const at = await hook.project(page, answer);
+        const slot = await page.getByTestId('globe-slot').boundingBox();
+        expect(slot).not.toBeNull();
+        expect(at.x).toBeGreaterThanOrEqual(slot!.x);
+        expect(at.x).toBeLessThanOrEqual(slot!.x + slot!.width);
+        expect(at.y).toBeGreaterThanOrEqual(slot!.y);
+        expect(at.y).toBeLessThanOrEqual(slot!.y + slot!.height);
+      });
+    }
   }
 
   test('[EXR-09] L2 country: the camera goes to the whole world', async ({ page }) => {
@@ -411,8 +470,10 @@ test.describe('L2 and L3 name → tap', () => {
     expect(near(view.center, [0, 20], 0.5)).toBe(true);
   });
 
-  test('[EXR-10] L3: the camera stays where the last question left it', async ({ page }) => {
-    await openExercise(page, 'item=region:france.bretagne&rung=1');
+  test('[EXR-10] L3: the camera stays where the last question left it, for a country or a place', async ({
+    page,
+  }) => {
+    await openExercise(page, 'item=place:honolulu_hawaii&rung=1');
     const before = await settled(page);
     await page.getByRole('combobox', { name: 'Rung' }).selectOption('3');
     await expect(mode(page)).toHaveAttribute('data-mode', 'bare');

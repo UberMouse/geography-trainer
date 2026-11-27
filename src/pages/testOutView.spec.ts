@@ -54,7 +54,7 @@ const masteredFrance = opened({ 'country:france': mastered('country:france') });
 const resolve = (progress: Record<string, ItemProgress>, c: string, r?: string) =>
   resolveTestOutRoute(curriculum, countries, progress, c, r);
 
-describe('[PLC-23] resolveTestOutRoute', () => {
+describe('[PLC-23, PLC-C09] resolveTestOutRoute', () => {
   it('runs for a mastered country with a regions tier', () => {
     expect(resolve(masteredFrance, 'france')).toEqual({
       kind: 'run',
@@ -62,6 +62,7 @@ describe('[PLC-23] resolveTestOutRoute', () => {
       countryId: 'france',
       tier: 'regions',
       needsRegions: true,
+      back: '/progress/france',
     });
   });
 
@@ -72,6 +73,7 @@ describe('[PLC-23] resolveTestOutRoute', () => {
       countryId: 'tuvalu',
       tier: 'places',
       needsRegions: false,
+      back: '/progress/tuvalu',
     });
   });
 
@@ -83,6 +85,7 @@ describe('[PLC-23] resolveTestOutRoute', () => {
       countryId: 'france',
       tier: 'places',
       needsRegions: true,
+      back: '/progress/france/france.bretagne',
     });
   });
 

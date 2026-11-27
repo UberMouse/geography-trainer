@@ -30,7 +30,7 @@ export default function TapExercise({
   return (
     <Stack gap="sm">
       <Text size="lg">
-        Tap <strong>{item.name}</strong>
+        Tap <strong>{item.label}</strong>
       </Text>
       <Button disabled={!pin || !!result} onClick={confirm}>
         Confirm

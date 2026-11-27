@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { GATE_WAVE1_MASTERED_COUNTRIES, MC_FAST_MS } from '../src/engine/config';
 import { globeHooked, hook, type LngLat } from './globeHook';
-import { expect, type Page } from './test';
+import { appBar, expect, type Page } from './test';
 
 // Shared by the Session and Home specs: answering questions the way a learner would.
 
@@ -84,7 +84,7 @@ export async function importProgress(page: Page, path: string) {
   await page.getByLabel('Import progress').setInputFiles(path);
   await page.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-new')).toBeVisible(WAIT);
 }
 
@@ -98,7 +98,7 @@ export function progressRow(
     dueInDays,
     l3PassDays = [],
     introducedAt,
-  }: { dueInDays: number; l3PassDays?: string[]; introducedAt: number },
+  }: { dueInDays: number; l3PassDays?: string[]; introducedAt: number | null },
 ) {
   const now = Date.now();
   const card = {

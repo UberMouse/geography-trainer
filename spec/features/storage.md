@@ -166,6 +166,7 @@ Scenario: import replaces
   Then exactly the file's progress, answers and markers are stored
     And anything not in the file is gone
     And progress for items the app does not know is kept as it is
+    And a session round this tab kept (SES-27) is dropped, so Home offers Start, not Continue
 
 Scenario: settings survive an import
   Given the daily new-item limit is set
@@ -267,12 +268,14 @@ Scenario: reset
   When the learner resets
   Then progress, answers and markers are gone
     And the unsaved answer is dropped and no failure is reported
+    And a session round this tab kept (SES-27) is dropped, so Home offers Start, not Continue
     And the daily limit is unchanged
 
 Scenario: a failed reset changes nothing
   Given an unsaved answer and stored progress
   When the reset's write fails
   Then everything stored is unchanged and the unsaved answer still waits
+    And a session round this tab kept is still kept
 
 Scenario: work started after a reset lands after it
   Given a reset has started

@@ -1,6 +1,5 @@
 import {
   Alert,
-  Anchor,
   Button,
   FileButton,
   Group,
@@ -12,7 +11,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { usePageTitle } from '../components/usePageTitle';
 import type { ItemProgress } from '../engine/srs';
 import { progressStore } from '../storage/progressStore';
 import { DAILY_NEW_CAP_MAX, DAILY_NEW_CAP_MIN } from '../storage/settings';
@@ -49,15 +48,13 @@ type Notice = 'saved' | 'imported' | 'reset' | null;
 
 /** The daily limit on new items, export and import of the saved progress, and a full reset. */
 export default function Settings() {
+  usePageTitle('Settings');
   const [data, reload] = useLoaded('settings', loadSettingsData);
   // Kept here, above `Status`, because the loaded subtree remounts when an import or reset reloads.
   const [notice, setNotice] = useState<Notice>(null);
   return (
     <Stack align="flex-start">
       <Title order={1}>Settings</Title>
-      <Anchor component={Link} to="/">
-        Back to Home
-      </Anchor>
       <Status
         state={data}
         retry={reload}

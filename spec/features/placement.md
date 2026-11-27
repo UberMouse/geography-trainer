@@ -44,14 +44,21 @@ Scenario: an item outside the curriculum
   Then building it fails
 ```
 
-### PLC-03 Every question is a tap on the bare globe
+### PLC-03 Every question is a tap at the top rung
 Up: PRD-05, PRD-03
 
 ```gherkin
 Scenario: placement asks only the top rung
   Given a placement test or a test-out is running
   When a question shows
-  Then it is an L3 question: tap the named item on the globe with no borders drawn
+  Then it is an L3 question: tap the named item on the globe with no borders drawn (a region
+    is the exception, below)
+
+Scenario: a test-out over a country's regions
+  Given a test-out over a country's regions is running
+  When a question shows
+  Then it is an L3 region question as an exercise asks one: named with its country, with only
+    its country's outline drawn and the camera on the country (EXR-02, EXR-09, EXR-24)
 ```
 
 ## The ability estimate
@@ -386,19 +393,29 @@ Scenario: nothing earned credit
 ## Running a test
 
 ### PLC-18 The question screen
-Up: PRD-05, PRD-09
+Up: PRD-05, PRD-09, PRD-17
 
 ```gherkin
 Scenario: the first question
   Given a test with items to ask
   When it opens
   Then it shows its heading, a counter of the question being asked out of at most 20
-    (fewer when fewer items can be asked), and a Quit link to Home
+    (fewer when fewer items can be asked), and a Quit link back to where the test began
     And there is no way to finish early yet
 
 Scenario: after the first answer
   Given the learner has answered a question
   Then a button to finish now shows
+
+Scenario Outline: where a test leads back to
+  Given <test>
+  Then its Quit link, its result's link back and its nothing-to-test message's link go to <page>
+    And each link names that page
+  Examples:
+    | test                              | page                     |
+    | the countries test                | Home                     |
+    | a country's test-out              | the country's page       |
+    | a region's test-out               | the region's page        |
 
 Scenario: phone width
   Given a phone-width screen
@@ -424,9 +441,9 @@ Scenario: quitting keeps what was shown
 
 Scenario: quitting during a question leaves the globe clean
   Given the learner has dropped a pin but not confirmed it
-  When they quit to Home
+  When they quit
   Then no pin or reveal is left on the globe
-    And taps on Home's globe drop no pin
+    And taps on the next page's globe drop no pin
 
 Scenario: an answer that fails to save
   Given one or more passes or close misses failed to save
@@ -447,7 +464,7 @@ Scenario: the test ends
       days, the very likely known come back over the next few weeks, the close or probably known
       start at tapping on a bordered map, and the rest start from the beginning
     And each line counts its items in the tier's noun, singular for one
-    And a link back to Home
+    And a link back to where the test began (PLC-18)
 
 Scenario: nothing placed
   Given the estimate is 0 and no item was placed
@@ -475,6 +492,7 @@ Scenario: a test-out
   Given all of an item's children are already placed or being studied
   When its test-out opens
   Then it says there is nothing left to test in that item, naming it and its children's tier
+    And links back to the item's page
 ```
 
 ## Finished tests

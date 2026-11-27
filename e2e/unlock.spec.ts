@@ -1,5 +1,5 @@
 import { GATE_WAVE1_MASTERED_COUNTRIES } from '../src/engine/config';
-import { expect, test, type Page } from './test';
+import { appBar, expect, test, type Page } from './test';
 import { globeReady, hook, type LngLat } from './globeHook';
 import {
   answer,
@@ -74,7 +74,7 @@ test('[SCR-09, SCR-10, SCR-12] the Progress page shows the mastered country and 
   await writeMasteredUnitedStates(file);
   await importProgress(page, file);
 
-  await page.getByRole('link', { name: 'See your progress' }).click();
+  await appBar(page).getByRole('link', { name: 'Progress' }).click();
   await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible(WAIT);
   await expect(page.getByTestId('tier-country')).toContainText('1 learned', WAIT);
 
@@ -352,7 +352,7 @@ test("[SCR-06, SCR-08] Home's globe shows progress by country, and Home links to
   const { fills } = await progressShowing(page, 'germany');
   expect(fills.germany).toBe(NEW);
   await expect.poll(() => hook.layerIds(page)).toContain('gt-progress-fill');
-  await page.getByRole('link', { name: 'See your progress' }).click();
+  await appBar(page).getByRole('link', { name: 'Progress' }).click();
   await expect(page).toHaveURL(/\/progress$/);
 });
 
@@ -364,7 +364,7 @@ test('[GLB-04, SCR-06] a world view whose globe shrinks mid-flight lands with th
   await globeReady(page);
   await hook.jumpTo(page, GERMANY, 5);
   // Progress flies to the world view on entry; the globe shrinks while it flies.
-  await page.getByRole('link', { name: 'See your progress' }).click();
+  await appBar(page).getByRole('link', { name: 'Progress' }).click();
   const size = page.viewportSize()!;
   await page.setViewportSize({ width: size.width, height: size.height - 200 });
   // Settled: the camera reads the same twice, 300 ms apart.
@@ -389,4 +389,21 @@ test('[SCR-26] Home and Progress do not scroll sideways', async ({ page }) => {
     const fits = await page.locator('html').evaluate((el) => el.scrollWidth <= el.clientWidth);
     expect(fits, `${path} has no horizontal scroll`).toBe(true);
   }
+});
+
+test("[PLC-03, EXR-02, EXR-24] a test-out of the United States's regions asks each region with its country, over the country's outline alone", async ({
+  page,
+}, testInfo) => {
+  const file = testInfo.outputPath('mastered-us-regions.json');
+  await writeMasteredUnitedStatesGateOpen(file);
+  await importProgress(page, file);
+
+  await page.goto('/placement/united-states');
+  const q = await current(page, 'placement-question');
+  expect(q.rung).toBe(3);
+  expect(q.itemId).toMatch(/^region:united-states\./);
+  await expect(page.getByText(/^Tap .+, United States$/)).toBeVisible(WAIT);
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'regionBorders');
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-country-outline');
+  expect(await hook.layerIds(page)).not.toContain('gt-region-borders');
 });

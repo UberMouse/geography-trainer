@@ -5,7 +5,7 @@ React components is pure: given the same item, rung, tap and seed it returns the
 fetches nothing.
 
 ### EXR-C01 `buildExerciseItem` and `ExerciseItem`
-Up: EXR-02, EXR-12, EXR-20, EXR-21, EXR-22
+Up: EXR-02, EXR-03, EXR-12, EXR-20, EXR-21, EXR-22, EXR-24
 
 `buildExerciseItem(itemId: string, data: ExerciseData): ExerciseItem` in `src/exercises/item.ts`.
 `ExerciseData` is `{ countries: CountriesData; places: Place[]; regions?: RegionsData }`, where
@@ -16,6 +16,8 @@ Up: EXR-02, EXR-12, EXR-20, EXR-21, EXR-22
 | `id` | string | the namespaced item id: `country:<id>`, `region:<country>.<id>` or `place:<id>` |
 | `tier` | `'country' \| 'region' \| 'place'` | from the id's prefix |
 | `name` | string | the feature's or place's name |
+| `label` | string | what a tap prompt and a wrong verdict call it (EXR-24): `name` for a country or place, `<region name>, <country name>` for a region |
+| `countryName` | string | the owning country's name (the country's own for a country) |
 | `countryId` | string | the owning country's namespaced id (`country:<id>`) |
 | `target` | `TapTarget` | `{ feature, answer, alsoInside? }` for a country or region (`answer` is `answerPoint(feature)`; `alsoInside` lists same-named sibling regions, only when there are any), `{ point }` for a place |
 | `candidates` | `Candidate[]` | the wrong-option pool (GRD-25), from `countryCandidates`, `regionCandidates` or `placeCandidates` in `src/engine/distractors.ts`; may be empty for a region |
@@ -23,6 +25,7 @@ Up: EXR-02, EXR-12, EXR-20, EXR-21, EXR-22
 | `outsideFrame` | boolean | `!frameTest(frame)(answer point)`; always false for a country |
 | `highlightMode` | `GlobeMode` | L1's: `highlight` with target `{kind:'country', feature, countries}`, `{kind:'region', feature, country, regions}` or `{kind:'place', place, country, regions?}` (`regions` undefined for a country without a regions tier) |
 | `bordersMode` | `GlobeMode` | L2's: `{kind:'countryBorders', countries}` for a country, else `{kind:'regionBorders', country, regions?}` |
+| `bareMode` | `GlobeMode` | L3's: `{kind:'regionBorders', country}` (no `regions`, so the country's outline alone) for a region, else `{kind:'bare'}`, the same object for every item |
 | `pointOnly` | boolean | the country (or the place's country) has `pointOnly: true`; always false for a region |
 
 `distinctCandidates` is re-exported from `src/engine/distractors.ts`.
@@ -45,18 +48,18 @@ What an answered question reports to the page, which hands it to the scheduler. 
 - `tapResult(item, tap: LngLat, timeMs)`: `rating` is `gradeTap({ tier, ...measureTap(item.target, tap) })`.
 
 ### EXR-C03 The question's globe, as data
-Up: EXR-01, EXR-08, EXR-09, EXR-10, EXR-15, EXR-16
+Up: EXR-01, EXR-02, EXR-08, EXR-09, EXR-10, EXR-15, EXR-16, EXR-24
 
 Pure functions in `src/exercises/questionGlobe.ts`; `useQuestionGlobe` hands their output to the
 shared globe (`useGlobe`, `moveCamera` in `src/maps/globeContext.ts`).
 
 | Function | Returns |
 |---|---|
-| `questionMode(item, rung)` | `item.highlightMode` (L1), `item.bordersMode` (L2), or `{kind:'bare'}` (L3), the same object every call so the globe does not redraw |
-| `questionCamera(item, rung, opening = false)` | a `CameraMove`: `fit` (a feature), `span` (the neighbourhood of a point, or an area in its surroundings, EXR-C06), `world` (optionally `at`), or `stay`, per EXR-09 and EXR-10 |
+| `questionMode(item, rung)` | `item.highlightMode` (L1), `item.bordersMode` (L2), or `item.bareMode` (L3), the same object every call so the globe does not redraw |
+| `questionCamera(item, rung, opening = false)` | a `CameraMove`: `fit` (a feature), `span` (the neighbourhood of a point, or an area in its surroundings, EXR-C06), `world` (optionally `at`), or `stay`, per EXR-09 and EXR-10; a region at L3 gets exactly its L2 move, `opening` or not |
 | `questionReveal(item, tap?)` | `{ target: {kind:'area', feature} \| {kind:'point', at}, tap?: { at: tap, answer: targetPoint(target) } }` |
 | `revealCamera(item, tap)` | `pair` (`a: tap`, `b: answer`, `feature` for an area target), or `world` centred on the midpoint or the answer, per EXR-16 |
-| `questionMarkers(item, pin, answered)` | unanswered: `[]` or `[{kind:'pin', at: pin}]`; answered: `[{kind:'name', at: targetPoint(target), text: item.name}]` |
+| `questionMarkers(item, pin, answered)` | unanswered: `[]` or `[{kind:'pin', at: pin}]`; answered: `[{kind:'name', at: targetPoint(target), text: item.name}]` (the name, not the label) |
 
 The question's camera move runs once as the question mounts; the reveal's runs once when a
 confirmed tap is revealed. A choice reveals no tap, so it moves nothing.
@@ -127,10 +130,23 @@ Up: EXR-06, EXR-07, EXR-10, EXR-17, EXR-18
 | `seed: number` | seeds the options (`mulberry32(seed)`); a number, so React's double-run initialiser picks the same options |
 | `onAnswer(result)` | called exactly once per question, when it is answered |
 | `onNext()` | called when the learner presses Next after the reveal |
-| `opening?: boolean` | the page's first question: L3 then starts from the whole world |
+| `opening?: boolean` | the page's first question: an L3 country or place then starts from the whole world (an L3 region makes its own move, EXR-10) |
 | `note?` | a line shown above Next once answered |
 
 It remounts (a fresh timer, no pin, no reveal, the question's camera move) when `item.id` or
 `rung` changes. The same item at the same rung again does not, so the caller keys each new
 question (a session keys by question index). The timer starts at the first render's commit
 (`performance.now()`).
+
+### EXR-C08 A country's name in running text
+Up: EXR-03
+
+`countryInText(countryId: string, name: string): string` in `src/exercises/item.ts` is how the L1
+region prompt names the country after "of": `the <name>` when the country's namespaced id is in
+`COUNTRIES_WITH_THE`, else `<name>`. A label (`Texas, United States`) never takes the article.
+
+| Constant | Value | Lives in |
+|---|---|---|
+| `COUNTRIES_WITH_THE` | `country:democratic-republic-of-the-congo`, `country:netherlands`, `country:philippines`, `country:united-states` | `src/exercises/item.ts` |
+
+The value is the regions-tier countries (`hasRegions`) whose name takes "the" in English prose.
