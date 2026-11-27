@@ -1,9 +1,12 @@
 import { Anchor, Button, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { usePageTitle } from '../components/usePageTitle';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
-import { newTodayText, showsPlacementOffer } from './homeView';
+import { clearSessionRun } from '../storage/sessionRunStore';
+import { itemsLeft, newTodayText, showsPlacementOffer } from './homeView';
+import { keptRun } from './sessionView';
 import type { ItemState } from '../engine/curriculum';
 import Status from './LoadStatus';
 import ProgressLegend from './ProgressLegend';
@@ -40,10 +43,11 @@ function useNow(): Date {
 }
 
 /**
- * Today's numbers, a Start link and the links to Progress and Settings, beside the globe filled by
+ * Today's numbers, a Start or Continue link, beside the globe filled by
  * country progress.
  */
 export default function Home() {
+  usePageTitle();
   const [data, reload] = useLoaded('home', loadWorldData);
   const now = useNow();
   return (
@@ -89,6 +93,11 @@ function HomeContent({ data, now }: HomeContentProps) {
     () => todayNumbers(curriculum, data.progress, now, tzOffset(now), data.dailyNewCap),
     [curriculum, data.progress, now, data.dailyNewCap],
   );
+  // The round this tab kept, read as the Session page reads it (SCR-C06).
+  const left = useMemo(
+    () => itemsLeft(keptRun(curriculum, data.progress, now)),
+    [curriculum, data.progress, now],
+  );
   useCountriesGlobe(data, looks);
   return (
     <Stack align="flex-start">
@@ -111,20 +120,19 @@ function HomeContent({ data, now }: HomeContentProps) {
           ({PLACEMENT_MIN_QUESTIONS}–{PLACEMENT_MAX_QUESTIONS} questions)
         </Text>
       )}
-      {numbers.sessionLength > 0 ? (
+      {left !== null ? (
         <Button component={Link} to="/session" size="md">
+          Continue ({left} left)
+        </Button>
+      ) : numbers.sessionLength > 0 ? (
+        // A fresh session, not a kept summary shown again (SCR-C06).
+        <Button component={Link} to="/session" size="md" onClick={clearSessionRun}>
           Start ({numbers.sessionLength} to study)
         </Button>
       ) : (
         <Text>There is nothing to study right now.</Text>
       )}
       <ProgressLegend states={HOME_LEGEND} />
-      <Anchor component={Link} to="/progress">
-        See your progress
-      </Anchor>
-      <Anchor component={Link} to="/settings">
-        Settings
-      </Anchor>
     </Stack>
   );
 }

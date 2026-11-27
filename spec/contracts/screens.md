@@ -79,7 +79,7 @@ A drill-down child row links to `/progress/<country>/<country>.<region>`. Routes
 `src/App.tsx`.
 
 ### SCR-C06 Home's helpers
-Up: SCR-02, SCR-05
+Up: SCR-02, SCR-03, SCR-05
 
 `src/pages/homeView.ts`:
 
@@ -91,6 +91,14 @@ Up: SCR-02, SCR-05
   do not count.
 - `newTodayText(newToday, cap): string` gives `"<n> of <cap> new today"`, or
   `"<n> new today (limit <cap>)"` once `newToday > cap`.
+
+- Home reads the kept run as the Session page does: `resumable(loadSessionRun(dayKey, progress,
+  isKnown), () => dueQuestions({ curriculum, progress, now }))` (SES-C05), with the same `now` and
+  day key as its numbers. It shows Continue in place of Start when that is a run whose queue is
+  not empty, and the Continue text counts `run.itemTotal - itemsDone(run)` items left. Otherwise
+  Start and its count follow `todayNumbers` as before, and following Start calls
+  `clearSessionRun()` first, so the session page builds the session Start counted rather than
+  showing a kept summary again (SCR-03).
 
 Home's numbers come from `todayNumbers` (`src/engine/today.ts`), owned by the session area.
 

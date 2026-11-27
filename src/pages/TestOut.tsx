@@ -5,6 +5,7 @@ import { placementPool, type PlacementItem } from '../engine/placement';
 import { loadRegions } from '../data/loaders';
 import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem } from '../exercises/types';
+import { usePageTitle } from '../components/usePageTitle';
 import Status from './LoadStatus';
 import PlacementRun from './PlacementRun';
 import { resolveTestOutRoute, testOutLabel, type TestOutRoute } from './testOutView';
@@ -15,6 +16,7 @@ const LOAD_FAILURE = 'Could not load the map data or your saved progress:';
 
 /** `/placement/:country` and `/placement/:country/:region` (a full `<country>.<region>` id). */
 export default function TestOut() {
+  usePageTitle('Test out');
   const { country = '', region } = useParams();
   const [data, reload] = useLoaded(`test-out-world/${country}/${region ?? ''}`, loadWorldData);
   return (
@@ -89,6 +91,7 @@ function Loaded({ world, route }: { world: WorldData; route: Extract<TestOutRout
           scope={itemId}
           heading={testOutLabel(loaded.name, route.tier)}
           scopeName={loaded.name}
+          back={{ to: route.back, name: loaded.name }}
         />
       )}
     </Status>

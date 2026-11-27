@@ -356,7 +356,7 @@ Up: PRD-09
 Scenario: an L1 question at phone width
   Given a phone-width screen
   When an L1 question shows
-  Then all 4 choices are visible within the panel without scrolling
+  Then all 4 choices are visible within the panel without scrolling, below the app bar (GLB-36)
     And nothing scrolls sideways
 ```
 
@@ -512,12 +512,47 @@ Scenario Outline: a fresh session is built instead
     | the browser's session storage is missing or refuses access          |
 ```
 
-### SES-27 Leaving the session ends it
-Up: PRD-06
+### SES-27 Leaving the session keeps its round for the day
+Up: PRD-06, PRD-17
+
+*Why:* with the app bar on every page, leaving a session to look at Progress is one tap; it
+should not cost the round's place, its counter or the re-asks it has queued. The round is kept
+where a reload keeps it, per browser tab (SES-25), so closing the tab still ends it.
 
 ```gherkin
-Scenario: quitting and coming back
-  Given the learner answered a question and then left the session
+Scenario: leaving mid-round and coming back
+  Given the learner answered 3 questions of a round and then left the session for another page
+  When they open the session again, the same day, in the same tab
+  Then the same question is asked, with the same header counts
+
+Scenario: leaving after answering, before Next
+  Given the learner answered a question and left while its reveal showed
   When they open the session again
-  Then a fresh session is built from their progress, starting at question 1
+  Then the session carries on at the next question, not the one just answered
+
+Scenario: leaving on a summary
+  Given a round's summary was showing when the learner left
+  When they open the session again
+  Then the same summary shows, with the same unlock lines and Test out links
+    But a test-out finished since is no longer offered: its unlock line stays, without the link
+
+Scenario: a kept round that cannot carry on
+  Given a kept round that SES-26 would drop, such as one from another local day
+  When the learner opens the session
+  Then a fresh session is built
+```
+
+### SES-28 A running session has a link to Home
+Up: PRD-06, PRD-17
+
+*Why:* the link was built with the session, but no scenario promised a way out of one.
+
+```gherkin
+Scenario: the Quit link
+  Given a session is showing a question, or the reveal of an answer
+  Then beside the counter a link says it leaves for Home
+  When the learner follows it
+  Then Home opens, offering to continue the session (SCR-03)
+    And no pin or reveal is left on the globe, and taps on Home's globe drop no pin
+    And the round is kept (SES-27)
 ```

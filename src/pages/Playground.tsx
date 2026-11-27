@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router';
 import { loadCountries } from '../data/loaders';
+import { usePageTitle } from '../components/usePageTitle';
 import ExercisePlayground from './ExercisePlayground';
 import GlobePlayground from './GlobePlayground';
 import Status from './LoadStatus';
@@ -10,6 +11,7 @@ import { useLoaded } from './useLoaded';
  * `?mode=globe` opens the Globe tab, to try by hand and drive from e2e.
  */
 export default function Playground() {
+  usePageTitle('Playground');
   const [params] = useSearchParams();
   const [countries, retry] = useLoaded('countries', loadCountries);
 

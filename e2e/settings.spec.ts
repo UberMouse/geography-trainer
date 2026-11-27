@@ -1,4 +1,4 @@
-import { expect, test } from './test';
+import { appBar, expect, test } from './test';
 import { WAIT, writeMasteredUnitedStates } from './sessionHelpers';
 
 test.describe.configure({ timeout: 120_000 });
@@ -10,7 +10,7 @@ test('[SCR-19] the daily limit is saved and Home uses it', async ({ page }) => {
   await input.fill('5');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status')).toHaveText('Saved.');
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-new')).toHaveText('0 of 5 new today', WAIT);
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByLabel('New items per day')).toHaveValue('5', WAIT);
@@ -29,7 +29,7 @@ test('[SCR-19] an out-of-range limit shows an alert and saves nothing', async ({
   await expect(page.getByRole('alert')).toBeVisible();
   await input.fill('20');
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-new')).toHaveText('0 of 15 new today', WAIT);
 });
 
@@ -43,13 +43,13 @@ test('[SCR-21, SCR-23] import and reset each ask in a dialog; reset needs "reset
   await expect(confirm).toContainText('This browser: nothing started.');
   await confirm.getByRole('button', { name: 'Cancel' }).click();
   await expect(confirm).toBeHidden();
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-learned')).toHaveText('0', WAIT);
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByLabel('Import progress').setInputFiles(file);
   await confirm.getByRole('button', { name: 'Replace' }).click();
   await expect(page.getByRole('status')).toHaveText('Progress imported.', WAIT);
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-learned')).not.toHaveText('0', WAIT);
 
   await page.getByRole('link', { name: 'Settings' }).click();
@@ -71,7 +71,7 @@ test('[SCR-21, SCR-23] import and reset each ask in a dialog; reset needs "reset
   await expect(page.getByRole('status')).toHaveText('All progress was reset.', WAIT);
   await expect(dialog).toBeHidden();
 
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByTestId('today-learned')).toHaveText('0', WAIT);
   await expect(page.getByTestId('today-learning')).toHaveText('0');
   await expect(page.getByRole('link', { name: 'Take the placement test' })).toBeVisible();

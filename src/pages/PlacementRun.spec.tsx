@@ -16,7 +16,12 @@ vi.mock('../exercises/Exercise', () => ({
 }));
 vi.mock('../storage/progressStore', () => ({ progressStore: {} }));
 
-function render(pool: PlacementItem[], items: ReadonlyMap<string, ExerciseItem>, scopeName?: string) {
+function render(
+  pool: PlacementItem[],
+  items: ReadonlyMap<string, ExerciseItem>,
+  scopeName?: string,
+  back = { to: '/', name: 'Home' },
+) {
   return renderToString(
     <MantineProvider>
       <MemoryRouter>
@@ -28,6 +33,7 @@ function render(pool: PlacementItem[], items: ReadonlyMap<string, ExerciseItem>,
           scope={COUNTRIES_SCOPE}
           heading="Heading under test"
           scopeName={scopeName}
+          back={back}
         />
       </MemoryRouter>
     </MantineProvider>,
@@ -38,7 +44,8 @@ function render(pool: PlacementItem[], items: ReadonlyMap<string, ExerciseItem>,
 /** `text` escaped as renderToString escapes text content. */
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
 const html = (text: string) => text.replace(/[&<>"']/g, (c) => ESCAPES[c]!);
-const homeLink = (label: string) => new RegExp(`<a[^>]*href="/"[^>]*>${label}</a>`);
+const linkTo = (href: string, label: string) => new RegExp(`<a[^>]*href="${href}"[^>]*>${label}</a>`);
+const homeLink = (label: string) => linkTo('/', label);
 
 describe('PlacementRun', () => {
   it('[PLC-21] says there is nothing left to place when the countries pool is empty, with a link Home', () => {
@@ -49,13 +56,23 @@ describe('PlacementRun', () => {
   });
 
   it('[PLC-21] names the item and its tier when a test-out has nothing left to test', () => {
-    expect(render([], new Map(), 'France')).toContain(html(emptyPoolText('regions', 'France')));
+    const out = render([], new Map(), 'France', { to: '/progress/france', name: 'France' });
+    expect(out).toContain(html(emptyPoolText('regions', 'France')));
+    expect(out).toMatch(linkTo('/progress/france', 'Back to France'));
   });
 
   it('[PLC-09] says there is nothing to ask when no item has a difficulty', () => {
     const out = render([{ itemId: 'country:beta', level: Infinity, area: 'europe' }], new Map());
     expect(out).toContain(NOTHING_TO_ASK_TEXT);
     expect(out).toMatch(homeLink('Back to Home'));
+  });
+
+  it('[PLC-18] a test-out names the tested item in its Quit link and leads to its page', () => {
+    const items = new Map([['country:alpha', buildExerciseItem('country:alpha', DATA)] as const]);
+    const pool = [{ itemId: 'country:alpha', level: 4, area: 'europe' }];
+    const out = render(pool, items, 'France', { to: '/progress/france', name: 'France' });
+    expect(out).toMatch(linkTo('/progress/france', 'Quit to France'));
+    expect(out).not.toMatch(homeLink('Quit to Home'));
   });
 
   it('[PLC-03, PLC-18] opens on an L3 question with the heading, the counter and Quit, and no Finish now', () => {
@@ -66,7 +83,7 @@ describe('PlacementRun', () => {
     const out = render(pool, items);
     expect(out).toContain('Heading under test');
     expect(out).toContain(placementHeader(0, 2));
-    expect(out).toMatch(homeLink('Quit'));
+    expect(out).toMatch(homeLink('Quit to Home'));
     expect(out).not.toContain('Finish now');
     expect(out).toMatch(/data-testid="placement-question"[^>]*data-rung="3"/);
     expect(out).toMatch(/data-exercise="country:(alpha|beta)@3"/);

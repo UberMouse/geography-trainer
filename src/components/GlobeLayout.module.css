@@ -17,6 +17,11 @@
   padding: 16px;
 }
 
+/* Focus lands here when a page has no heading yet: no ring around the whole column. */
+.column:focus {
+  outline: none;
+}
+
 .globe {
   flex: 1;
   min-width: 0;

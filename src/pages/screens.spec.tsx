@@ -94,6 +94,11 @@ describe('[SCR-07, SCR-C01] the legend', () => {
 describe('[SCR-27, SCR-28] the Credits page', () => {
   const html = render('/credits');
 
+  it('has no link of its own back to Home: the app bar leads there', () => {
+    expect(html).not.toContain('Back to Home');
+    expect(html).toContain('>Geography Trainer</a>');
+  });
+
   it('credits the place list, the boundaries and the imagery, with their links', () => {
     expect(html).toContain('href="https://maptap.gg"');
     expect(html).toContain('href="https://www.naturalearthdata.com"');
@@ -108,5 +113,29 @@ describe('[SCR-27, SCR-28] the Credits page', () => {
       // React marks the text boundaries with comments.
       expect(html).toContain(`${c.name}</a>, <!-- -->${c.licence}<!-- --> licence`);
     }
+  });
+});
+
+describe('[GLB-36, GLB-C17] the app bar', () => {
+  /** The links of the bar, each as `text` plus `*` when it is marked the current page. */
+  const bar = (path: string) => {
+    const nav = /<nav aria-label="Main"[^>]*>(.*?)<\/nav>/.exec(render(path))?.[1] ?? '';
+    return [...nav.matchAll(/<a ([^>]*)>([^<]*)<\/a>/g)].map(
+      (m) => `${m[2]}${m[1]!.includes('aria-current="page"') ? '*' : ''}`,
+    );
+  };
+
+  it.each([
+    ['/', ['Geography Trainer*', 'Progress', 'Settings']],
+    ['/progress', ['Geography Trainer', 'Progress*', 'Settings']],
+    ['/progress/france', ['Geography Trainer', 'Progress*', 'Settings']],
+    ['/progress/france/france.bretagne', ['Geography Trainer', 'Progress*', 'Settings']],
+    ['/settings', ['Geography Trainer', 'Progress', 'Settings*']],
+    ['/credits', ['Geography Trainer', 'Progress', 'Settings']],
+    ['/session', ['Geography Trainer', 'Progress', 'Settings']],
+    ['/placement', ['Geography Trainer', 'Progress', 'Settings']],
+    ['/placement/france', ['Geography Trainer', 'Progress', 'Settings']],
+  ])('%s shows the three links, current as the table says', (path, links) => {
+    expect(bar(path)).toEqual(links);
   });
 });

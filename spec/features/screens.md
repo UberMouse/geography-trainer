@@ -40,8 +40,8 @@ Scenario Outline: the new-today line
     | 10      | 5     | the count, then the limit named apart    |
 ```
 
-### SCR-03 Start, or nothing to study
-Up: PRD-06
+### SCR-03 Start, Continue, or nothing to study
+Up: PRD-06, PRD-17
 
 ```gherkin
 Scenario: there is something to study
@@ -54,6 +54,22 @@ Scenario: there is nothing to study
   When the learner opens Home
   Then there is no Start link
     And Home says there is nothing to study right now
+
+Scenario: a session was left part-way
+  Given this tab kept a session round that can carry on (SES-27), with questions left in it
+  When the learner opens Home
+  Then in place of Start, Home shows a Continue link to the session page that says how many
+    of the session's items are left to do
+  When they follow it
+  Then the session carries on where it was left
+
+Scenario: a kept session that cannot carry on
+  Given the kept round would be dropped (SES-26), or has no questions left
+  When the learner opens Home
+  Then Home shows Start or nothing to study, as if no round were kept
+  When they follow Start
+  Then a fresh session is built, even when the kept round was a summary the session page would
+    show again
 ```
 
 ### SCR-04 Home's numbers follow the clock
@@ -126,13 +142,14 @@ Scenario Outline: the legend on each page
     | the Progress page | locked, new, learning, mastered     |
 ```
 
-### SCR-08 Home links to Progress and Settings
-Up: PRD-07, PRD-11
+### SCR-08 Home reaches Progress and Settings through the app bar
+Up: PRD-07, PRD-11, PRD-17
 
 ```gherkin
 Scenario: the links
   When the learner opens Home
-  Then Home links to the Progress page and to Settings
+  Then the app bar links to the Progress page and to Settings, with Home marked as the current page
+    And Home's own column has no second link to either
 ```
 
 ## Progress: the world
@@ -494,7 +511,7 @@ Up: PRD-13
 Scenario: the Credits page
   Given any page
   When the learner follows the footer's Credits link
-  Then the Credits page opens, with a link back to Home
+  Then the Credits page opens, and the app bar leads back to Home
     And it credits MapTap.gg for the place list, with a link to maptap.gg
     And it credits Natural Earth for the boundaries, public domain, with a link
     And it gives EOX's Sentinel-2 cloudless attribution line in full, with its s2maps.eu link

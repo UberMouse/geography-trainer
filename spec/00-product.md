@@ -43,8 +43,8 @@ is skipped outright: items the learner passes come back soon to confirm.
 
 ## PRD-06 A daily session
 A session asks the reviews that are due first, then introduces new items, up to a daily limit.
-It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and it
-ends with a summary.
+It mixes the rungs so it isn't one long run of the same exercise. It survives a reload, and the
+learner can leave it and carry on later the same day. It ends with a summary.
 
 ## PRD-07 Progress is visible on the globe
 Home says what there is to study today and shows progress on the globe. The Progress pages color
@@ -91,3 +91,9 @@ apart unnoticed.
 ## PRD-16 Developers can see the globe and exercises in isolation
 A development-only playground shows the globe's layer modes and each exercise type with sample
 data, for checking changes by eye.
+
+## PRD-17 The learner can always find their way
+Every page offers Home, Progress and Settings in one step, from the same place, including while a
+session or a test is running and when a page fails to load. Leaving an activity goes back to where
+it began: a session and the placement test to Home, a test-out to the page of the country or region
+it tests.

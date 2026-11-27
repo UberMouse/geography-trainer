@@ -3,10 +3,11 @@
 import { unlockedBy, type Curriculum } from '../engine/curriculum';
 import { itemsDone, type SessionRun } from '../engine/sessionRun';
 import type { SessionQuestion } from '../engine/session';
+import { dueQuestions } from '../engine/session';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
 import type { ExerciseResult } from '../exercises/types';
 import type { AnswerEntry } from '../storage/repo';
-import type { SavedSession } from '../storage/sessionRunStore';
+import { loadSessionRun, type SavedSession } from '../storage/sessionRunStore';
 
 /** A small deterministic 32-bit string hash (FNV-1a). */
 function hashOf(text: string): number {
@@ -106,6 +107,30 @@ export function resumable(
 ): SavedSession | null {
   if (!saved || saved.run.queue.length > 0) return saved;
   return due().some((q) => !(q.itemId in saved.run.asks)) ? null : saved;
+}
+
+/**
+ * The run this tab kept for today, if it can carry on (SES-26, SES-C05): what the Session page
+ * resumes and Home offers to continue. The day key is `now`'s local day.
+ */
+export function keptRun(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  now: Date,
+): SavedSession | null {
+  const dayKey = localDayKey(now, -now.getTimezoneOffset());
+  return resumable(
+    loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id)),
+    () => dueQuestions({ curriculum, progress, now }),
+  );
+}
+
+/**
+ * `saved` with `testable` cut to the ids for which `shows` still holds, so a test-out finished
+ * since the round was saved is not offered again; `mastered` (the unlock lines) is kept whole.
+ */
+export function keepTestable(saved: SavedSession, shows: (itemId: string) => boolean): SavedSession {
+  return { ...saved, testable: saved.testable.filter(shows) };
 }
 
 /** What the current round has mastered: the unlock lines' ids, and those with a Test out link. */

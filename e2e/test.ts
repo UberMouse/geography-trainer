@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { test as base } from '@playwright/test';
+import { test as base, type Page } from '@playwright/test';
 
 export { expect, type Locator, type Page } from '@playwright/test';
 
@@ -24,3 +24,6 @@ export const test = base.extend<{ eoxRequests: string[] }>({
     { auto: true },
   ],
 });
+
+/** The app bar at the top of every page's column (GLB-C17). */
+export const appBar = (page: Page) => page.getByRole('navigation', { name: 'Main' });

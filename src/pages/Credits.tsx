@@ -1,15 +1,13 @@
 import { Anchor, List, Stack, Title } from '@mantine/core';
-import { Link } from 'react-router';
+import { usePageTitle } from '../components/usePageTitle';
 import { DEPENDENCY_CREDITS } from './credits';
 
 /** Who the place list, the boundaries, the imagery and the libraries come from. */
 export default function Credits() {
+  usePageTitle('Credits');
   return (
     <Stack align="flex-start">
       <Title order={1}>Credits</Title>
-      <Anchor component={Link} to="/">
-        Back to Home
-      </Anchor>
       <Title order={2} size="h4">
         Data
       </Title>
