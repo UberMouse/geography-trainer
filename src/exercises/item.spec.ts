@@ -154,6 +154,34 @@ describe('[EXR-02, EXR-C01] buildExerciseItem: the globe modes', () => {
   });
 });
 
+describe('[EXR-C01, EXR-24, EXR-02] buildExerciseItem: label, countryName and bareMode', () => {
+  const [alpha] = COUNTRIES.features;
+
+  it('a country: its name alone, on the shared bare mode', () => {
+    const item = buildExerciseItem('country:alpha', DATA);
+    expect(item).toMatchObject({ label: 'Alpha', countryName: 'Alpha', bareMode: { kind: 'bare' } });
+  });
+
+  it('a region: its name then its country’s, over its country’s outline alone', () => {
+    const item = buildExerciseItem('region:alpha.north', DATA_WITH_ALPHA);
+    expect(item.label).toBe(`${item.name}, Alpha`);
+    expect(item.countryName).toBe('Alpha');
+    expect(item.bareMode).toEqual({ kind: 'regionBorders', country: alpha });
+    expect(item.bareMode).not.toHaveProperty('regions');
+  });
+
+  it('a place: maptap’s name unchanged, and its country’s name', () => {
+    const item = buildExerciseItem('place:n1', DATA_WITH_ALPHA);
+    expect(item).toMatchObject({ label: 'N1', name: 'N1', countryName: 'Alpha' });
+  });
+
+  it('a country and a place share one bare mode object', () => {
+    expect(buildExerciseItem('country:beta', DATA).bareMode).toBe(
+      buildExerciseItem('place:n1', DATA_WITH_ALPHA).bareMode,
+    );
+  });
+});
+
 describe('[EXR-22] buildExerciseItem: empty regions data', () => {
   const regions = { features: [], regions: [] };
 

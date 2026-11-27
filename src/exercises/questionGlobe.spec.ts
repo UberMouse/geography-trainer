@@ -43,13 +43,23 @@ const pointOnlyPlace = buildExerciseItem('place:b1', pointOnlyData);
 
 describe('questionMode', () => {
   it('[EXR-01] highlights at L1, draws the borders at L2 and is bare at L3', () => {
-    expect(questionMode(region, 1)).toBe(region.highlightMode);
-    expect(questionMode(region, 2)).toBe(region.bordersMode);
-    expect(questionMode(region, 3)).toEqual({ kind: 'bare' });
+    expect(questionMode(country, 1)).toBe(country.highlightMode);
+    expect(questionMode(country, 2)).toBe(country.bordersMode);
+    expect(questionMode(country, 3)).toEqual({ kind: 'bare' });
+    expect(questionMode(place, 3)).toEqual({ kind: 'bare' });
   });
 
-  it('[EXR-C03] gives the same bare mode every time, so the globe does not redraw', () => {
+  it('[EXR-01, EXR-02] a region: highlighted at L1, its borders at L2, its country’s outline alone at L3', () => {
+    expect(questionMode(region, 1)).toBe(region.highlightMode);
+    expect(questionMode(region, 2)).toBe(region.bordersMode);
+    expect(questionMode(region, 3)).toBe(region.bareMode);
+    expect(region.bareMode).toEqual({ kind: 'regionBorders', country: COUNTRIES.features[0] });
+    expect(region.bareMode).not.toHaveProperty('regions');
+  });
+
+  it('[EXR-C03] gives the same mode every time, so the globe does not redraw', () => {
     expect(questionMode(country, 3)).toBe(questionMode(place, 3));
+    expect(questionMode(region, 3)).toBe(questionMode(region, 3));
   });
 });
 
@@ -216,7 +226,21 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
     expect(questionCamera(pointOnlyCountry, 2)).toEqual({ kind: 'world' });
   });
 
-  it('[EXR-10] L3: stays where the camera is, unless it opens a page', () => {
+  it('[EXR-09] L3: a region gets exactly its L2 move, opening or not', () => {
+    const isle = buildExerciseItem('region:alpha.isle', DATA_WITH_ALPHA);
+    expect(isle.outsideFrame).toBe(true);
+    for (const r of [region, isle]) {
+      expect(questionCamera(r, 3)).toEqual(questionCamera(r, 2));
+      expect(questionCamera(r, 3, true)).toEqual(questionCamera(r, 2));
+    }
+    expect(questionCamera(region, 3)).toEqual({ kind: 'fit', feature: region.frame });
+    expect(questionCamera(isle, 3)).toEqual({
+      kind: 'world',
+      at: midpoint(answerPoint(isle.frame), area(isle).answer),
+    });
+  });
+
+  it('[EXR-10] L3: a country or place stays where the camera is, unless it opens a page', () => {
     expect(questionCamera(country, 3)).toEqual({ kind: 'stay' });
     expect(questionCamera(place, 3, false)).toEqual({ kind: 'stay' });
     expect(questionCamera(place, 3, true)).toEqual({ kind: 'world' });
@@ -225,6 +249,10 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
   it('[EXR-10] L1 and L2 make their own move when they open a page', () => {
     expect(questionCamera(region, 1, true)).toEqual(questionCamera(region, 1));
     expect(questionCamera(region, 2, true)).toEqual(questionCamera(region, 2));
+  });
+
+  it('[EXR-10] L3: a region opening a page does not start from the whole world', () => {
+    expect(questionCamera(region, 3, true)).not.toEqual({ kind: 'world' });
   });
 });
 
@@ -282,6 +310,13 @@ describe('[EXR-C03] questionMarkers', () => {
   it('[EXR-07, EXR-08] has nothing before the first tap, then the pin', () => {
     expect(questionMarkers(place, null, false)).toEqual([]);
     expect(questionMarkers(place, [1, 2], false)).toEqual([{ kind: 'pin', at: [1, 2] }]);
+  });
+
+  it('[EXR-24] names a region by its name alone, not its label', () => {
+    expect(region.label).not.toBe(region.name);
+    expect(questionMarkers(region, null, true)).toEqual([
+      { kind: 'name', at: area(region).answer, text: region.name },
+    ]);
   });
 
   it('[EXR-15] names the target at its answer point once answered, and drops the pin', () => {

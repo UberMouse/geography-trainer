@@ -15,6 +15,7 @@ import {
   type AreaFeature,
   type LngLat,
 } from '../maps/geo';
+import type { GlobeMode } from '../maps/globeLayers';
 import type { ExerciseItem } from './types';
 
 export { distinctCandidates } from '../engine/distractors';
@@ -25,6 +26,9 @@ export interface ExerciseData {
   places: Place[];
   regions?: RegionsData;
 }
+
+/** The bare globe, L3's mode for a country or a place; one object so the globe does not redraw. */
+const BARE: GlobeMode = { kind: 'bare' };
 
 const pointRecord = (
   f: { id: string; properties: { name: string } },
@@ -71,6 +75,8 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       id: itemId,
       tier,
       name: country.properties.name,
+      label: country.properties.name,
+      countryName: country.properties.name,
       countryId: itemId,
       target: { feature: country, answer: answerPoint(country) },
       candidates: countryCandidates(
@@ -84,6 +90,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         target: { kind: 'country', feature: country, countries: features },
       },
       bordersMode: { kind: 'countryBorders', countries: features },
+      bareMode: BARE,
       pointOnly: country.properties.pointOnly === true,
     };
   }
@@ -105,6 +112,8 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       id: itemId,
       tier,
       name: region.properties.name,
+      label: `${region.properties.name}, ${country.properties.name}`,
+      countryName: country.properties.name,
       countryId: countryItemId(countryId),
       target: {
         feature: region,
@@ -125,6 +134,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
         target: { kind: 'region', feature: region, country, regions: regions.features },
       },
       bordersMode: { kind: 'regionBorders', country, regions: regions.features },
+      bareMode: { kind: 'regionBorders', country },
       pointOnly: false,
     };
   }
@@ -147,6 +157,8 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       id: itemId,
       tier,
       name: place.name,
+      label: place.name,
+      countryName: country.properties.name,
       countryId: countryItemId(country.id),
       target: { point },
       candidates: placeCandidates(place, data.places),
@@ -154,6 +166,7 @@ export function buildExerciseItem(itemId: string, data: ExerciseData): ExerciseI
       outsideFrame: outside(frame, point),
       highlightMode: { kind: 'highlight', target: { kind: 'place', place, country, regions } },
       bordersMode: { kind: 'regionBorders', country, regions },
+      bareMode: BARE,
       pointOnly,
     };
   }

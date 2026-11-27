@@ -11,6 +11,13 @@ export interface ExerciseItem {
   id: string;
   tier: Tier;
   name: string;
+  /**
+   * What a tap prompt and a wrong verdict call the item: `name` for a country or place,
+   * `<region name>, <country name>` for a region.
+   */
+  label: string;
+  /** The owning country's name (a country's own for a country). */
+  countryName: string;
   /** Namespaced id of the owning country (`country:<id>`). */
   countryId: string;
   /** A country or region: its feature and answer point; a place: its point. */
@@ -40,6 +47,11 @@ export interface ExerciseItem {
   highlightMode: GlobeMode;
   /** L2's globe: every country's border for a country, else its country's region borders. */
   bordersMode: GlobeMode;
+  /**
+   * L3's globe: its country's outline alone for a region (`regionBorders` without `regions`),
+   * else the bare globe, the same object for every item.
+   */
+  bareMode: GlobeMode;
   /**
    * A point-only country (no area of its own) or a place in one; always false for a region.
    * `questionCamera` reads it: at L1 a point-only country's question flies to the neighbourhood

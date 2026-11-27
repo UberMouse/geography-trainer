@@ -368,3 +368,20 @@ test('[SCR-26] Home and Progress do not scroll sideways', async ({ page }) => {
     expect(fits, `${path} has no horizontal scroll`).toBe(true);
   }
 });
+
+test("[PLC-03, EXR-02, EXR-24] a test-out of the United States's regions asks each region with its country, over the country's outline alone", async ({
+  page,
+}, testInfo) => {
+  const file = testInfo.outputPath('mastered-us-regions.json');
+  await writeMasteredUnitedStates(file);
+  await importProgress(page, file);
+
+  await page.goto('/placement/united-states');
+  const q = await current(page, 'placement-question');
+  expect(q.rung).toBe(3);
+  expect(q.itemId).toMatch(/^region:united-states\./);
+  await expect(page.getByText(/^Tap .+, United States$/)).toBeVisible(WAIT);
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'regionBorders');
+  await expect.poll(() => hook.layerIds(page)).toContain('gt-country-outline');
+  expect(await hook.layerIds(page)).not.toContain('gt-region-borders');
+});
