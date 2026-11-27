@@ -85,10 +85,20 @@ traced. A refactor changes no file under `spec/`. The run keeps durable state in
 auto-compacts an idle conductor while its subagents work.
 
 Worktrees are made by the `WorktreeCreate` hook (`.claude/hooks/worktree-create.sh`), which
-replaces Claude Code's own `git worktree add`: same path, branch and `worktree.baseRef`
-handling, then `npm ci` and a check that the Playwright browsers match. A fresh worktree is
-ready to run `npm run verify`. Its `WorktreeRemove` partner only removes a clean worktree
-and deletes the branch only once it is merged. Their log lines match `\[worktree-setup\]`.
+replaces Claude Code's own `git worktree add`, keeping the same path, branch and
+`worktree.baseRef` handling. It returns at once and installs `node_modules` in the background
+(`worktree-setup.sh`). The install hardlink-copies `node_modules` from a checkout with an
+identical `package-lock.json`, or falls back to `npm ci`. So don't edit files inside
+`node_modules` in place. Every npm script that needs `node_modules` waits for that install
+through `scripts/await-setup.sh`: `slot.sh` calls it, and `dev` and `spec:check` wrap their
+command in it. A "waiting for this worktree's node_modules install" line is a queued install,
+not a hang. The install's log is `<git dir>/worktree-setup/log`.
+With the hook in place, Claude Code no longer cleans up subagent worktrees, so
+`worktree-cleanup.sh` does, on `SubagentStop` and at session start. It removes a finished
+agent's `agent-*` worktree and branch only when they hold nothing: no modified or untracked
+files, and no commit missing from every other branch. `WorktreeRemove`
+(`worktree-remove.sh`) removes only a clean worktree, and deletes its branch only once the
+branch is merged. Their log lines match `\[worktree-setup\]`.
 
 Selftests for that tooling:
 

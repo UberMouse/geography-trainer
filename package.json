@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "scripts/await-setup.sh vite",
     "build": "scripts/slot.sh build vite build",
     "build:pages": "scripts/slot.sh build vite build --base=/geography-trainer/ && node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\"",
     "typecheck": "scripts/slot.sh typecheck tsc -p tsconfig.app.json --noEmit && scripts/slot.sh typecheck tsc -p tsconfig.node.json --noEmit",
@@ -17,7 +17,7 @@
     "verify": "npm run spec:check && npm run typecheck && npm run lint && npm test && npm run test:e2e",
     "format": "prettier --write .",
     "build:data": "scripts/slot.sh build-data tsx scripts/build-data/index.ts",
-    "spec:check": "tsx scripts/spec-check/index.ts"
+    "spec:check": "scripts/await-setup.sh tsx scripts/spec-check/index.ts"
   },
   "dependencies": {
     "@mantine/core": "9.8.2",

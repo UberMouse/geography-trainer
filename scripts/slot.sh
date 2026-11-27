@@ -21,6 +21,9 @@ fi
 name="$1"
 shift
 
+# A new worktree may still be installing node_modules in the background; wait for it first.
+"$(dirname "$0")/await-setup.sh"
+
 if command -v kx-build-slot >/dev/null 2>&1; then
   exec kx-build-slot --label "geography-trainer:$name" -- "$@"
 fi
