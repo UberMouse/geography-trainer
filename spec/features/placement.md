@@ -52,6 +52,12 @@ Scenario: placement asks only the top rung
   Given a placement test or a test-out is running
   When a question shows
   Then it is an L3 question: tap the named item on the globe with no borders drawn
+
+Scenario: a test-out over a country's regions
+  Given a test-out over a country's regions is running
+  When a question shows
+  Then it is an L3 region question as an exercise asks one: named with its country, with only
+    its country's outline drawn and the camera on the country (EXR-02, EXR-09, EXR-24)
 ```
 
 ## The ability estimate

@@ -25,6 +25,12 @@ An item is learned in rungs, all on the globe. First the learner picks its name 
 choices while it is highlighted. Then they tap it with borders drawn. Finally they tap it on the
 bare globe, as in maptap. An item reviewed later is asked at the highest rung it has reached.
 
+A region is always asked within its country: its name comes with its country's, and at the top
+rung the camera goes to the country with only the country's outline drawn. The region tier
+teaches where in the country a region lies, as a step towards the places in it; maptap itself
+never asks a region. Places keep maptap's own top rung: maptap's name for them (which already
+names the country, and the region where maptap gives one), on the bare globe.
+
 ## PRD-04 Spaced repetition keeps what was learned
 Every answer is graded and fed to an FSRS scheduler, which decides when each item comes back. Fast
 and close answers push an item further out; misses bring it back soon. Mastered items stay in
