@@ -177,8 +177,8 @@ describe('[TLG-04] verify runs spec:check first', () => {
     const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
       scripts: Record<string, string>;
     };
-    // A leading wrapper (scripts/await-setup.sh) is allowed; the checker itself is not.
-    expect(pkg.scripts['spec:check']).toMatch(/^(\S+ )*tsx scripts\/spec-check\/index\.ts$/);
+    // Only the await-setup wrapper (it waits for a worktree's node_modules install) may come before the checker.
+    expect(pkg.scripts['spec:check']).toMatch(/^(scripts\/await-setup\.sh )?tsx scripts\/spec-check\/index\.ts$/);
     expect(pkg.scripts.verify).toMatch(/^npm run spec:check && npm run typecheck && /);
   });
 });
