@@ -1,3 +1,5 @@
+import { writeMasteredTexas } from './placementHelpers';
+import { importProgress } from './sessionHelpers';
 import { appBar, expect, test, type Page } from './test';
 
 const WAIT = { timeout: 30_000 };
@@ -96,6 +98,24 @@ test.describe('[GLB-37] a new page starts at its top, with focus on it', () => {
     expect(await column.evaluate((el) => el.scrollTop)).toBe(0);
   });
 
+  test('a page with no heading gets focus on the column instead', async ({ page }) => {
+    await page.goto('/');
+    const start = page.getByRole('link', { name: /^Start/ });
+    await expect(start).toBeVisible(WAIT);
+    // Stalling the map data from here keeps the session page on its loading state, which has no heading.
+    await page.route('**/data/countries.topo.json', () => {});
+    const column = page.getByTestId('column');
+    await column.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    expect(await column.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await start.click();
+    await expect(page).toHaveURL(/\/session$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(0);
+    await expect(column).toBeFocused();
+    expect(await column.evaluate((el) => el.scrollTop)).toBe(0);
+  });
+
   test('the bar link to the page already shown moves nothing', async ({ page }) => {
     await page.goto('/settings');
     const input = page.getByLabel('New items per day');
@@ -106,7 +126,11 @@ test.describe('[GLB-37] a new page starts at its top, with focus on it', () => {
     await column.evaluate((el) => {
       el.scrollTop = 40;
     });
+    // The router keeps a key for each navigation in the history state, a replace one included.
+    const historyState = () => page.locator('html').evaluate((el) => JSON.stringify(el.ownerDocument.defaultView?.history.state));
+    const before = await historyState();
     await link(page, 'Settings').click();
+    expect(await historyState()).toBe(before);
     await expect(input).toHaveValue('7');
     expect(await column.evaluate((el) => el.scrollTop)).toBe(40);
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).not.toBeFocused();
@@ -144,6 +168,20 @@ test.describe('[GLB-38, GLB-C18] the tab title names the page', () => {
     await page.goto('/progress/united-states');
     await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible(WAIT);
     await expect(page).toHaveTitle('Progress · Geography Trainer');
+  });
+
+  test('a test-out is titled with its heading, and Test out after its load fails', async ({ page }, testInfo) => {
+    const file = testInfo.outputPath('mastered-texas.json');
+    await writeMasteredTexas(file);
+    await importProgress(page, file);
+    await page.goto('/placement/united-states/united-states.texas');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText("Test out of Texas's places", WAIT);
+    await expect(page).toHaveTitle("Test out of Texas's places · Geography Trainer");
+
+    await page.route('**/data/countries.topo.json', (route) => route.fulfill({ status: 500, body: '' }));
+    await page.goto('/placement/united-states/united-states.texas');
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible(WAIT);
+    await expect(page).toHaveTitle('Test out · Geography Trainer');
   });
 
   test('following a link to another page changes the title', async ({ page }) => {

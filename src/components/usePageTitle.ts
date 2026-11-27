@@ -8,14 +8,21 @@ export function pageTitle(page?: string): string {
 }
 
 /**
- * Sets the browser tab's title while the page is shown (see `pageTitle`), and puts the app name
- * back when it goes, so a page that sets none shows the app's name.
+ * Sets the tab's title (see `pageTitle`) and returns a function that puts back the title that was
+ * there before, so a page inside another page's title gives it back when it goes.
+ */
+export function setPageTitle(page?: string): () => void {
+  const before = document.title;
+  document.title = pageTitle(page);
+  return () => {
+    document.title = before;
+  };
+}
+
+/**
+ * Sets the browser tab's title while the page is shown (see `pageTitle`). When it goes, the title
+ * before it comes back: the parent page's, or one the next page's own call replaces.
  */
 export function usePageTitle(page?: string): void {
-  useEffect(() => {
-    document.title = pageTitle(page);
-    return () => {
-      document.title = APP_NAME;
-    };
-  }, [page]);
+  useEffect(() => setPageTitle(page), [page]);
 }
