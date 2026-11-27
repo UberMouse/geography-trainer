@@ -168,22 +168,54 @@ test.describe('L1 highlighted → name', () => {
   });
 
   // Each area's main-part bounds [[west, south], [east, north]], read once from public/data and
-  // rounded to 0.01°.
+  // rounded to 0.01° (0.001° for tiny Monaco).
   const areas: [string, [LngLat, LngLat]][] = [
-    ['country:luxembourg', [[5.72, 49.44], [6.5, 50.17]]],
-    ['country:germany', [[5.85, 47.28], [15.03, 54.95]]],
-    ['region:switzerland.aargau', [[7.73, 47.14], [8.45, 47.63]]],
+    [
+      'country:luxembourg',
+      [
+        [5.72, 49.44],
+        [6.5, 50.17],
+      ],
+    ],
+    [
+      'country:germany',
+      [
+        [5.85, 47.28],
+        [15.03, 54.95],
+      ],
+    ],
+    [
+      'region:switzerland.aargau',
+      [
+        [7.73, 47.14],
+        [8.45, 47.63],
+      ],
+    ],
+    [
+      'country:monaco',
+      [
+        [7.367, 43.718],
+        [7.436, 43.764],
+      ],
+    ],
   ];
   for (const [item, [[west, south], [east, north]]] of areas) {
-    test(`[EXR-09] an area (${item}) is centred and whole among its neighbours`, async ({ page }) => {
+    test(`[EXR-09] an area (${item}) is centred and whole among its neighbours`, async ({
+      page,
+    }) => {
       await openExercise(page, `item=${item}&rung=1`);
       await expect(options(page).first()).toBeVisible();
       await settled(page);
       const area = (await page.locator('[data-ready]').boundingBox())!;
       const corners = await Promise.all(
-        ([[west, south], [west, north], [east, south], [east, north]] as LngLat[]).map((c) =>
-          hook.project(page, c),
-        ),
+        (
+          [
+            [west, south],
+            [west, north],
+            [east, south],
+            [east, north],
+          ] as LngLat[]
+        ).map((c) => hook.project(page, c)),
       );
       const xs = corners.map((c) => c.x);
       const ys = corners.map((c) => c.y);
@@ -192,12 +224,13 @@ test.describe('L1 highlighted → name', () => {
       expect(Math.abs(centreX - (area.x + area.width / 2))).toBeLessThanOrEqual(area.width * 0.1);
       expect(Math.abs(centreY - (area.y + area.height / 2))).toBeLessThanOrEqual(area.height * 0.1);
       const longer = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-      expect(longer).toBeGreaterThan(0);
+      // Never a speck: the cap on a tiny area gives about 0.1 of the shorter side.
+      expect(longer).toBeGreaterThanOrEqual(0.08 * Math.min(area.width, area.height));
       expect(longer).toBeLessThanOrEqual(0.6 * Math.min(area.width, area.height));
     });
   }
 
-  for (const item of ['country:saba','country:vatican-city', 'place:the_bottom_netherlands']) {
+  for (const item of ['country:saba', 'country:vatican-city', 'place:the_bottom_netherlands']) {
     test(`[EXR-09] a point-only item (${item}): the camera flies to its neighbourhood`, async ({ page }) => {
       await openExercise(page, `item=${item}&rung=1`);
       await expect(options(page).first()).toBeVisible();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boundsCentre, featureSpanKm, NEIGHBOURHOOD_VIEW_KM } from '../maps/camera';
 import { answerPoint, midpoint, type LngLat } from '../maps/geo';
 import { featureBounds } from '../maps/globeLayers';
-import { COUNTRIES, DATA, DATA_WITH_ALPHA } from './fixtures';
+import { ALPHA_REGIONS, COUNTRIES, DATA, DATA_WITH_ALPHA } from './fixtures';
 import { buildExerciseItem } from './item';
 import type { ExerciseItem } from './types';
 import {
@@ -10,6 +10,7 @@ import {
   questionMarkers,
   questionMode,
   questionReveal,
+  L1_CONTEXT_MAX_SCALE,
   L1_CONTEXT_SCALE,
   REGION_CONTEXT_MIN_KM,
   REVEAL_FAR_SIDE_KM,
@@ -91,6 +92,30 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
     expect(questionCamera(tiny, 1)).toEqual(context(tiny, NEIGHBOURHOOD_VIEW_KM));
   });
 
+  it('[EXR-09, EXR-C06] L1: a tiny country is capped at L1_CONTEXT_MAX_SCALE times its span', () => {
+    const square = [
+      [20, 40],
+      [20, 40.1],
+      [20.1, 40.1],
+      [20.1, 40],
+      [20, 40],
+    ];
+    const tiny = buildExerciseItem('country:beta', {
+      ...DATA,
+      countries: {
+        ...COUNTRIES,
+        features: COUNTRIES.features.map((f) =>
+          f.id === 'beta'
+            ? { ...f, geometry: { type: 'Polygon' as const, coordinates: [square] } }
+            : f,
+        ),
+      },
+    });
+    const span = featureSpanKm(area(tiny).feature);
+    expect(L1_CONTEXT_MAX_SCALE * span).toBeLessThan(NEIGHBOURHOOD_VIEW_KM);
+    expect(questionCamera(tiny, 1)).toEqual(context(tiny, L1_CONTEXT_MAX_SCALE * span));
+  });
+
   it('L1: a large region is shown in its surroundings', () => {
     const km = L1_CONTEXT_SCALE * featureSpanKm(area(region).feature);
     expect(km).toBeGreaterThan(REGION_CONTEXT_MIN_KM);
@@ -105,6 +130,30 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
     expect(questionCamera(small, 1)).toEqual(context(small, REGION_CONTEXT_MIN_KM));
   });
 
+  it('[EXR-09, EXR-C06] L1: a tiny region is capped at L1_CONTEXT_MAX_SCALE times its span', () => {
+    const square = [
+      [0, 40],
+      [0, 40.05],
+      [0.05, 40.05],
+      [0.05, 40],
+      [0, 40],
+    ];
+    const tiny = buildExerciseItem('region:alpha.empty', {
+      ...DATA_WITH_ALPHA,
+      regions: {
+        ...ALPHA_REGIONS,
+        features: ALPHA_REGIONS.features.map((f) =>
+          f.id === 'alpha.empty'
+            ? { ...f, geometry: { type: 'Polygon' as const, coordinates: [square] } }
+            : f,
+        ),
+      },
+    });
+    const span = featureSpanKm(area(tiny).feature);
+    expect(L1_CONTEXT_MAX_SCALE * span).toBeLessThan(REGION_CONTEXT_MIN_KM);
+    expect(questionCamera(tiny, 1)).toEqual(context(tiny, L1_CONTEXT_MAX_SCALE * span));
+  });
+
   it('L1: a region outside its country’s main part follows the same rule on its own feature', () => {
     const isle = buildExerciseItem('region:alpha.isle', DATA_WITH_ALPHA);
     expect(isle.outsideFrame).toBe(true);
@@ -115,8 +164,9 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
     expect(questionCamera(isle, 1)).toEqual(context(isle, km));
   });
 
-  it('[EXR-C06] pins L1_CONTEXT_SCALE and REGION_CONTEXT_MIN_KM', () => {
+  it('[EXR-C06] pins L1_CONTEXT_SCALE, L1_CONTEXT_MAX_SCALE and REGION_CONTEXT_MIN_KM', () => {
     expect(L1_CONTEXT_SCALE).toBe(2.5);
+    expect(L1_CONTEXT_MAX_SCALE).toBe(10);
     expect(REGION_CONTEXT_MIN_KM).toBe(300);
   });
 

@@ -3,7 +3,8 @@ import { EARTH_RADIUS_KM, type AreaFeature, type LngLat } from './geo';
 import { featureBounds, MAX_ZOOM } from './globeLayers';
 
 /**
- * How much ground (km, edge to edge) the camera shows around a point-only country or a place. The
+ * How much ground (km, edge to edge) the camera shows around a point-only country or a place, and
+ * the narrowest view of an L1 country with an area (a tiny one aside). The
  * target's near neighbours (Sint Eustatius 28 km from Saba) are the wrong options, so the view
  * must separate them: at this span a dot sits clear of land 28 km away, while the neighbouring
  * islands (Saint Kitts, Saint Barthelemy, Sint Maarten) still show as separate land.
@@ -32,7 +33,8 @@ export const MIN_COS_LAT = 0.01;
  * The zoom at which MapLibre's globe shows about `km` of ground across `sizePx` CSS px, centred at
  * latitude `lat`. The globe's radius is `512 · 2^zoom / (2π · cos lat)` px (it grows by 1 / cos lat
  * at a zoom, to match Mercator at the centre), so a km at the centre is `radius / R` px. The
- * perspective is ignored: for a span this small next to the Earth the difference is slight. Capped
+ * perspective is ignored: it is slight for a span of tens or hundreds of km, and one as wide as the
+ * globe (L1 passes up to ~25,000 km) is clamped at the globe's minimum zoom anyway. Capped
  * at `MAX_ZOOM`; a span or size that is not a positive finite number gets `MAX_ZOOM`.
  */
 export function spanZoom(km: number, sizePx: number, lat: number): number {

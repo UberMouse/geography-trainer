@@ -1,6 +1,11 @@
 // What a question shows on the shared globe and where it moves the camera, as plain data.
 import type { Rung } from '../engine/srs';
-import { boundsCentre, featureSpanKm, NEIGHBOURHOOD_VIEW_KM, type CameraMove } from '../maps/camera';
+import {
+  boundsCentre,
+  featureSpanKm,
+  NEIGHBOURHOOD_VIEW_KM,
+  type CameraMove,
+} from '../maps/camera';
 import { answerPoint, distanceKm, midpoint, targetPoint, type LngLat } from '../maps/geo';
 import type { GlobeMarker } from '../maps/Globe';
 import { featureBounds, type GlobeMode, type Reveal } from '../maps/globeLayers';
@@ -15,6 +20,11 @@ export function questionMode(item: ExerciseItem, rung: Rung): GlobeMode {
 
 /** An L1 area's view is this many times its main part's span, so the part takes about 2/5 of the shorter side. */
 export const L1_CONTEXT_SCALE = 2.5;
+/**
+ * An L1 area's view is never more than this many times its main part's span, so a tiny one (Monaco,
+ * a city district) still takes about a tenth of the shorter side rather than a speck.
+ */
+export const L1_CONTEXT_MAX_SCALE = 10;
 /** The narrowest view (km across) an L1 region gets; an L1 country's is `NEIGHBOURHOOD_VIEW_KM`. */
 export const REGION_CONTEXT_MIN_KM = 300;
 
@@ -27,7 +37,8 @@ const neighbourhood = (at: LngLat): CameraMove => ({
 /**
  * Where the camera goes when a question starts:
  * - L1: a country or region with an area, in its surroundings (centred on its main part, wider
- *   than it, never narrower than the floor); the neighbourhood of a point-only country or a place.
+ *   than it, never narrower than the floor unless that is over L1_CONTEXT_MAX_SCALE times it);
+ *   the neighbourhood of a point-only country or a place.
  * - L2: a country, the whole world; a region or place, to fit its country (the neighbourhood of a
  *   point-only one); when it lies outside that frame (`outsideFrame`), the whole world centred
  *   halfway between the frame's answer point and the target's, so both are well on the near side.
@@ -40,10 +51,11 @@ export function questionCamera(item: ExerciseItem, rung: Rung, opening = false):
     if ('point' in target) return neighbourhood(target.point);
     if (item.pointOnly) return neighbourhood(target.answer);
     const floor = item.tier === 'region' ? REGION_CONTEXT_MIN_KM : NEIGHBOURHOOD_VIEW_KM;
+    const span = featureSpanKm(target.feature);
     return {
       kind: 'span',
       at: boundsCentre(featureBounds(target.feature)),
-      km: Math.max(L1_CONTEXT_SCALE * featureSpanKm(target.feature), floor),
+      km: Math.max(L1_CONTEXT_SCALE * span, Math.min(floor, L1_CONTEXT_MAX_SCALE * span)),
     };
   }
   if (rung === 2) {
