@@ -10,16 +10,18 @@
 #    settings, later wins; default "fresh"): "fresh" = origin/<default branch> after a bounded
 #    fetch, falling back to HEAD with no remote; "head" = HEAD of the directory the hook ran in.
 #    A name whose worktree already exists is reused (setup still runs, skipping what's done).
-# 2. Set up: `npm ci` when there's a package-lock.json and no node_modules yet, then check the
-#    Playwright browsers this lockfile wants are under PLAYWRIGHT_BROWSERS_PATH (on this machine
-#    a Nix store path, so nothing is downloaded). Setup failures only warn: the worktree is still
-#    handed back, since a missing node_modules is easy to fix and a failed create blocks the agent.
+# 2. Set up, in the background: when there's a package-lock.json and no finished install yet,
+#    start worktree-setup.sh detached (node_modules from a matching checkout, else npm ci; then a
+#    Playwright browsers check) and return. The hook must stay fast: a full npm ci on a loaded
+#    machine ran past the 600s hook timeout, and a cancelled WorktreeCreate fails the agent.
+#    npm scripts wait for the install through scripts/await-setup.sh.
 #
 # Contract: stdin is the hook JSON (`name`, `cwd`, ...). The worktree's absolute path is the LAST
 # line of stdout; everything else goes to stderr. Non-zero exit = creation fails.
 # Progress lines carry the greppable tag [worktree-setup].
 set -euo pipefail
 
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 log() { printf '[worktree-setup] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
 
@@ -90,34 +92,24 @@ else
     || die "git worktree add failed"
 fi
 
-setup() {
-  cd "$dir"
-  if [[ -f package-lock.json ]]; then
-    if [[ -d node_modules ]]; then
-      log "node_modules present; skipping npm ci"
-    elif ! command -v npm >/dev/null 2>&1; then
-      log "warning: npm not on PATH; run npm ci in $dir yourself"
-    else
-      log "npm ci ..."
-      if npm ci --prefer-offline --no-audit --no-fund --loglevel=error >&2; then
-        log "npm ci done"
-      else
-        log "warning: npm ci failed; run it in $dir before building or testing"
-      fi
-    fi
+# Setup runs detached (worktree-setup.sh) so the hook returns in seconds whatever the load.
+# The marker is written here, before the hook returns, so scripts/await-setup.sh can never miss
+# it; the setup process replaces it with its pid. Setup never fails the create.
+start_setup() {
+  [[ -f "$dir/package-lock.json" && ! -f "$dir/node_modules/.package-lock.json" ]] || return 0
+  local state pid
+  state="$(git -C "$dir" rev-parse --absolute-git-dir)/worktree-setup"
+  mkdir -p "$state"
+  pid=$(cat "$state/pending" 2>/dev/null || true)
+  if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    log "setup already running (pid $pid)"
+    return 0
   fi
-
-  local browsers=node_modules/playwright-core/browsers.json
-  if [[ -f "$browsers" && -n "${PLAYWRIGHT_BROWSERS_PATH:-}" && "$PLAYWRIGHT_BROWSERS_PATH" != 0 ]]; then
-    local rev
-    rev=$(jq -r '.browsers[] | select(.name == "chromium") | .revision' "$browsers")
-    if [[ -n "$rev" && ! -d "$PLAYWRIGHT_BROWSERS_PATH/chromium-$rev" ]]; then
-      log "warning: Playwright wants chromium-$rev, which is not in $PLAYWRIGHT_BROWSERS_PATH; e2e tests will fail until the browsers match"
-    fi
-  fi
+  printf 'starting %s\n' "$(date +%s)" >"$state/pending"
+  setsid -f bash "$here/worktree-setup.sh" "$dir" </dev/null >>"$state/log" 2>&1
+  log "node_modules setup started in the background (log: $state/log)"
 }
-# Setup never fails the create.
-(setup) || log "warning: setup stopped early; the worktree is usable but may need npm ci"
+start_setup || log "warning: could not start setup; run npm ci in $dir"
 
 log "ready: $dir"
 printf '%s\n' "$dir"
