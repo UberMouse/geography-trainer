@@ -47,13 +47,15 @@ export interface PlacementRunProps {
   scope: string;
   /** The country or region being tested out of; absent for the countries test. */
   scopeName?: string;
+  /** Where the test began: its Quit link, result link and nothing-to-test link lead here, naming it. */
+  back: { to: string; name: string };
 }
 
 const dayKeyOf = (now: Date) => localDayKey(now, -now.getTimezoneOffset());
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** One placement test over `pool`: the question loop, saving, and the result screen. */
-export default function PlacementRun({ pool, items, progress, tier, heading, scope, scopeName }: PlacementRunProps) {
+export default function PlacementRun({ pool, items, progress, tier, heading, scope, scopeName, back }: PlacementRunProps) {
   // The state holding the pending question, and that question; null once nothing is left to ask.
   const [asking, setAsking] = useState<{ state: PlacementState; question: PlacementQuestion } | null>(
     () => nextQuestion(startPlacement(pool, Math.random), Math.random),
@@ -118,8 +120,8 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
           {heading}
         </Title>
         <Text>{pool.length === 0 ? emptyPoolText(tier, scopeName) : NOTHING_TO_ASK_TEXT}</Text>
-        <Anchor component={Link} to="/">
-          Back to Home
+        <Anchor component={Link} to={back.to}>
+          {`Back to ${back.name}`}
         </Anchor>
       </Stack>
     );
@@ -163,8 +165,8 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
             Start studying
           </Button>
         )}
-        <Anchor component={Link} to="/">
-          Back to Home
+        <Anchor component={Link} to={back.to}>
+          {`Back to ${back.name}`}
         </Anchor>
       </Stack>
     );
@@ -207,8 +209,8 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
       </Title>
       <Group justify="space-between">
         <Text c="dimmed">{placementHeader(position, state?.items.length ?? 0)}</Text>
-        <Anchor component={Link} to="/">
-          Quit
+        <Anchor component={Link} to={back.to}>
+          {`Quit to ${back.name}`}
         </Anchor>
       </Group>
       <div

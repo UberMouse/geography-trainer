@@ -41,6 +41,7 @@ export default function Placement() {
           tier="countries"
           scope={COUNTRIES_SCOPE}
           heading="Placement test"
+          back={{ to: '/', name: 'Home' }}
         />
       )}
     </Status>

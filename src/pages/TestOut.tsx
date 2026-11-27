@@ -91,6 +91,7 @@ function Loaded({ world, route }: { world: WorldData; route: Extract<TestOutRout
           scope={itemId}
           heading={testOutLabel(loaded.name, route.tier)}
           scopeName={loaded.name}
+          back={{ to: route.back, name: loaded.name }}
         />
       )}
     </Status>

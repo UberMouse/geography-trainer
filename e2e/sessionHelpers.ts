@@ -97,7 +97,7 @@ export function progressRow(
     dueInDays,
     l3PassDays = [],
     introducedAt,
-  }: { dueInDays: number; l3PassDays?: string[]; introducedAt: number },
+  }: { dueInDays: number; l3PassDays?: string[]; introducedAt: number | null },
 ) {
   const now = Date.now();
   const card = {
