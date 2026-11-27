@@ -76,13 +76,14 @@ export function childRows(
   if (!item) return [];
   const nameOf = (id: string) => names.get(id) ?? id;
   const own = progress[itemId];
+  const masteredCountries = masteredCountryCount(curriculum, progress);
   const lockedText =
     own && isMastered(own) && item.tier === 'country' && !gateOpen(curriculum, progress, itemId)
-      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries (${masteredCountryCount(curriculum, progress)} so far)`
+      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries (${masteredCountries} so far)`
       : `Master ${nameOf(itemId)} to unlock`;
   const rows = item.children.map((childId) => {
     const child = curriculum.items.get(childId)!;
-    const state = itemState(curriculum, progress, childId);
+    const state = itemState(curriculum, progress, childId, masteredCountries);
     return {
       itemId: childId,
       tier: child.tier,

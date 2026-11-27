@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import {
   countryItemId,
   itemState,
+  masteredCountryCount,
   placeItemId,
   regionItemId,
   unlockedBy,
@@ -153,22 +154,21 @@ function Drill({
   // A region with no places is not a curriculum item: drawn unfilled, not a link. A place's dot
   // is its state's own colour (a mastered place `mastered`, not `complete`).
   const progress = data.progress;
-  const mode = useMemo(
-    () =>
-      drillMode(
-        features,
-        (id) =>
-          regions && curriculum.items.has(regionItemId(id))
-            ? itemLook(curriculum, progress, regionItemId(id)).fill
-            : null,
-        dots,
-        (id) =>
-          curriculum.items.has(placeItemId(id))
-            ? PROGRESS_COLOURS[itemState(curriculum, progress, placeItemId(id))]
-            : null,
-      ),
-    [features, dots, regions, curriculum, progress],
-  );
+  const mode = useMemo(() => {
+    const masteredCountries = masteredCountryCount(curriculum, progress);
+    return drillMode(
+      features,
+      (id) =>
+        regions && curriculum.items.has(regionItemId(id))
+          ? itemLook(curriculum, progress, regionItemId(id), masteredCountries).fill
+          : null,
+      dots,
+      (id) =>
+        curriculum.items.has(placeItemId(id))
+          ? PROGRESS_COLOURS[itemState(curriculum, progress, placeItemId(id), masteredCountries)]
+          : null,
+    );
+  }, [features, dots, regions, curriculum, progress]);
   const regionBase = `/progress/${countryId}`;
   const selects = route.kind === 'country' && regions !== null;
   const camera = useGlobe({

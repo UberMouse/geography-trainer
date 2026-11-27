@@ -4,6 +4,7 @@
 import {
   countryItemId,
   itemState,
+  masteredCountryCount,
   subtreeProgress,
   type Curriculum,
   type ItemState,
@@ -99,17 +100,19 @@ export interface CountryLook {
   fill: string;
 }
 
-/** An item's state and fill; a mastered one deepens with the share of its descendants mastered. */
+/** An item's state and fill; a mastered one deepens with the share of its descendants mastered.
+ * `masteredCountries` is as for `itemState`. */
 export function itemLook(
   curriculum: Curriculum,
   progress: Readonly<Record<string, ItemProgress>>,
   itemId: string,
+  masteredCountries?: number,
 ): CountryLook {
-  const state = itemState(curriculum, progress, itemId);
+  const state = itemState(curriculum, progress, itemId, masteredCountries);
   // Only a mastered item's fill depends on its subtree: skip the walk for the rest.
   const subtree =
     state === 'mastered'
-      ? subtreeProgress(curriculum, progress, itemId)
+      ? subtreeProgress(curriculum, progress, itemId, masteredCountries)
       : { total: 0, mastered: 0 };
   return { state, fill: progressFill(state, subtree) };
 }
@@ -129,9 +132,10 @@ export function countryLooks(
   countries: readonly Country[],
 ): Map<string, CountryLook> {
   const looks = new Map<string, CountryLook>();
+  const masteredCountries = masteredCountryCount(curriculum, progress);
   for (const { id } of countries) {
     const itemId = countryItemId(id);
-    if (curriculum.items.has(itemId)) looks.set(id, itemLook(curriculum, progress, itemId));
+    if (curriculum.items.has(itemId)) looks.set(id, itemLook(curriculum, progress, itemId, masteredCountries));
   }
   return looks;
 }

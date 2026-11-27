@@ -713,6 +713,15 @@ describe('[CUR-22, CUR-C06] the gate never locks an item already answered', () =
 describe('[CUR-14, CUR-C07] a country\'s child while its gate is shut', () => {
   const c = gateWorld();
 
+  it.each([1, 59, 60])('gives the same states and counts with %i mastered passed in as counted', (total) => {
+    const progress = masteredWith('country:united-states', total);
+    const n = masteredCountryCount(c, progress);
+    for (const id of c.items.keys()) expect(itemState(c, progress, id, n), id).toBe(itemState(c, progress, id));
+    expect(subtreeProgress(c, progress, 'country:united-states', n)).toEqual(
+      subtreeProgress(c, progress, 'country:united-states'),
+    );
+  });
+
   it('is locked when never answered', () => {
     const progress = masteredWith('country:united-states', 1);
     expect(itemState(c, progress, 'region:united-states.r1')).toBe('locked');

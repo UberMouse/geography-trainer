@@ -210,10 +210,21 @@ export function buildCurriculum(
 /** Country items that are mastered; progress rows for other ids are ignored. */
 export function masteredCountryCount(curriculum: Curriculum, progress: Readonly<Record<string, ItemProgress>>): number {
   let n = 0;
-  for (const [id, p] of Object.entries(progress)) {
-    if (curriculum.items.get(id)?.tier === 'country' && isMastered(p)) n++;
+  for (const id in progress) {
+    const p = progress[id];
+    if (p && curriculum.items.get(id)?.tier === 'country' && isMastered(p)) n++;
   }
   return n;
+}
+
+/** `masteredCountryCount`, counted on the first call and reused after; `given` when passed. */
+function countOnce(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  given?: number,
+): () => number {
+  let count = given;
+  return () => (count ??= masteredCountryCount(curriculum, progress));
 }
 
 /** Mastered countries that open a country's children: GATE_WAVE1_MASTERED_COUNTRIES for a country
@@ -238,20 +249,20 @@ export function gateOpen(
 
 /** A country is unlocked; a region's child once the region is mastered; a country's child once the
  * country is mastered and its gate is open, or the child itself `isIntroduced`. `masteredCountries`
- * is `masteredCountryCount`, counted once by the caller. */
+ * returns `masteredCountryCount`; it is called only for a mastered country's child. */
 function isUnlocked(
   curriculum: Curriculum,
   progress: Readonly<Record<string, ItemProgress>>,
   item: CurriculumItem,
-  masteredCountries: number,
+  masteredCountries: () => number,
 ): boolean {
   if (item.parent === null) return true;
   const parentProgress = progress[item.parent];
   if (!parentProgress || !isMastered(parentProgress)) return false;
   if (curriculum.items.get(item.parent)!.tier !== 'country') return true;
-  if (masteredCountries >= countryGate(curriculum, item.parent)) return true;
   const own = progress[item.id];
-  return own !== undefined && isIntroduced(own);
+  if (own !== undefined && isIntroduced(own)) return true;
+  return masteredCountries() >= countryGate(curriculum, item.parent);
 }
 
 /**
@@ -265,7 +276,7 @@ export function unlockedItems(
   opts: UnlockOptions = {},
 ): CurriculumItem[] {
   const out: CurriculumItem[] = [];
-  const masteredCountries = masteredCountryCount(curriculum, progress);
+  const masteredCountries = countOnce(curriculum, progress);
   for (const item of curriculum.items.values()) {
     const types = opts.placeTypes;
     if (types && item.place && !types.has(item.place.type)) continue;
@@ -338,7 +349,12 @@ function itemOrThrow(curriculum: Curriculum, itemId: string): CurriculumItem {
   return item;
 }
 
-function stateOf(curriculum: Curriculum, item: CurriculumItem, progress: ProgressMap, masteredCountries: number): ItemState {
+function stateOf(
+  curriculum: Curriculum,
+  item: CurriculumItem,
+  progress: ProgressMap,
+  masteredCountries: () => number,
+): ItemState {
   if (!isUnlocked(curriculum, progress, item, masteredCountries)) return 'locked';
   const own = progress[item.id];
   if (own && isMastered(own)) return 'mastered';
@@ -347,20 +363,33 @@ function stateOf(curriculum: Curriculum, item: CurriculumItem, progress: Progres
 }
 
 /** Locked while not unlocked (`unlockedItems`' rule, without a place-type filter); else mastered,
- * learning (studied, see `isStudied`) or new. Throws for an unknown id. */
-export function itemState(curriculum: Curriculum, progress: ProgressMap, itemId: string): ItemState {
+ * learning (studied, see `isStudied`) or new. A caller asking for many items can pass
+ * `masteredCountries` (`masteredCountryCount` of the same progress), counted once. Throws for an
+ * unknown id. */
+export function itemState(
+  curriculum: Curriculum,
+  progress: ProgressMap,
+  itemId: string,
+  masteredCountries?: number,
+): ItemState {
   const item = itemOrThrow(curriculum, itemId);
-  return stateOf(curriculum, item, progress, masteredCountryCount(curriculum, progress));
+  return stateOf(curriculum, item, progress, countOnce(curriculum, progress, masteredCountries));
 }
 
-/** Counts over every descendant of the item, in one walk of its subtree. Throws for an unknown id. */
-export function subtreeProgress(curriculum: Curriculum, progress: ProgressMap, itemId: string): SubtreeProgress {
+/** Counts over every descendant of the item, in one walk of its subtree. `masteredCountries` is as
+ * for `itemState`. Throws for an unknown id. */
+export function subtreeProgress(
+  curriculum: Curriculum,
+  progress: ProgressMap,
+  itemId: string,
+  masteredCountries?: number,
+): SubtreeProgress {
   const out: SubtreeProgress = { total: 0, mastered: 0, learning: 0, unlocked: 0 };
   const stack = [...itemOrThrow(curriculum, itemId).children];
-  const masteredCountries = masteredCountryCount(curriculum, progress);
+  const counted = countOnce(curriculum, progress, masteredCountries);
   while (stack.length > 0) {
     const item = curriculum.items.get(stack.pop()!)!;
-    const state = stateOf(curriculum, item, progress, masteredCountries);
+    const state = stateOf(curriculum, item, progress, counted);
     out.total++;
     if (state === 'mastered') out.mastered++;
     else if (state === 'learning') out.learning++;
