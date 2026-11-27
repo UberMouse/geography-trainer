@@ -16,6 +16,7 @@ import {
   questionSeed,
   resumable,
   unlockLines,
+  withGateRecheck,
   withMastered,
 } from './sessionView';
 import { showsTestOutLink } from './testOutView';
@@ -219,28 +220,31 @@ describe('the full tree', () => {
 });
 
 describe('[SES-23, SES-C07] gateOpenedLines', () => {
-  // big is in the first wave (50 places), small and the fillers in the second; only big and small
-  // have children.
+  // big and big2 are in the first wave (50 places each), small and the fillers in the second; only
+  // big, big2 and small have children.
   const fillers = gateFillers();
+  const cityIn = (country: string, id: string): Place => ({
+    id,
+    name: id,
+    country,
+    region: null,
+    lat: 0,
+    lng: 0,
+    type: 'city',
+    level: 1,
+  });
   const curriculum = buildCurriculum(
     [
       { id: 'big', name: 'Big', places: 50, hasRegions: false },
+      { id: 'big2', name: 'Big 2', places: 50, hasRegions: false },
       { id: 'small', name: 'Small', places: 1, hasRegions: false },
       ...fillers,
     ],
     [],
     [
-      ...Array.from({ length: 50 }, (_, i): Place => ({
-        id: `b${i}`,
-        name: `b${i}`,
-        country: 'big',
-        region: null,
-        lat: 0,
-        lng: 0,
-        type: 'city',
-        level: 1,
-      })),
-      { id: 's0', name: 's0', country: 'small', region: null, lat: 0, lng: 0, type: 'city', level: 1 },
+      ...Array.from({ length: 50 }, (_, i) => cityIn('big', `b${i}`)),
+      ...Array.from({ length: 50 }, (_, i) => cityIn('big2', `c${i}`)),
+      cityIn('small', 's0'),
     ],
   );
   /** big and small mastered, then `n` fillers: n + 2 mastered countries. */
@@ -254,13 +258,13 @@ describe('[SES-23, SES-C07] gateOpenedLines', () => {
 
   it('names 60 when the round brings the count from below 60 to 60', () => {
     expect(gateOpenedLines(curriculum, progressWith(58), ['country:big', 'place:b0'])).toEqual([
-      { id: 'gate:60', text: "You've mastered 60 countries: regions and places are open for 1 of them" },
+      { id: 'gate:60', text: "You've mastered 60 countries: regions and places are open for 1 of them", opened: 1 },
     ]);
   });
 
   it('names 150 when the round brings the count from below 150 to 150 or more', () => {
     expect(gateOpenedLines(curriculum, progressWith(149), ['country:small', ...fillerIds(147, 149)])).toEqual([
-      { id: 'gate:150', text: "You've mastered 150 countries: regions and places are open for 1 of them" },
+      { id: 'gate:150', text: "You've mastered 150 countries: regions and places are open for 1 of them", opened: 1 },
     ]);
   });
 
@@ -271,11 +275,77 @@ describe('[SES-23, SES-C07] gateOpenedLines', () => {
     ]);
   });
 
+  it('counts every mastered country of the wave with children', () => {
+    const progress = withFillersMastered(
+      {
+        'country:big': mastered('country:big'),
+        'country:big2': mastered('country:big2'),
+        'country:small': mastered('country:small'),
+      },
+      mastered('country:filler'),
+      fillers.slice(0, 57),
+    );
+    expect(gateOpenedLines(curriculum, progress, ['country:big'])).toEqual([
+      { id: 'gate:60', text: "You've mastered 60 countries: regions and places are open for 2 of them", opened: 2 },
+    ]);
+  });
+
+  it('says the wave opens as each country is mastered when the gate opened none', () => {
+    const at60 = withFillersMastered(
+      { 'country:small': mastered('country:small') },
+      mastered('country:filler'),
+      fillers.slice(0, 59),
+    );
+    expect(gateOpenedLines(curriculum, at60, fillerIds(58, 59))).toEqual([
+      {
+        id: 'gate:60',
+        text: "You've mastered 60 countries: the most-asked countries' regions and places open as you master each",
+        opened: 0,
+      },
+    ]);
+    const at150 = withFillersMastered(
+      { 'country:big': mastered('country:big') },
+      mastered('country:filler'),
+      fillers.slice(0, 149),
+    );
+    expect(gateOpenedLines(curriculum, at150, fillerIds(148, 149))).toEqual([
+      {
+        id: 'gate:150',
+        text: "You've mastered 150 countries: the other countries' regions and places open as you master each",
+        opened: 0,
+      },
+    ]);
+  });
+
   it('gives no line for a round that crosses no gate, and counts a repeated id once', () => {
     expect(gateOpenedLines(curriculum, progressWith(59), ['country:small'])).toEqual([]);
     expect(gateOpenedLines(curriculum, progressWith(56), ['country:big'])).toEqual([]);
     expect(gateOpenedLines(curriculum, progressWith(58), ['country:big', 'country:big', 'place:b0'])).toHaveLength(1);
     expect(gateOpenedLines(curriculum, progressWith(58), [])).toEqual([]);
+  });
+});
+
+describe('[SES-23, SES-C05, SES-C07] withGateRecheck', () => {
+  it('is the same round when nothing new is testable', () => {
+    const round = { mastered: ['country:peru', 'country:chile'], testable: ['country:peru'] };
+    expect(withGateRecheck(round, () => false)).toBe(round);
+    expect(withGateRecheck(round, (id) => id === 'country:peru')).toBe(round);
+  });
+
+  it('adds only country ids, after the testable ones, in mastered order and once each', () => {
+    const round = {
+      mastered: ['country:peru', 'region:fr.bre', 'country:chile', 'country:japan', 'country:chile'],
+      testable: ['region:fr.bre'],
+    };
+    expect(withGateRecheck(round, (id) => id !== 'country:japan')).toEqual({
+      mastered: round.mastered,
+      testable: ['region:fr.bre', 'country:peru', 'country:chile'],
+    });
+  });
+
+  it('leaves a non-country mastered id out even when it is testable', () => {
+    const round = { mastered: ['region:fr.bre'], testable: [] };
+    expect(withGateRecheck(round, () => true)).toBe(round);
   });
 });
 

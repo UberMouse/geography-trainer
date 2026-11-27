@@ -2,7 +2,6 @@
 
 import {
   countryGate,
-  gateOpen,
   masteredCountryCount,
   unlockedBy,
   type Curriculum,
@@ -130,6 +129,22 @@ export function withMastered(round: RoundMastery, itemId: string, testOut: boole
 }
 
 /**
+ * `round` with each country id (`country:…`) in `mastered` that is not yet in `testable` and that
+ * `isTestable` now accepts appended to `testable`, in `mastered` order; `round` itself when none
+ * is. A country mastered while its gate was shut joins `testable` this way once the gate opens.
+ */
+export function withGateRecheck(round: RoundMastery, isTestable: (itemId: string) => boolean): RoundMastery {
+  const added = round.mastered.filter(
+    (id, i) =>
+      id.startsWith('country:') &&
+      !round.testable.includes(id) &&
+      round.mastered.indexOf(id) === i &&
+      isTestable(id),
+  );
+  return added.length === 0 ? round : { ...round, testable: [...round.testable, ...added] };
+}
+
+/**
  * The round summary's lines for the items mastered in the round, each with the mastered item's
  * id: "Unlocked: France's regions", "Unlocked: Brittany's places (France)". A region's line names
  * its country, so a region and a country of the same name stay apart. A country whose gate is
@@ -144,16 +159,17 @@ export function unlockLines(
   nameOf: (itemId: string) => string,
 ): { id: string; text: string }[] {
   const lines: { id: string; text: string }[] = [];
+  let count: number | undefined;
+  const masteredCountries = () => (count ??= masteredCountryCount(curriculum, progress));
   for (const id of new Set(masteredIds)) {
     const unlocked = unlockedBy(curriculum, id);
     if (!unlocked) continue;
     const item = curriculum.items.get(id);
-    if (item?.tier === 'country' && !gateOpen(curriculum, progress, id)) {
-      const gate = countryGate(curriculum, id);
-      const sofar = masteredCountryCount(curriculum, progress);
+    const gate = item?.tier === 'country' ? countryGate(curriculum, id) : 0;
+    if (gate > 0 && masteredCountries() < gate) {
       lines.push({
         id,
-        text: `${nameOf(id)}: its ${unlocked.tier}s open once you've mastered ${gate} countries (${sofar} so far)`,
+        text: `${nameOf(id)}: its ${unlocked.tier}s open once you've mastered ${gate} countries (${masteredCountries()} so far)`,
       });
       continue;
     }
@@ -166,19 +182,20 @@ export function unlockLines(
 /**
  * One line per gate count (GATE_WAVE1_MASTERED_COUNTRIES, then GATE_WAVE2_MASTERED_COUNTRIES) the
  * round crossed: `masteredCountryCount(progress)` reaches it, and the count less the round's
- * mastered countries (`masteredIds`) is below it. The text names the count and how many mastered
- * countries with children have that gate: "You've mastered 60 countries: regions and places are
- * open for 28 of them". Its id is `gate:<count>`.
+ * mastered countries (`masteredIds`) is below it. `opened` is how many mastered countries with
+ * children have that gate, and the text names the count and it: "You've mastered 60 countries:
+ * regions and places are open for 28 of them". With `opened` 0 the text says instead that the
+ * wave's regions and places open as each of its countries is mastered. Its id is `gate:<count>`.
  */
 export function gateOpenedLines(
   curriculum: Curriculum,
   progress: Readonly<Record<string, ItemProgress>>,
   masteredIds: readonly string[],
-): { id: string; text: string }[] {
+): { id: string; text: string; opened: number }[] {
   const now = masteredCountryCount(curriculum, progress);
   const roundCountries = [...new Set(masteredIds)].filter((id) => curriculum.items.get(id)?.tier === 'country');
   const before = now - roundCountries.length;
-  const lines: { id: string; text: string }[] = [];
+  const lines: { id: string; text: string; opened: number }[] = [];
   for (const gate of [GATE_WAVE1_MASTERED_COUNTRIES, GATE_WAVE2_MASTERED_COUNTRIES]) {
     if (before >= gate || now < gate) continue;
     let opened = 0;
@@ -187,9 +204,14 @@ export function gateOpenedLines(
       if (item.tier !== 'country' || item.children.length === 0 || !own || !isMastered(own)) continue;
       if (countryGate(curriculum, item.id) === gate) opened++;
     }
+    const wave = gate === GATE_WAVE1_MASTERED_COUNTRIES ? 'the most-asked countries' : 'the other countries';
     lines.push({
       id: `gate:${gate}`,
-      text: `You've mastered ${gate} countries: regions and places are open for ${opened} of them`,
+      text:
+        opened > 0
+          ? `You've mastered ${gate} countries: regions and places are open for ${opened} of them`
+          : `You've mastered ${gate} countries: ${wave}' regions and places open as you master each`,
+      opened,
     });
   }
   return lines;

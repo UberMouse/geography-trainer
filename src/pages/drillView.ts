@@ -4,7 +4,6 @@
 import {
   countryGate,
   countryItemId,
-  gateOpen,
   itemState,
   masteredCountryCount,
   regionItemId,
@@ -78,7 +77,7 @@ export function childRows(
   const own = progress[itemId];
   const masteredCountries = masteredCountryCount(curriculum, progress);
   const lockedText =
-    own && isMastered(own) && item.tier === 'country' && !gateOpen(curriculum, progress, itemId)
+    own && isMastered(own) && item.tier === 'country' && masteredCountries < countryGate(curriculum, itemId)
       ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries (${masteredCountries} so far)`
       : `Master ${nameOf(itemId)} to unlock`;
   const rows = item.children.map((childId) => {
