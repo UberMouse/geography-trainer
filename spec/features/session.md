@@ -534,6 +534,7 @@ Scenario: leaving on a summary
   Given a round's summary was showing when the learner left
   When they open the session again
   Then the same summary shows, with the same unlock lines and Test out links
+    But a test-out finished since is no longer offered: its unlock line stays, without the link
 
 Scenario: a kept round that cannot carry on
   Given a kept round that SES-26 would drop, such as one from another local day

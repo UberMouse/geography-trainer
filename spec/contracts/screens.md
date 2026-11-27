@@ -96,7 +96,9 @@ Up: SCR-02, SCR-03, SCR-05
   isKnown), () => dueQuestions({ curriculum, progress, now }))` (SES-C05), with the same `now` and
   day key as its numbers. It shows Continue in place of Start when that is a run whose queue is
   not empty, and the Continue text counts `run.itemTotal - itemsDone(run)` items left. Otherwise
-  Start and its count follow `todayNumbers` as before.
+  Start and its count follow `todayNumbers` as before, and following Start calls
+  `clearSessionRun()` first, so the session page builds the session Start counted rather than
+  showing a kept summary again (SCR-03).
 
 Home's numbers come from `todayNumbers` (`src/engine/today.ts`), owned by the session area.
 

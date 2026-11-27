@@ -67,6 +67,9 @@ Scenario: a kept session that cannot carry on
   Given the kept round would be dropped (SES-26), or has no questions left
   When the learner opens Home
   Then Home shows Start or nothing to study, as if no round were kept
+  When they follow Start
+  Then a fresh session is built, even when the kept round was a summary the session page would
+    show again
 ```
 
 ### SCR-04 Home's numbers follow the clock
