@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALPHA_REGIONS, COUNTRIES, DATA, DATA_WITH_ALPHA, PLACES } from './fixtures';
-import { buildExerciseItem, distinctCandidates } from './item';
+import { buildExerciseItem, COUNTRIES_WITH_THE, countryInText, distinctCandidates } from './item';
 
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id).sort();
 
@@ -263,5 +263,21 @@ describe('buildExerciseItem: same-named siblings', () => {
       regions: { ...ALPHA_REGIONS, features },
     });
     expect(item.candidates.map((c) => c.name)).toEqual(['Isle']);
+  });
+});
+
+describe('[EXR-C08, EXR-03] countryInText', () => {
+  it('pins COUNTRIES_WITH_THE to the four countries that take "the"', () => {
+    expect([...COUNTRIES_WITH_THE].sort()).toEqual([
+      'country:democratic-republic-of-the-congo',
+      'country:netherlands',
+      'country:philippines',
+      'country:united-states',
+    ]);
+  });
+
+  it('puts "the" before a country in the set and leaves another as it is', () => {
+    expect(countryInText('country:united-states', 'United States')).toBe('the United States');
+    expect(countryInText('country:france', 'France')).toBe('France');
   });
 });

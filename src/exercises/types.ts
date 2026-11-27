@@ -91,8 +91,9 @@ export interface ExerciseProps {
   /** Called when the learner presses Next after the reveal. */
   onNext: () => void;
   /**
-   * The first question a page shows: an L3 question then starts from the whole-world view rather
-   * than where the camera was left (L1 and L2 move the camera to their own view anyway).
+   * The page's first question: an L3 country or place then starts from the whole world rather
+   * than where the camera was left (an L3 region makes its own move, EXR-10; L1 and L2 move the
+   * camera to their own view anyway).
    */
   opening?: boolean;
 }

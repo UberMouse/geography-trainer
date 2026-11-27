@@ -27,6 +27,18 @@ export interface ExerciseData {
   regions?: RegionsData;
 }
 
+/** The regions-tier countries whose name takes "the" after "of" in the L1 region prompt. */
+export const COUNTRIES_WITH_THE: ReadonlySet<string> = new Set([
+  'country:democratic-republic-of-the-congo',
+  'country:netherlands',
+  'country:philippines',
+  'country:united-states',
+]);
+
+/** How the L1 region prompt names a country after "of": with "the" for `COUNTRIES_WITH_THE`. */
+export const countryInText = (countryId: string, name: string): string =>
+  COUNTRIES_WITH_THE.has(countryId) ? `the ${name}` : name;
+
 /** The bare globe, L3's mode for a country or a place; one object so the globe does not redraw. */
 const BARE: GlobeMode = { kind: 'bare' };
 

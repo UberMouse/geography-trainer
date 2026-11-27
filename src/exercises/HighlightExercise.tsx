@@ -5,6 +5,7 @@ import { buildChoices } from './options';
 import { choiceResult } from './result';
 import Reveal from './Reveal';
 import type { ExerciseViewProps } from './Exercise';
+import { countryInText } from './item';
 import { useQuestion } from './useQuestion';
 import type { ExerciseItem } from './types';
 import { useQuestionGlobe } from './useQuestionGlobe';
@@ -12,7 +13,7 @@ import { useQuestionGlobe } from './useQuestionGlobe';
 const prompt = (item: ExerciseItem) =>
   ({
     country: 'Which country is highlighted?',
-    region: `Which region of ${item.countryName} is highlighted?`,
+    region: `Which region of ${countryInText(item.countryId, item.countryName)} is highlighted?`,
     place: 'Which place is marked?',
   })[item.tier];
 
