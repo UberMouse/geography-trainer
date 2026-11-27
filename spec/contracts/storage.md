@@ -130,7 +130,7 @@ plain TypeScript.
 One write at a time; `failed` clears only when the entry that failed is written.
 
 ### STO-C07 The progress store
-Up: STO-05, STO-06, STO-07, STO-12, STO-14
+Up: STO-05, STO-06, STO-07, STO-09, STO-12, STO-14
 
 `createProgressStore(repo: ProgressRepo): ProgressStore` (`src/storage/progressStore.ts`); the app
 uses the singleton `progressStore` on the app repo. It is the pages' only door to storage.
@@ -141,7 +141,7 @@ uses the singleton `progressStore` on the app repo. It is the pages' only door t
 | `loadProgress()` | after the queue settled and in-flight writes settled: stored rows, with every unsaved entry's progress laid over them |
 | `loadSettings()`, `loadFinishedTests()` | after the same waits; the tests as a `Set` of marker keys |
 | `seedProgress(rows)`, `saveDailyNewCap(v)`, `finishPlacement(key, rows)` | tracked writes: each runs after the queue settled and the writes registered before it settled, and is registered from the call, so later reads and writes wait for it. They reject when the repo does |
-| `resetProgress()`, `importProgress(parsed)` | tracked writes that, just before writing, take and discard the unsaved entries; on failure the entries are restored with their failed flag. `importProgress` validates first and throws without touching the queue |
+| `resetProgress()`, `importProgress(parsed)` | tracked writes that, just before writing, take and discard the unsaved entries; on failure the entries are restored with their failed flag. Once the write succeeds they call `clearSessionRun()` (SES-C05), so the tab's kept round goes with the progress it was built from; a failed or rejected one leaves it. `importProgress` validates first and throws without touching the queue |
 | `exportProgress(now)` | retries a failed queue once, waits as above, then `repo.exportProgress(now)` |
 
 A failed tracked write never makes a later read reject.

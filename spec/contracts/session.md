@@ -127,7 +127,8 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
   Session page mounts on a resumed run. Leaving the Session page does not remove it (SES-27), so
   the run survives both a reload and a visit to another page, and reloading or reopening the same
   summary twice shows it twice. A saved run that cannot carry on is not removed either: it is
-  ignored, and the fresh session's first write replaces it.
+  ignored, and the fresh session's first write replaces it. Only a successful reset or import in
+  this tab removes it (`clearSessionRun`, called by the progress store, STO-C07; STO-09, STO-14).
 - `parseSavedRun(text, dayKey, progress, isKnown)` returns the saved session, or null when the
   text is null or not JSON, `dayKey` differs, a field is missing or not a non-negative integer, a
   rung is not 1–3, the queue is empty and `run.answered` is 0, or a queued question is
