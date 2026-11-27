@@ -206,7 +206,7 @@ test('[SCR-14] the United States page shows it mastered and its regions as new',
   await expect(list.locator('li[data-state="new"]')).toHaveCount(await list.locator('li').count());
 });
 
-test("[SCR-14] a mastered country's regions wait for the gate", async ({ page }, testInfo) => {
+test("[SCR-14, SCR-18] a mastered country's regions wait for the gate", async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
   await importProgress(page, file);
@@ -252,7 +252,10 @@ test('[SCR-14] a country whose parent is not mastered lists its regions as locke
   await expect(rows.first()).toBeVisible(WAIT);
   for (const row of await rows.all()) {
     await expect(row).toHaveAttribute('data-state', 'locked');
-    await expect(row).toContainText('Master Germany to unlock');
+    // Germany has 50+ places, so its gate is GATE_WAVE1_MASTERED_COUNTRIES; no country is mastered.
+    await expect(row).toContainText(
+      `Opens once you've mastered Germany and ${GATE_WAVE1_MASTERED_COUNTRIES} countries in all, 0 so far`,
+    );
   }
 });
 

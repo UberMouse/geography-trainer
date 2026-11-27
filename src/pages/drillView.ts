@@ -8,10 +8,11 @@ import {
   masteredCountryCount,
   regionItemId,
   type Curriculum,
+  type CurriculumItem,
   type ItemState,
   type Tier,
 } from '../engine/curriculum';
-import { isMastered, type ItemProgress } from '../engine/srs';
+import { isIntroduced, isMastered, type ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
 import { frameTest, type AreaFeature, type LngLat } from '../maps/geo';
 import { STATE_LABELS } from './progressView';
@@ -54,11 +55,44 @@ export interface ChildRow {
   name: string;
   state: ItemState;
   stateLabel: string;
-  /** For a locked item, "Master France to unlock", or, when France is mastered and its gate is
-   * shut, "Opens once you've mastered 60 countries, 23 so far"; else null. */
+  /** For a locked item, what unlocks it (SCR-C09): "Master France to unlock"; when the gate also
+   * holds France, "Opens once you've mastered France and 60 countries in all, 23 so far"; when
+   * France is mastered and its gate is shut, "Opens once you've mastered 60 countries, 23 so far";
+   * else null. */
   unlockText: string | null;
   /** The region's drill-down page; null for a place. */
   href: string | null;
+}
+
+/**
+ * What a locked child of `item` says (SCR-C09), with `masteredCountryCount`, counted once. Mastering
+ * `item` unlocks its children unless the gate (CUR-21) also holds `item`: a country whose gate is
+ * shut, or a region never answered whose country is mastered with its gate shut. A mastered country
+ * whose gate is shut waits for the gate alone.
+ */
+function unlockText(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  item: CurriculumItem,
+  name: string,
+): { text: string; masteredCountries: number } {
+  const masteredCountries = masteredCountryCount(curriculum, progress);
+  const own = progress[item.id];
+  const country = progress[item.countryId];
+  // A place has no children, so only a country's or a region's text is ever shown.
+  const gate = item.tier === 'place' ? 0 : countryGate(curriculum, item.countryId);
+  let text = `Master ${name} to unlock`;
+  if (masteredCountries < gate) {
+    if (item.tier === 'country' && own && isMastered(own)) {
+      text = `Opens once you've mastered ${gate} countries, ${masteredCountries} so far`;
+    } else if (
+      item.tier === 'country' ||
+      (!(own && isIntroduced(own)) && country !== undefined && isMastered(country))
+    ) {
+      text = `Opens once you've mastered ${name} and ${gate} countries in all, ${masteredCountries} so far`;
+    }
+  }
+  return { text, masteredCountries };
 }
 
 /**
@@ -74,22 +108,17 @@ export function childRows(
   const item = curriculum.items.get(itemId);
   if (!item) return [];
   const nameOf = (id: string) => names.get(id) ?? id;
-  const own = progress[itemId];
-  const masteredCountries = masteredCountryCount(curriculum, progress);
-  const lockedText =
-    own && isMastered(own) && item.tier === 'country' && masteredCountries < countryGate(curriculum, itemId)
-      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries, ${masteredCountries} so far`
-      : `Master ${nameOf(itemId)} to unlock`;
+  const unlock = unlockText(curriculum, progress, item, nameOf(itemId));
   const rows = item.children.map((childId) => {
     const child = curriculum.items.get(childId)!;
-    const state = itemState(curriculum, progress, childId, masteredCountries);
+    const state = itemState(curriculum, progress, childId, unlock.masteredCountries);
     return {
       itemId: childId,
       tier: child.tier,
       name: nameOf(childId),
       state,
       stateLabel: STATE_LABELS[state],
-      unlockText: state === 'locked' ? lockedText : null,
+      unlockText: state === 'locked' ? unlock.text : null,
       href:
         child.tier === 'region'
           ? `/progress/${item.countryId.slice('country:'.length)}/${childId.slice('region:'.length)}`

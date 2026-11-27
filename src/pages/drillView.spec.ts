@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { GATE_WAVE2_MASTERED_COUNTRIES } from '../engine/config';
 import {
   buildCurriculum,
   countryItemId,
@@ -110,12 +111,42 @@ describe('[SCR-14, SCR-C09] childRows', () => {
     [placeItemId('paris'), 'Paris'],
   ]);
 
+  // France has 2 places, so its gate is GATE_WAVE2_MASTERED_COUNTRIES.
+  const gateText = (name: string, soFar: number) =>
+    `Opens once you've mastered ${name} and ${GATE_WAVE2_MASTERED_COUNTRIES} countries in all, ${soFar} so far`;
+  // An answered row that is not mastered: `isIntroduced`.
+  const answered = (itemId: string) =>
+    ({ ...mastered(itemId), l3PassDays: [], cards: { 1: { reps: 1 } } }) as unknown as ItemProgress;
+
   it('lists a locked country’s regions with what unlocks them and a link each', () => {
-    const rows = childRows(curriculum, {}, countryItemId('fr'), names);
+    const rows = childRows(curriculum, opened({}), countryItemId('fr'), names);
     expect(rows.map((r) => [r.name, r.state, r.stateLabel, r.unlockText, r.href])).toEqual([
       ['Auvergne', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.ara'],
       ['Ile-de-France', 'locked', 'Locked', 'Master France to unlock', '/progress/fr/fr.idf'],
     ]);
+  });
+
+  it('names the gate’s count too when the gate also holds a country that is not mastered', () => {
+    const progress = { [countryItemId('de')]: mastered(countryItemId('de')) };
+    const rows = childRows(curriculum, progress, countryItemId('fr'), names);
+    expect(rows.map((r) => [r.state, r.unlockText])).toEqual([
+      ['locked', gateText('France', 1)],
+      ['locked', gateText('France', 1)],
+    ]);
+  });
+
+  it('names the gate’s count too on a never-answered region of a mastered country whose gate is shut', () => {
+    const fr = countryItemId('fr');
+    const [row] = childRows(curriculum, { [fr]: mastered(fr) }, regionItemId('fr.idf'), names);
+    expect(row).toMatchObject({ state: 'locked', unlockText: gateText('Ile-de-France', 1) });
+  });
+
+  it('names only the region once it has been answered, though its country’s gate is shut', () => {
+    const fr = countryItemId('fr');
+    const idf = regionItemId('fr.idf');
+    const progress = { [fr]: mastered(fr), [idf]: answered(idf) };
+    const [row] = childRows(curriculum, progress, idf, names);
+    expect(row).toMatchObject({ state: 'locked', unlockText: 'Master Ile-de-France to unlock' });
   });
 
   it('shows the regions as new, with no unlock text, once the country is mastered', () => {
@@ -130,8 +161,7 @@ describe('[SCR-14, SCR-C09] childRows', () => {
   it('holds a mastered country’s unanswered children behind its gate, saying when they open', () => {
     const fr = countryItemId('fr');
     const ara = regionItemId('fr.ara');
-    const answered = { ...mastered(ara), l3PassDays: [], cards: { 1: { reps: 1 } } } as unknown as ItemProgress;
-    const progress = { [fr]: mastered(fr), [ara]: answered };
+    const progress = { [fr]: mastered(fr), [ara]: answered(ara) };
     const rows = childRows(curriculum, progress, fr, names);
     expect(rows.map((r) => [r.name, r.state, r.unlockText])).toEqual([
       ['Auvergne', 'learning', null],
@@ -154,7 +184,7 @@ describe('[SCR-14, SCR-C09] childRows', () => {
     const sg = countryItemId('sg');
     const rows = childRows(curriculum, {}, sg, new Map([[sg, 'Singapore']]));
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ tier: 'place', state: 'locked', unlockText: 'Master Singapore to unlock' });
+    expect(rows[0]).toMatchObject({ tier: 'place', state: 'locked', unlockText: gateText('Singapore', 0) });
     const open = childRows(curriculum, opened({ [sg]: mastered(sg) }), sg, new Map());
     expect(open[0]).toMatchObject({ state: 'new', unlockText: null });
   });

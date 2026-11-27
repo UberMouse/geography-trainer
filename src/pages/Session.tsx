@@ -259,14 +259,20 @@ function Runner({ data }: { data: SessionData }) {
       setAnsweredRun(skipped);
       return;
     }
-    // Judged on the progress after this answer; a throw counts as not testable.
+    // Judged on the progress after this answer, each item at most once; a throw counts as not testable.
+    const testable = new Map<string, boolean>();
     const isTestable = (itemId: string): boolean => {
-      try {
-        return showsTestOutLink(curriculum, progress.current, data.finishedTests, itemId);
-      } catch (error) {
-        console.error('[session] could not check test-out', itemId, error);
-        return false;
+      let judged = testable.get(itemId);
+      if (judged === undefined) {
+        try {
+          judged = showsTestOutLink(curriculum, progress.current, data.finishedTests, itemId);
+        } catch (error) {
+          console.error('[session] could not check test-out', itemId, error);
+          judged = false;
+        }
+        testable.set(itemId, judged);
       }
+      return judged;
     };
     const mastered = newlyMastered ? withMastered(round, question.itemId, isTestable(question.itemId)) : round;
     // A country mastered while its gate was shut gets its Test out link once this answer opens it.
