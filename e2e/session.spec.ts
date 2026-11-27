@@ -209,7 +209,7 @@ test('[SES-24, SES-18] test-out opens from the link on a round summary', async (
   );
   const first = await current(page, 'placement-question');
   expect(first.rung).toBe(3);
-  await expect(mode(page)).toHaveAttribute('data-mode', 'bare');
+  await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
 });
 
 test('[SES-19] at phone width, all 4 options of an L1 question show without scrolling', async ({

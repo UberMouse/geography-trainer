@@ -108,6 +108,15 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByTestId('last-km')).toHaveText('–');
   });
 
+  test('[EXR-24] L1: a wrong answer names the region with its country', async ({ page }) => {
+    await openExercise(page, 'item=region:france.bretagne&rung=1');
+    await options(page)
+      .filter({ hasNotText: /^Bretagne$/ })
+      .first()
+      .click();
+    await expect(page.getByRole('status')).toContainText('it is Bretagne, France');
+  });
+
   test('[EXR-06, EXR-C07] a click after the answer changes nothing', async ({ page }) => {
     await openExercise(page, 'item=country:france&rung=1');
     await option(page, 'France').click();
@@ -154,6 +163,13 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByText('Which region of France is highlighted?')).toBeVisible();
     await expect(mode(page)).toHaveAttribute('data-mode', 'highlight');
     await expect(options(page)).toHaveCount(4);
+  });
+
+  test('[EXR-03] a region of a country that takes "the": the prompt says of the United States', async ({
+    page,
+  }) => {
+    await openExercise(page, 'item=region:united-states.texas&rung=1');
+    await expect(page.getByText('Which region of the United States is highlighted?')).toBeVisible();
   });
 
   test('[EXR-18, EXR-13, EXR-C07] a right answer after the slow limit is correct but slow', async ({
@@ -357,7 +373,7 @@ test.describe('L2 and L3 name → tap', () => {
       await openExercise(page, `item=country:france&rung=${rung}`);
       await expect(prompt('Tap France')).toBeVisible();
       await openExercise(page, `item=place:honolulu_hawaii&rung=${rung}`);
-      await expect(page.getByText(/^Tap /)).toHaveText(/^Tap .+, .+/);
+      await expect(prompt('Tap Honolulu, Hawaii, USA')).toBeVisible();
     });
 
     test(`[EXR-24] L${rung}: a wrong answer names the region with its country, the globe by its name alone`, async ({
@@ -402,32 +418,32 @@ test.describe('L2 and L3 name → tap', () => {
     ['place:saint_denis_reunion', [2.5, 46.5]],
   ];
   for (const [item, mainland] of outlying) {
-   // A region at L3 is framed as at L2; a place at L3 keeps the view.
-   for (const rung of item.startsWith('region:') ? [2, 3] : [2]) {
-    test(`[EXR-09, EXR-12] L${rung} outside its country’s main part (${item}): the whole world, with it in view`, async ({
-      page,
-    }) => {
-      await openExercise(page, `item=${item}&rung=${rung}`);
-      await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
-      const view = await settled(page);
-      const answer = await itemAnswer(page);
-      // The whole sphere, as the opening view zooms (`worldView`), centred halfway between the
-      // main part and the answer.
-      expect(near(view.center, arcMidpoint(mainland, answer), 3)).toBe(true);
-      const worldZoom =
-        (await hook.minZoom(page)) + Math.log2(Math.cos((view.center[1] * Math.PI) / 180));
-      expect(view.zoom).toBeCloseTo(worldZoom, 1);
-      // Well on the near side of the globe (`project` does not cull the far side), and in the slot.
-      expect(arcDegrees(view.center, answer)).toBeLessThan(80);
-      const at = await hook.project(page, answer);
-      const slot = await page.getByTestId('globe-slot').boundingBox();
-      expect(slot).not.toBeNull();
-      expect(at.x).toBeGreaterThanOrEqual(slot!.x);
-      expect(at.x).toBeLessThanOrEqual(slot!.x + slot!.width);
-      expect(at.y).toBeGreaterThanOrEqual(slot!.y);
-      expect(at.y).toBeLessThanOrEqual(slot!.y + slot!.height);
-    });
-   }
+    // A region at L3 is framed as at L2; a place at L3 keeps the view.
+    for (const rung of item.startsWith('region:') ? [2, 3] : [2]) {
+      test(`[EXR-09, EXR-12] L${rung} outside its country’s main part (${item}): the whole world, with it in view`, async ({
+        page,
+      }) => {
+        await openExercise(page, `item=${item}&rung=${rung}`);
+        await expect(mode(page)).toHaveAttribute('data-mode', 'regionBorders');
+        const view = await settled(page);
+        const answer = await itemAnswer(page);
+        // The whole sphere, as the opening view zooms (`worldView`), centred halfway between the
+        // main part and the answer.
+        expect(near(view.center, arcMidpoint(mainland, answer), 3)).toBe(true);
+        const worldZoom =
+          (await hook.minZoom(page)) + Math.log2(Math.cos((view.center[1] * Math.PI) / 180));
+        expect(view.zoom).toBeCloseTo(worldZoom, 1);
+        // Well on the near side of the globe (`project` does not cull the far side), and in the slot.
+        expect(arcDegrees(view.center, answer)).toBeLessThan(80);
+        const at = await hook.project(page, answer);
+        const slot = await page.getByTestId('globe-slot').boundingBox();
+        expect(slot).not.toBeNull();
+        expect(at.x).toBeGreaterThanOrEqual(slot!.x);
+        expect(at.x).toBeLessThanOrEqual(slot!.x + slot!.width);
+        expect(at.y).toBeGreaterThanOrEqual(slot!.y);
+        expect(at.y).toBeLessThanOrEqual(slot!.y + slot!.height);
+      });
+    }
   }
 
   test('[EXR-09] L2 country: the camera goes to the whole world', async ({ page }) => {
