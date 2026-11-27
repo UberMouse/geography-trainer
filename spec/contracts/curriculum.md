@@ -89,12 +89,15 @@ unlockedItems(curriculum, progress: Record<itemId, ItemProgress>, opts?): Curric
 newItems(curriculum, progress, opts?): CurriculumItem[]
 ```
 
-- `unlockedItems`: items whose parent is null or `isMastered` (GRD-C08), in `items` order. Only the
-  direct parent is checked. With `placeTypes`, places of other types and regions with no child of
-  those types are dropped; countries are always kept.
+- `unlockedItems`: in `items` order, the items whose parent is null; or whose parent is a region
+  that `isMastered` (GRD-C08); or whose parent is a country that `isMastered` and either
+  `gateOpen` holds for it (CUR-C08) or the item itself `isIntroduced`. Only the direct parent is
+  checked. With `placeTypes`, places of other types and regions with no child of those types are
+  dropped; countries are always kept.
 - `newItems`: `unlockedItems` without the ones that are `isIntroduced` (some card has
-  `reps > 0`), sorted by `difficulty` ascending, then `countryPlaceCount` of the owning country
-  descending, then id ascending.
+  `reps > 0`), sorted by `difficulty` ascending (plus `DEEPER_TIER_ORDER_OFFSET` for a region or
+  a place; the item's own `difficulty` is unchanged), then `countryPlaceCount` of the owning
+  country descending, then id ascending.
 
 ### CUR-C07 States and counts
 Up: CUR-14, CUR-15, CUR-16, CUR-17
@@ -108,10 +111,31 @@ tierCounts(curriculum, progress): Record<Tier, { total, learning, learned }>
 unlockedBy(curriculum, itemId): { tier: 'region' | 'place'; childIds: string[] } | null
 ```
 
-- `itemState`: `locked` when the direct parent is not mastered; else `mastered` (`isMastered`),
+- `itemState`: `locked` when the item is not unlocked by `unlockedItems`' rule (CUR-C06, without
+  a place-type filter); else `mastered` (`isMastered`),
   `learning` (`isStudied`: `introducedAt` set, or a card with `reps > 1`), or `new`.
 - `subtreeProgress` counts descendants only; `unlocked` is every state but `locked`.
 - `tierCounts`: `learned` is mastered, `learning` is studied and not mastered; ids not in
   `items` are ignored. It does not look at lock state.
 - `unlockedBy`: the item's children and the tier of the first; null when it has none.
 - `itemState`, `subtreeProgress` and `unlockedBy` throw an `Error` for an id not in `items`.
+
+### CUR-C08 The deeper-tier gate
+Up: CUR-19, CUR-21, CUR-22
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `GATE_WAVE1_MIN_PLACES` | 50 | a country with at least this many places (`countryPlaceCount`, unfiltered) is in the first wave |
+| `GATE_WAVE1_MASTERED_COUNTRIES` | 60 | mastered countries that open a first-wave country's children |
+| `GATE_WAVE2_MASTERED_COUNTRIES` | 150 | mastered countries that open every other country's children |
+| `DEEPER_TIER_ORDER_OFFSET` | 3 | bands added to a region's or a place's difficulty when ordering new items |
+
+Live in `src/engine/config.ts`. In `src/engine/curriculum.ts`:
+
+```ts
+masteredCountryCount(curriculum, progress): number        // country items that isMastered; ids not in items ignored
+countryGate(curriculum, countryItemId): number            // 60 when countryPlaceCount >= 50, else 150
+gateOpen(curriculum, progress, countryItemId): boolean    // masteredCountryCount >= countryGate
+```
+
+`countryGate` and `gateOpen` throw an `Error` for an id that is not a country item.

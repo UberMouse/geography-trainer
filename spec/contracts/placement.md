@@ -154,7 +154,7 @@ Up: PLC-01, PLC-02, PLC-24
   the rest come in curriculum order as `{ itemId, level: difficulty, area: worldArea(center) }`.
   Throws for an id not in the curriculum.
 - `canTestOut(curriculum, progress, itemId)`: the item is mastered, has children, at least one
-  child has no row, and no child `isStudied`. Throws for an id not in the curriculum.
+  child has no row, no child `isStudied`, and, for a country, `gateOpen` (CUR-C08) holds. Throws for an id not in the curriculum.
 - `showsTestOutLink(curriculum, progress, finishedTests, itemId)` (`src/pages/testOutView.ts`):
   `canTestOut` and no marker for the item in `finishedTests`.
 

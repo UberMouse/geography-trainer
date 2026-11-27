@@ -18,7 +18,9 @@ learning on the raw distance, because maptap's curve is too flat to tell a near 
 Learning runs down a tree. Countries come first. Mastering a country unlocks its regions (for
 countries with enough places to need them), and mastering a region unlocks its cities and
 landmarks. Unlocking is per country, so a learner can go deep on one country while others stay
-at the country tier.
+at the country tier. Going deep waits until the learner knows the world well: nothing below a
+country opens until they have mastered many countries, and the countries maptap asks about most
+open first. Even then, new countries keep arriving ahead of the deeper tiers.
 
 ## PRD-03 Each item climbs from recognising to recalling
 An item is learned in rungs, all on the globe. First the learner picks its name from four

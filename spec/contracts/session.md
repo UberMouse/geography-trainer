@@ -181,9 +181,14 @@ Up: SES-10, SES-14, SES-21, SES-23, SES-25
   the page passes the queued questions' item ids and, for a resumed round, its `mastered` ids, so
   a mastered region's unlock line can name it; only these region files are loaded. Throws
   `Unknown item` for an id not in the curriculum, which fails the load (with Retry).
-- `unlockLines(curriculum, masteredIds, nameOf)`: for each distinct mastered id that unlocks a
-  tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and for a region
-  its country.
+- `unlockLines(curriculum, progress, masteredIds, nameOf)`: for each distinct mastered id that
+  unlocks a tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and
+  for a region its country. For a country whose `gateOpen` (CUR-C08) is false in `progress`, the
+  text instead names the gate's count and `masteredCountryCount`, and the item is not `testable`.
+- `gateOpenedLines(curriculum, progress, masteredIds)`: one `{ id: 'gate:<count>', text }` per
+  gate count (60, 150) that `masteredCountryCount(progress)` reaches while the count before the
+  round (it, less the country ids in `masteredIds`) is below it; the text names the count and how
+  many mastered countries of that wave it opened. Shown after the unlock lines.
 - `withMastered(round, itemId, testOut)`: `round` (`{ mastered, testable }`, a `RoundMastery`)
   with `itemId` appended to `mastered`, and to `testable` when `testOut`; the page's bookkeeping
   for SES-C05's two lists. All in `src/pages/sessionView.ts`.

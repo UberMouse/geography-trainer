@@ -512,6 +512,7 @@ Scenario Outline: which test-out pages run
       | a mastered country with a child answered in a study session       | it is unavailable, back to the country |
       | an unknown country, with or without a region                      | it is unavailable, back to the world |
       | a country that is not mastered or has no progress                 | it is unavailable, back to the country |
+      | a mastered country whose gate (CUR-21) is shut                    | it is unavailable, back to the country |
       | a region page of a country without a regions tier                 | it is unavailable, back to the country |
       | a region of another country, or an id not starting with the country | it is unavailable, back to the country |
       | a region that is not in the curriculum                            | it is unavailable, back to the country |
@@ -538,6 +539,7 @@ Scenario Outline: when the link shows
       | a mastered item with a child that has only a placement seed           | shows        |
       | a mastered item with a child answered in a study session              | is hidden    |
       | a mastered item every one of whose children has a row                 | is hidden    |
+      | a mastered country whose gate (CUR-21) is shut                        | is hidden    |
       | an item that is not mastered or has no progress                       | is hidden    |
       | a mastered item with no children                                      | is hidden    |
 

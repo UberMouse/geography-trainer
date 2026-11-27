@@ -242,8 +242,14 @@ Scenario: locked children
   Given the item is not mastered
   Then each child row is locked and says that mastering the item unlocks it
 
+Scenario: children held by the gate
+  Given the item is a mastered country whose gate (CUR-21) is shut
+  Then each child row never answered is locked, and says it opens once the gate's count of
+    countries is mastered, with how many are mastered now
+    And a child already answered shows its own state (CUR-22)
+
 Scenario: unlocked children
-  Given the item is mastered
+  Given the item is mastered, and is a region or a country whose gate is open
   Then its children read new, with no unlock note
 
 Scenario: no children
@@ -315,6 +321,7 @@ Scenario Outline: the test-out link
     | condition                                          | shown  |
     | is mastered, and none of its children is studied   | shown  |
     | is mastered, but its test-out was already finished | hidden |
+    | is a mastered country whose gate is shut           | hidden |
     | is not mastered                                    | hidden |
 
 Scenario: the link

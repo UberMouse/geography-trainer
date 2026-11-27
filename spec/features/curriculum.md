@@ -91,19 +91,21 @@ Scenario: the centre is the spherical mean of the item's places
 Up: PRD-02
 
 ```gherkin
-Scenario Outline: what a mastered country unlocks
-  Given a learner who has mastered <country> and nothing else
+Scenario Outline: what a mastered country unlocks once its gate is open
+  Given a learner who has mastered <country>
+    And enough other countries that its gate is open (CUR-21)
   When the unlocked items are listed
   Then <unlocked> are unlocked
-    And the regions and places of every other country stay locked
+    And the regions and places of every country not mastered stay locked
     And the regions' places stay locked
   Examples:
     | country                          | unlocked          |
     | France (a regions-tier country)  | France's regions  |
     | Tuvalu (no regions tier)         | Tuvalu's places   |
 
-Scenario: the next session asks the newly unlocked regions
-  Given a learner who has mastered the United States
+Scenario: the next session asks the newly unlocked regions once easier countries are learned
+  Given a learner who has mastered the United States and opened its gate
+    And no new country of band 4 or easier is left
   When they start a session
   Then a United States region is asked within the first round
 ```
@@ -140,6 +142,66 @@ Scenario: a mastered country is missed at the top rung
     And Tuvalu's places stay unlocked
 ```
 
+### CUR-21 Nothing below a country opens until enough countries are mastered
+Up: PRD-02
+
+*Why:* regions and a country's places are niche next to the countries themselves, so the learner
+masters a broad base of countries first, and the deeper tiers open first for the countries
+maptap asks about most.
+
+```gherkin
+Scenario Outline: a country's gate
+  Given a learner who has mastered <country> and <mastered> countries in all, it among them
+  When the unlocked items are listed
+  Then <country>'s children are <state>
+  Examples:
+    | country                        | mastered | state    |
+    | the United States (629 places) | 59       | locked   |
+    | the United States (629 places) | 60       | unlocked |
+    | Poland (41 places)             | 60       | locked   |
+    | Poland (41 places)             | 149      | locked   |
+    | Poland (41 places)             | 150      | unlocked |
+    | Tuvalu (no regions tier)       | 149      | locked   |
+    | Tuvalu (no regions tier)       | 150      | unlocked |
+
+Scenario: the gate is on the country's own children only
+  Given a country whose gate is open, and one of its regions mastered
+  Then that region's places unlock as CUR-09 says, with no gate of their own
+
+Scenario: the first wave on the committed data
+  Given the committed countries and places
+  Then the countries in the first wave are the 28 with 50 or more places,
+    from the United States (629) down to South Africa (52)
+    And every other country is in the second wave
+
+Scenario: a gate that has opened stays open
+  Given a learner whose mastered countries have opened a gate
+  When a mastered country lapses at the top rung
+  Then it is still mastered (GRD-15), so the count does not fall and the gate stays open
+```
+
+### CUR-22 The gate never locks an item the learner has already answered
+Up: PRD-02, PRD-04
+
+*Why:* progress made before the gate existed, or through a test-out, keeps being reviewed.
+
+```gherkin
+Scenario: a region answered before the gate
+  Given a learner who has mastered the United States and 10 countries in all
+    And has answered California in a session
+  When the unlocked items are listed
+  Then California is unlocked and keeps its state
+    And the United States regions never answered stay locked
+
+Scenario: a test-out pass counts as answered
+  Given a region passed in a test-out, so its progress has an answered card
+  Then the gate does not lock it
+
+Scenario: a seed that was never answered is held
+  Given a region with only a close-miss or failed placement seed, and its country's gate shut
+  Then it is locked
+```
+
 ### CUR-12 A place-type filter narrows the places, never the countries
 Up: PRD-02
 
@@ -167,6 +229,8 @@ Scenario Outline: an item's state
   Examples:
     | situation                                                    | state    |
     | whose parent is not mastered                                 | locked   |
+    | a country's child, never answered, while its gate is shut   | locked   |
+    | a country's child already answered, while its gate is shut  | as if the gate were open |
     | that is unlocked and has never been answered                 | new      |
     | that is unlocked with only a placement result, unanswered    | new      |
     | that has been answered in a session and is not mastered      | learning |
@@ -219,18 +283,26 @@ Scenario: which items are new
       is not new
 ```
 
-### CUR-19 New items arrive easiest first, then by how much maptap asks about the country
-Up: PRD-06
+### CUR-19 New items arrive easiest first, countries ahead, then by how much maptap asks about the country
+Up: PRD-02, PRD-06
 
 *Why:* maptap asks most about the countries with the most places, so those come first among equals.
+A region or place counts as three bands harder than it is, so new countries keep arriving after
+a gate opens instead of being swamped by the easiest regions.
 
 ```gherkin
 Scenario: the order of new items
   Given new items of any tiers
-  Then they are ordered by difficulty, lowest first
+  Then they are ordered by difficulty, lowest first,
+    a region's or a place's counting three bands more than its own
     And ties go to the item whose country has more places
     And remaining ties are broken by id
     And a place-type filter changes which items are listed, not their difficulty or country counts
+
+Scenario: a band-1 region sorts among band-4 countries
+  Given new items: a band-3 country, a band-4 country with fewer places than the United States,
+    and a band-1 United States region
+  Then the order is the band-3 country, the United States region, the band-4 country
 ```
 
 ## Difficulty

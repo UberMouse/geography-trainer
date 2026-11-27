@@ -138,7 +138,8 @@ Up: SCR-13, SCR-14, SCR-16, SCR-18
   first, so an unknown country never reaches `loadRegions`.
 - `childRows(curriculum, progress, itemId, names) → ChildRow[]`: one row per child,
   `{ itemId, tier, name, state, stateLabel, unlockText, href }`, sorted by name; `unlockText` is
-  set only for a locked row and names `itemId`; `href` is set only for a region. A name missing
+  set only for a locked row: it names `itemId` when `itemId` is not mastered, and the gate's count
+  and `masteredCountryCount` (CUR-C08) when `itemId` is a mastered country whose gate is shut; `href` is set only for a region. A name missing
   from `names` shows the id. An unknown `itemId` gives `[]`.
 - `splitByFrame(frame, items, at) → { onMap, off }`: by `frameTest(frame)` (the padded extent of
   the country's `mainPart`, from `src/maps/geo.ts`).

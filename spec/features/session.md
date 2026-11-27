@@ -418,6 +418,22 @@ Scenario Outline: an item mastered this round
     | a country without one               | the country's places                        |
     | a region                            | the region's places, naming its country     |
 
+Scenario: a country mastered while its gate is shut
+  Given a country was mastered during the round
+    And its gate (CUR-21) is still shut at the end of the round
+  Then its line says its regions (or places) open once the gate's count of countries is mastered,
+    and how many are mastered now
+    And the line links to no test-out
+
+Scenario Outline: the round opens a gate
+  Given the round brought the mastered countries from below <gate> to <gate> or more
+  Then a line says <gate> countries are mastered, and how many mastered countries' regions or
+    places it opened
+  Examples:
+    | gate |
+    | 60   |
+    | 150  |
+
 Scenario: unlocks are listed once, and only when there are any
   Given an item mastered twice in a round, and one whose tier is empty
   Then the first is listed once and the second not at all
