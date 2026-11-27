@@ -44,14 +44,15 @@ Scenario: an item outside the curriculum
   Then building it fails
 ```
 
-### PLC-03 Every question is a tap on the bare globe
+### PLC-03 Every question is a tap at the top rung
 Up: PRD-05, PRD-03
 
 ```gherkin
 Scenario: placement asks only the top rung
   Given a placement test or a test-out is running
   When a question shows
-  Then it is an L3 question: tap the named item on the globe with no borders drawn
+  Then it is an L3 question: tap the named item on the globe with no borders drawn (a region
+    is the exception, below)
 
 Scenario: a test-out over a country's regions
   Given a test-out over a country's regions is running

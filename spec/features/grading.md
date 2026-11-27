@@ -5,7 +5,7 @@ exercise ladder and schedules its next review, and how multiple-choice options a
 it is pure engine logic: the same inputs, clock and seed always give the same result.
 
 The rungs: **L1** the item is highlighted and the learner picks its name from four choices; **L2**
-the learner taps it with borders drawn; **L3** the learner taps it on the bare globe. The ratings
+the learner taps it with borders drawn; **L3** the learner taps it on the bare globe (a region within its country's outline). The ratings
 are FSRS's four: Again, Hard, Good, Easy. A *pass* is Good or Easy.
 
 ## Ratings

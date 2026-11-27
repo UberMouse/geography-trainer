@@ -130,10 +130,23 @@ Up: EXR-06, EXR-07, EXR-10, EXR-17, EXR-18
 | `seed: number` | seeds the options (`mulberry32(seed)`); a number, so React's double-run initialiser picks the same options |
 | `onAnswer(result)` | called exactly once per question, when it is answered |
 | `onNext()` | called when the learner presses Next after the reveal |
-| `opening?: boolean` | the page's first question: L3 then starts from the whole world |
+| `opening?: boolean` | the page's first question: an L3 country or place then starts from the whole world (an L3 region makes its own move, EXR-10) |
 | `note?` | a line shown above Next once answered |
 
 It remounts (a fresh timer, no pin, no reveal, the question's camera move) when `item.id` or
 `rung` changes. The same item at the same rung again does not, so the caller keys each new
 question (a session keys by question index). The timer starts at the first render's commit
 (`performance.now()`).
+
+### EXR-C08 A country's name in running text
+Up: EXR-03
+
+`countryInText(countryId: string, name: string): string` in `src/exercises/item.ts` is how the L1
+region prompt names the country after "of": `the <name>` when the country's namespaced id is in
+`COUNTRIES_WITH_THE`, else `<name>`. A label (`Texas, United States`) never takes the article.
+
+| Constant | Value | Lives in |
+|---|---|---|
+| `COUNTRIES_WITH_THE` | `country:democratic-republic-of-the-congo`, `country:netherlands`, `country:philippines`, `country:united-states` | `src/exercises/item.ts` |
+
+The value is the regions-tier countries (`hasRegions`) whose name takes "the" in English prose.

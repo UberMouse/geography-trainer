@@ -59,7 +59,7 @@ Scenario Outline: the multiple-choice prompt by tier
   Examples:
     | tier    | asks                                                    |
     | country | which country is highlighted                            |
-    | region  | which region of its country is highlighted (of France)  |
+    | region  | which region of its country is highlighted (of France, of the United States) |
     | place   | which place is marked                                   |
 ```
 
