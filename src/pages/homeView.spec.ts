@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { applyAnswer, createProgress, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import { buildCurriculum } from '../engine/curriculum';
 import type { Country } from '../engine/types';
-import { newTodayText, offersPlacement, showsPlacementOffer } from './homeView';
+import { startRun } from '../engine/sessionRun';
+import type { SavedSession } from '../storage/sessionRunStore';
+import { itemsLeft, newTodayText, offersPlacement, showsPlacementOffer } from './homeView';
 
 const NOW = new Date('2026-03-04T23:30:00Z');
 
@@ -85,5 +87,32 @@ describe('[SCR-02, SCR-C06] newTodayText', () => {
   });
   it('names the limit once more were started than it allows', () => {
     expect(newTodayText(10, 5)).toBe('10 new today (limit 5)');
+  });
+});
+
+describe('[SCR-03, SCR-C06] itemsLeft', () => {
+  const kept = (queue: { itemId: string; rung: 1 | 2 | 3 }[]): SavedSession => ({
+    run: startRun(queue),
+    mastered: [],
+    testable: [],
+  });
+
+  it('counts the session items left: the item total less those done', () => {
+    const saved = kept([
+      { itemId: 'country:france', rung: 1 },
+      { itemId: 'country:peru', rung: 1 },
+    ]);
+    expect(itemsLeft(saved)).toBe(2);
+    // An item queued again counts once, and a finished item (itemTotal above the queue's items) not at all.
+    const again = kept([
+      { itemId: 'country:france', rung: 1 },
+      { itemId: 'country:france', rung: 2 },
+    ]);
+    expect(itemsLeft({ ...again, run: { ...again.run, itemTotal: 3 } })).toBe(1);
+  });
+
+  it('offers nothing when no round is kept or the kept one has no questions left', () => {
+    expect(itemsLeft(null)).toBeNull();
+    expect(itemsLeft(kept([]))).toBeNull();
   });
 });

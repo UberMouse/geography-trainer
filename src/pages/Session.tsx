@@ -20,7 +20,7 @@ import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { targetPoint } from '../maps/geo';
 import { progressStore } from '../storage/progressStore';
-import { clearSessionRun, loadSessionRun, saveSessionRun, type SavedSession } from '../storage/sessionRunStore';
+import { loadSessionRun, saveSessionRun, type SavedSession } from '../storage/sessionRunStore';
 import Status from './LoadStatus';
 import {
   answerEntry,
@@ -113,12 +113,10 @@ export default function Session() {
 function Runner({ data }: { data: SessionData }) {
   const { countries, curriculum, regions, items } = data;
   const [run, setRun] = useState<SessionRun>(() => data.resumed?.run ?? startRun(data.questions));
-  // Leaving the page ends the session: only a reload (which runs no cleanup) resumes it. A resumed
-  // run is written again on mount, so StrictMode's dev remount (which runs the cleanup) keeps it.
+  // Leaving the page keeps the saved run (SES-27); a resumed run is written again as resumed on mount.
   useEffect(() => {
     const { dayKey, resumed } = data;
     if (resumed) saveSessionRun(dayKey, resumed.run, resumed.mastered, resumed.testable);
-    return clearSessionRun;
     // Only on mount: `data` is fixed for this page's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -273,7 +271,7 @@ function Runner({ data }: { data: SessionData }) {
       <Group justify="space-between" mb="xs">
         <Text c="dimmed">{questionHeader(run)}</Text>
         <Anchor component={Link} to="/">
-          Quit
+          Back to Home
         </Anchor>
       </Group>
       <div

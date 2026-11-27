@@ -10,7 +10,7 @@ import {
   WAIT,
   writeMasteredUnitedStates,
 } from './sessionHelpers';
-import { expect, test, type Page } from './test';
+import { appBar, expect, test, type Page } from './test';
 
 // Placement loads the world's map data and draws up to 20 globes: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
@@ -127,6 +127,60 @@ test('[PLC-19] Quit in the middle of a question leaves Home with no pin, and tap
   await tapGlobe(page, isMobile, q.answer);
   await page.waitForTimeout(500);
   expect((await hook.markers(page)).filter((m) => m.kind === 'pin')).toEqual([]);
+});
+
+test('[GLB-36, PLC-19] leaving a test by a bar link keeps its saved answers, stores no marker and leaves no pin', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/placement');
+  await answerCurrent(page, isMobile);
+  await next(page);
+  const q = await current(page, TEST_ID);
+  await tapGlobe(page, isMobile, q.answer);
+  await expect.poll(() => hook.markers(page)).toEqual([expect.objectContaining({ kind: 'pin' })]);
+
+  await appBar(page).getByRole('link', { name: 'Progress' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeVisible(WAIT);
+  await expect.poll(() => hook.markers(page)).toEqual([]);
+  expect((await hook.layerIds(page)).filter((id) => id.startsWith('gt-reveal'))).toEqual([]);
+  // No finished-test marker: Home still offers the test. The answered question's progress is kept.
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
+  await expect(page.getByRole('link', { name: 'Take the placement test' })).toBeVisible(WAIT);
+  const saved = await page.evaluate(
+    () =>
+      new Promise<{ progress: number; meta: number }>((resolve, reject) => {
+        // The node tsconfig has no DOM types, so the few IndexedDB members used are typed here.
+        interface Req<T> {
+          result: T;
+          error: unknown;
+          onsuccess: (() => void) | null;
+          onerror: (() => void) | null;
+        }
+        interface Count {
+          result: number;
+        }
+        interface Tx {
+          objectStore(name: string): { count(): Count };
+          oncomplete: (() => void) | null;
+          onerror: (() => void) | null;
+          error: unknown;
+        }
+        const idb = (globalThis as unknown as { indexedDB: { open(name: string): Req<{ transaction(names: string[]): Tx }> } })
+          .indexedDB;
+        const open = idb.open('geography-trainer');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['progress', 'meta']);
+          const progress = tx.objectStore('progress').count();
+          const meta = tx.objectStore('meta').count();
+          tx.oncomplete = () => resolve({ progress: progress.result, meta: meta.result });
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+  );
+  expect(saved.progress).toBeGreaterThan(0);
+  expect(saved.meta).toBe(0);
 });
 
 test("[PLC-02, PLC-06, PLC-18, PLC-20, PLC-22, SCR-18] a test-out of Texas's places: a close miss is noted, focus follows, and the finished test hides its link", async ({

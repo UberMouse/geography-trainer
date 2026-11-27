@@ -28,7 +28,7 @@ test('[GLB-01] client-side links between pages keep the same globe', async ({ pa
   await globeHooked(page);
   const instance = await hook.instanceId(page);
   await page.getByRole('link', { name: /^Start/ }).click();
-  await page.getByRole('link', { name: 'Quit' }).click();
+  await page.getByRole('link', { name: 'Back to Home' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
   await page.getByRole('link', { name: 'Settings' }).click();
   await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
@@ -290,7 +290,7 @@ test('[STO-03, STO-04] a failed save shows on every page with Retry, and leaving
   const banner = page.getByRole('alert').filter({ hasText: 'could not be saved' });
   await expect(banner).toBeVisible();
   expect(await asksBeforeLeaving()).toBe(true);
-  await page.getByRole('link', { name: 'Quit' }).click();
+  await page.getByRole('link', { name: 'Back to Home' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
   await expect(banner).toBeVisible();
   await page.evaluate(() => {

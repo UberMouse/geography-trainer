@@ -2,7 +2,9 @@
 
 import { isStudied, placementPool } from '../engine/placement';
 import type { Curriculum } from '../engine/curriculum';
+import { itemsDone } from '../engine/sessionRun';
 import type { ItemProgress } from '../engine/srs';
+import type { SavedSession } from '../storage/sessionRunStore';
 import { COUNTRIES_SCOPE, placementKey } from '../storage/placementKeys';
 
 /**
@@ -26,3 +28,10 @@ export const showsPlacementOffer = (
 /** Home's "new today" line: the limit may have been lowered below what was already started. */
 export const newTodayText = (newToday: number, cap: number): string =>
   newToday > cap ? `${newToday} new today (limit ${cap})` : `${newToday} of ${cap} new today`;
+
+/**
+ * The items left in a kept session (SCR-C06), or null when Home offers Start instead: nothing is
+ * kept, or the kept run has no questions left (a last-of-day summary).
+ */
+export const itemsLeft = (kept: SavedSession | null): number | null =>
+  kept && kept.run.queue.length > 0 ? kept.run.itemTotal - itemsDone(kept.run) : null;

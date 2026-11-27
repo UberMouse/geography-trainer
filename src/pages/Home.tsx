@@ -3,8 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { usePageTitle } from '../components/usePageTitle';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
+import { dueQuestions } from '../engine/session';
+import { localDayKey } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
-import { newTodayText, showsPlacementOffer } from './homeView';
+import { loadSessionRun } from '../storage/sessionRunStore';
+import { itemsLeft, newTodayText, showsPlacementOffer } from './homeView';
+import { resumable } from './sessionView';
 import type { ItemState } from '../engine/curriculum';
 import Status from './LoadStatus';
 import ProgressLegend from './ProgressLegend';
@@ -41,7 +45,7 @@ function useNow(): Date {
 }
 
 /**
- * Today's numbers, a Start link, beside the globe filled by
+ * Today's numbers, a Start or Continue link, beside the globe filled by
  * country progress.
  */
 export default function Home() {
@@ -91,6 +95,17 @@ function HomeContent({ data, now }: HomeContentProps) {
     () => todayNumbers(curriculum, data.progress, now, tzOffset(now), data.dailyNewCap),
     [curriculum, data.progress, now, data.dailyNewCap],
   );
+  // The round this tab kept, read as the Session page reads it (SCR-C06).
+  const left = useMemo(
+    () =>
+      itemsLeft(
+        resumable(
+          loadSessionRun(localDayKey(now, tzOffset(now)), data.progress, (id) => curriculum.items.has(id)),
+          () => dueQuestions({ curriculum, progress: data.progress, now }),
+        ),
+      ),
+    [curriculum, data.progress, now],
+  );
   useCountriesGlobe(data, looks);
   return (
     <Stack align="flex-start">
@@ -113,7 +128,11 @@ function HomeContent({ data, now }: HomeContentProps) {
           ({PLACEMENT_MIN_QUESTIONS}–{PLACEMENT_MAX_QUESTIONS} questions)
         </Text>
       )}
-      {numbers.sessionLength > 0 ? (
+      {left !== null ? (
+        <Button component={Link} to="/session" size="md">
+          Continue ({left} left)
+        </Button>
+      ) : numbers.sessionLength > 0 ? (
         <Button component={Link} to="/session" size="md">
           Start ({numbers.sessionLength} to study)
         </Button>
