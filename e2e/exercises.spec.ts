@@ -77,7 +77,7 @@ test.describe('L1 highlighted → name', () => {
     // The one status region is there, empty, before the answer, so the verdict is announced.
     await expect(verdict(page)).toHaveCount(1);
     await expect(verdict(page)).toBeEmpty();
-    // The camera fits France.
+    // The camera centres France among its neighbours.
     const before = await settled(page);
     expect(near(before.center, await itemAnswer(page), 5)).toBe(true);
     expect(await hook.markers(page)).toEqual([]);

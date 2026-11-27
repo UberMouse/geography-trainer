@@ -157,9 +157,10 @@ describe('[EXR-09, EXR-C03] questionCamera', () => {
   it('L1: a region outside its country’s main part follows the same rule on its own feature', () => {
     const isle = buildExerciseItem('region:alpha.isle', DATA_WITH_ALPHA);
     expect(isle.outsideFrame).toBe(true);
+    const s = featureSpanKm(area(isle).feature);
     const km = Math.max(
-      L1_CONTEXT_SCALE * featureSpanKm(area(isle).feature),
-      REGION_CONTEXT_MIN_KM,
+      L1_CONTEXT_SCALE * s,
+      Math.min(REGION_CONTEXT_MIN_KM, L1_CONTEXT_MAX_SCALE * s),
     );
     expect(questionCamera(isle, 1)).toEqual(context(isle, km));
   });
