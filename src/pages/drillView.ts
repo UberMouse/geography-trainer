@@ -55,7 +55,7 @@ export interface ChildRow {
   state: ItemState;
   stateLabel: string;
   /** For a locked item, "Master France to unlock", or, when France is mastered and its gate is
-   * shut, "Opens once you've mastered 60 countries (23 so far)"; else null. */
+   * shut, "Opens once you've mastered 60 countries, 23 so far"; else null. */
   unlockText: string | null;
   /** The region's drill-down page; null for a place. */
   href: string | null;
@@ -78,7 +78,7 @@ export function childRows(
   const masteredCountries = masteredCountryCount(curriculum, progress);
   const lockedText =
     own && isMastered(own) && item.tier === 'country' && masteredCountries < countryGate(curriculum, itemId)
-      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries (${masteredCountries} so far)`
+      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries, ${masteredCountries} so far`
       : `Master ${nameOf(itemId)} to unlock`;
   const rows = item.children.map((childId) => {
     const child = curriculum.items.get(childId)!;

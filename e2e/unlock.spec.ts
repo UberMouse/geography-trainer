@@ -218,7 +218,7 @@ test("[SCR-14] a mastered country's regions wait for the gate", async ({ page },
   for (const row of await rows.all()) {
     await expect(row).toHaveAttribute('data-state', 'locked');
     await expect(row).toContainText(
-      `Opens once you've mastered ${GATE_WAVE1_MASTERED_COUNTRIES} countries (1 so far)`,
+      `Opens once you've mastered ${GATE_WAVE1_MASTERED_COUNTRIES} countries, 1 so far`,
     );
   }
   // SCR-18: the gate also hides the test-out link.

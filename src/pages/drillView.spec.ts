@@ -135,7 +135,7 @@ describe('[SCR-14, SCR-C09] childRows', () => {
     const rows = childRows(curriculum, progress, fr, names);
     expect(rows.map((r) => [r.name, r.state, r.unlockText])).toEqual([
       ['Auvergne', 'learning', null],
-      ['Ile-de-France', 'locked', "Opens once you've mastered 150 countries (1 so far)"],
+      ['Ile-de-France', 'locked', "Opens once you've mastered 150 countries, 1 so far"],
     ]);
   });
 
