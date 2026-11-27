@@ -120,8 +120,10 @@ loadSessionRun(dayKey, progress, isKnown): SavedSession | null
 
 - `mastered` is the ids of the items that passed from not mastered to mastered in the current
   round, in answer order; `testable` is those of them whose unlock line links to a test-out, as
-  judged when each was mastered. They are what the summary's unlock lines and Test out links are
-  drawn from.
+  judged when each was mastered. A country mastered while its gate (CUR-21) was shut is judged
+  again after each later answer in the round, and joins `testable` (after the ids already in it)
+  once its gate opens. They are what the summary's unlock lines and Test out links are drawn
+  from.
 - Written after every answer or skip (as already answered, with that answer's mastery included)
   and on Keep going (with `mastered` and `testable` empty); written again, as resumed, when the
   Session page mounts on a resumed run; removed when the Session page unmounts (leaving it). A
@@ -185,10 +187,17 @@ Up: SES-10, SES-14, SES-21, SES-23, SES-25
   unlocks a tier (`unlockedBy`), `{ id, text }`, the text naming the item, the unlocked tier, and
   for a region its country. For a country whose `gateOpen` (CUR-C08) is false in `progress`, the
   text instead names the gate's count and `masteredCountryCount`, and the item is not `testable`.
-- `gateOpenedLines(curriculum, progress, masteredIds)`: one `{ id: 'gate:<count>', text }` per
-  gate count (60, 150) that `masteredCountryCount(progress)` reaches while the count before the
-  round (it, less the country ids in `masteredIds`) is below it; the text names the count and how
-  many mastered countries of that wave it opened. Shown after the unlock lines.
+- `gateOpenedLines(curriculum, progress, masteredIds)`: one `{ id: 'gate:<count>', text, opened }`
+  per gate count (60, 150) that `masteredCountryCount(progress)` reaches while the count before
+  the round (it, less the country ids in `masteredIds`) is below it. `opened` is how many mastered
+  countries of that wave it opened; the text names the count and, when `opened` is above 0, that
+  number, and with `opened` 0 says instead that that wave's countries open as each is mastered.
+  Shown after the unlock lines. The summary's "next session" sentence counts a gate line only
+  when its `opened` is above 0.
 - `withMastered(round, itemId, testOut)`: `round` (`{ mastered, testable }`, a `RoundMastery`)
   with `itemId` appended to `mastered`, and to `testable` when `testOut`; the page's bookkeeping
-  for SES-C05's two lists. All in `src/pages/sessionView.ts`.
+  for SES-C05's two lists.
+- `withGateRecheck(round, isTestable)`: `round` with each country id in `mastered` that is not in
+  `testable` and for which `isTestable(id)` is true appended to `testable`, in `mastered` order;
+  the same object when none is. The page calls it after every answer with `showsTestOutLink`
+  (PLC-C07) on the progress after that answer. All in `src/pages/sessionView.ts`.

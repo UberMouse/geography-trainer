@@ -425,6 +425,12 @@ Scenario: a country mastered while its gate is shut
     and how many are mastered now
     And the line links to no test-out
 
+Scenario: a country mastered while its gate is shut, whose gate opens later in the round
+  Given a country was mastered during the round while its gate (CUR-21) was shut
+    And a later answer in the same round opened its gate
+  Then its line says it unlocked the country's regions (or places)
+    And the line links to a test-out where PLC-24 shows one
+
 Scenario Outline: the round opens a gate
   Given the round brought the mastered countries from below <gate> to <gate> or more
   Then a line says <gate> countries are mastered, and how many mastered countries' regions or
@@ -433,6 +439,13 @@ Scenario Outline: the round opens a gate
     | gate |
     | 60   |
     | 150  |
+
+Scenario: a gate that opens nothing yet
+  Given the round brought the mastered countries to 60 or more
+    And no mastered country of the first wave has regions or places to open
+  Then the gate's line says the first wave's regions and places open as each of its countries is
+    mastered
+    And the line does not count toward the "next session" sentence
 
 Scenario: unlocks are listed once, and only when there are any
   Given an item mastered twice in a round, and one whose tier is empty
