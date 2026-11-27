@@ -258,6 +258,9 @@ Scenario: the page's heading and list
 Scenario: locked children
   Given the item is not mastered
   Then each child row is locked and says that mastering the item unlocks it
+    And when the gate (CUR-21) also holds the item, the row names the gate's count of countries
+      too, with how many are mastered now: for a country whose gate is shut, and for a region
+      never answered whose country is mastered with its gate shut
 
 Scenario: children held by the gate
   Given the item is a mastered country whose gate (CUR-21) is shut
