@@ -177,7 +177,8 @@ describe('[TLG-04] verify runs spec:check first', () => {
     const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
       scripts: Record<string, string>;
     };
-    expect(pkg.scripts['spec:check']).toBe('tsx scripts/spec-check/index.ts');
+    // The checker may run behind scripts/await-setup.sh, which waits for a worktree's install.
+    expect(pkg.scripts['spec:check']).toMatch(/^(scripts\/await-setup\.sh )?tsx scripts\/spec-check\/index\.ts$/);
     expect(pkg.scripts.verify).toMatch(/^npm run spec:check && npm run typecheck && /);
   });
 });
