@@ -7,6 +7,7 @@ import { validateProgressFile, type ProgressFile } from './progressFile';
 import type { Settings } from './settings';
 import { repo, type AnswerEntry, type ProgressRepo } from './repo';
 import { createSaveQueue, type SaveQueue } from './saveQueue';
+import { clearSessionRun } from './sessionRunStore';
 
 export interface ProgressStore {
   /** Answers waiting to be saved (or failed); the session pushes here. */
@@ -31,7 +32,8 @@ export interface ProgressStore {
   finishPlacement(key: string, rows: ItemProgress[]): Promise<void>;
   /**
    * Clears progress, answers and markers (not settings), and drops unsaved answers, once pending
-   * writes settled. A failed reset throws and leaves the stored data and the queue unchanged.
+   * writes settled, and the tab's kept session round with them. A failed reset throws and leaves
+   * the stored data, the queue and the kept round unchanged.
    */
   resetProgress(): Promise<void>;
   /**
@@ -40,8 +42,9 @@ export interface ProgressStore {
    */
   exportProgress(now: Date): Promise<ProgressFile>;
   /**
-   * Replaces everything stored, and drops unsaved answers, once pending writes settled. An invalid
-   * file, or a failed import, throws and leaves the stored data and the queue unchanged.
+   * Replaces everything stored, and drops unsaved answers and the tab's kept session round, once
+   * pending writes settled. An invalid file, or a failed import, throws and leaves the stored data,
+   * the queue and the kept round unchanged.
    */
   importProgress(parsed: unknown): Promise<void>;
 }
@@ -119,7 +122,11 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
       return new Set(await repository.loadFinishedTests());
     },
     finishPlacement: (key, rows) => tracked(() => repository.finishPlacement(key, rows)),
-    resetProgress: () => replacingEverything(() => repository.resetProgress()),
+    resetProgress: () =>
+      replacingEverything(async () => {
+        await repository.resetProgress();
+        clearSessionRun();
+      }),
     async exportProgress(now) {
       if (answers.getState().failed) await answers.retry();
       await answers.whenSettled();
@@ -128,7 +135,10 @@ export function createProgressStore(repository: ProgressRepo): ProgressStore {
     },
     async importProgress(parsed) {
       validateProgressFile(parsed);
-      await replacingEverything(() => repository.importProgress(parsed));
+      await replacingEverything(async () => {
+        await repository.importProgress(parsed);
+        clearSessionRun();
+      });
     },
   };
 }

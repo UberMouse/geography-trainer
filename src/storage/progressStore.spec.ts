@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { Rating } from 'ts-fsrs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyAnswer, createProgress } from '../engine/srs';
 import { createProgressStore } from './progressStore';
 import { createRepo, type AnswerEntry, type ProgressRepo } from './repo';
@@ -293,5 +293,55 @@ describe('[STO-C07] settings, markers and reset through the store', () => {
     expect(store.answers.getState()).toEqual({ unsaved: 1, failed: true });
     expect((await store.loadProgress())['country:peru']).toEqual(pushed.progress);
     expect(await store.loadFinishedTests()).toEqual(new Set(['placement:countries']));
+  });
+});
+
+describe('[STO-C07] a tab’s kept session round', () => {
+  const KEY = 'geography-trainer:session-run';
+  let kept: Map<string, string>;
+  beforeEach(() => {
+    kept = new Map([[KEY, JSON.stringify({ dayKey: '2026-03-04', run: {} })]]);
+    vi.stubGlobal('sessionStorage', {
+      getItem: (k: string) => kept.get(k) ?? null,
+      setItem: (k: string, v: string) => void kept.set(k, v),
+      removeItem: (k: string) => void kept.delete(k),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const failing = (method: 'resetProgress' | 'importProgress') =>
+    createProgressStore({ ...repo, [method]: () => Promise.reject(new Error('blocked')) });
+  const emptyFile = async () => {
+    const source = createRepo(`store-file-${counter}`);
+    try {
+      return await source.exportProgress(NOW);
+    } finally {
+      source.close();
+    }
+  };
+
+  it('[STO-14] a successful reset drops it', async () => {
+    await createProgressStore(repo).resetProgress();
+    expect(kept.has(KEY)).toBe(false);
+  });
+
+  it('[STO-14] a failed reset keeps it', async () => {
+    await expect(failing('resetProgress').resetProgress()).rejects.toThrow('blocked');
+    expect(kept.has(KEY)).toBe(true);
+  });
+
+  it('[STO-09] a successful import drops it', async () => {
+    await createProgressStore(repo).importProgress(await emptyFile());
+    expect(kept.has(KEY)).toBe(false);
+  });
+
+  it('[STO-09] a failed import write keeps it', async () => {
+    await expect(failing('importProgress').importProgress(await emptyFile())).rejects.toThrow('blocked');
+    expect(kept.has(KEY)).toBe(true);
+  });
+
+  it('[STO-09] an import that fails validation keeps it', async () => {
+    await expect(createProgressStore(repo).importProgress({ nope: true })).rejects.toThrow();
+    expect(kept.has(KEY)).toBe(true);
   });
 });

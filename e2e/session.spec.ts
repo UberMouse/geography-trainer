@@ -311,6 +311,29 @@ for (const how of ['its Back to Home link', 'the app bar']) {
   });
 }
 
+test('[STO-14, SES-27] resetting progress drops the kept round, so Home offers Start again', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/session');
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await expect(left(page)).toBeVisible(WAIT);
+
+  await appBar(page).getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Reset all progress' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reset all progress' });
+  await dialog.getByLabel('Type reset to confirm').fill('reset');
+  await dialog.getByRole('button', { name: 'Reset all progress' }).click();
+  await expect(page.getByRole('status')).toHaveText('All progress was reset.', WAIT);
+
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
+  await expect(page.getByRole('link', { name: /^Start/ })).toBeVisible(WAIT);
+  await expect(left(page)).toHaveCount(0);
+});
+
 test('[SES-28] leaving mid-question leaves no pin or reveal on the globe, and Home drops none', async ({
   page,
   isMobile,
@@ -411,7 +434,9 @@ test('[SES-21, SES-22, SES-23] the last round waits for the next session, then n
   await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
 
   // Today's new items are used up by the imported countries, and nothing else is due.
+  // The finished round is kept (SES-27) and would show its summary again, so drop it first.
   await page.getByRole('link', { name: 'Back to Home' }).click();
+  await page.evaluate(() => sessionStorage.removeItem('geography-trainer:session-run'));
   await page.goto('/session');
   await expect(page.getByText(/nothing to study right now/)).toBeVisible(WAIT);
   await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible();
