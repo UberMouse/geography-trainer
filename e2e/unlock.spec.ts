@@ -1,3 +1,4 @@
+import { GATE_WAVE1_MASTERED_COUNTRIES } from '../src/engine/config';
 import { expect, test, type Page } from './test';
 import { globeReady, hook, type LngLat } from './globeHook';
 import {
@@ -216,7 +217,9 @@ test("[SCR-14] a mastered country's regions wait for the gate", async ({ page },
   await expect(rows.first()).toBeVisible(WAIT);
   for (const row of await rows.all()) {
     await expect(row).toHaveAttribute('data-state', 'locked');
-    await expect(row).toContainText("Opens once you've mastered 60 countries (1 so far)");
+    await expect(row).toContainText(
+      `Opens once you've mastered ${GATE_WAVE1_MASTERED_COUNTRIES} countries (1 so far)`,
+    );
   }
   // SCR-18: the gate also hides the test-out link.
   await expect(page.getByRole('link', { name: /Test out of/ })).toHaveCount(0);
