@@ -124,6 +124,14 @@ Up: PRD-08
 
 A country's *main part* is its largest landmass; an item *outside it* is defined in EXR-12. The
 *neighbourhood* is a view about 600 km across; the *whole world* is the zoom the app opens on.
+An area *in its surroundings* is a view centred on its main part, wide enough that the main part
+takes up about two fifths of the globe area's shorter side, and never closer than the
+neighbourhood for a country or about 300 km across for a region, unless that would shrink the
+main part below about a tenth of the shorter side. A country too large for that fills the whole
+sphere, centred on it.
+
+*Why:* an L1 learner recognises a highlighted shape by what is around it: the neighbours it
+borders and the coast it sits on. Fitted edge to edge, it is only an outline.
 
 ```gherkin
 Scenario Outline: the camera as a question starts
@@ -132,13 +140,20 @@ Scenario Outline: the camera as a question starts
   When it is asked at L2, the camera goes to <L2>
   Examples:
     | item                                   | L1                              | L2                                                                       |
-    | country with an area                   | fit the country                 | the whole world                                                          |
+    | country with an area                   | the country in its surroundings | the whole world                                                          |
     | point-only country                     | the neighbourhood of its point  | the whole world                                                          |
-    | region                                 | fit the region                  | fit its country's main part                                              |
-    | region outside its country's main part | fit the region                  | the whole world, centred halfway between the main part and the region   |
+    | region                                 | the region in its surroundings  | fit its country's main part                                              |
+    | region outside its country's main part | the region in its surroundings  | the whole world, centred halfway between the main part and the region   |
     | place                                  | the neighbourhood of the place  | fit its country's main part                                              |
     | place outside its country's main part  | the neighbourhood of the place  | the whole world, centred halfway between the main part and the place    |
     | place in a point-only country          | the neighbourhood of the place  | the neighbourhood of its country's point                                 |
+
+Scenario: an L1 highlight is shown among its neighbours
+  Given a country or region with an area asked at L1
+  When the camera settles
+  Then its main part is centred and whole, with a wide band of what surrounds it in view on every
+    side (unless it fills the whole sphere)
+    And however small it is (Monaco, a city district), it still shows as a shape, never a speck
 
 Scenario: an item outside the main part stays in view at L2
   Given a region or place outside its country's main part

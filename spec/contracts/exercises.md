@@ -53,7 +53,7 @@ shared globe (`useGlobe`, `moveCamera` in `src/maps/globeContext.ts`).
 | Function | Returns |
 |---|---|
 | `questionMode(item, rung)` | `item.highlightMode` (L1), `item.bordersMode` (L2), or `{kind:'bare'}` (L3), the same object every call so the globe does not redraw |
-| `questionCamera(item, rung, opening = false)` | a `CameraMove`: `fit` (a feature), `span` (`at`, `km: NEIGHBOURHOOD_VIEW_KM`), `world` (optionally `at`), or `stay`, per EXR-09 and EXR-10 |
+| `questionCamera(item, rung, opening = false)` | a `CameraMove`: `fit` (a feature), `span` (the neighbourhood of a point, or an area in its surroundings, EXR-C06), `world` (optionally `at`), or `stay`, per EXR-09 and EXR-10 |
 | `questionReveal(item, tap?)` | `{ target: {kind:'area', feature} \| {kind:'point', at}, tap?: { at: tap, answer: targetPoint(target) } }` |
 | `revealCamera(item, tap)` | `pair` (`a: tap`, `b: answer`, `feature` for an area target), or `world` centred on the midpoint or the answer, per EXR-16 |
 | `questionMarkers(item, pin, answered)` | unanswered: `[]` or `[{kind:'pin', at: pin}]`; answered: `[{kind:'name', at: targetPoint(target), text: item.name}]` |
@@ -100,9 +100,18 @@ Up: EXR-09, EXR-16
 |---|---|---|---|
 | `REVEAL_WORLD_KM` | 5,000 km | `src/exercises/questionGlobe.ts` | beyond this tap-to-answer distance the reveal shows the whole globe instead of framing both |
 | `REVEAL_FAR_SIDE_KM` | 9,000 km | `src/exercises/questionGlobe.ts` | beyond this the whole globe centres on the answer point, not halfway |
+| `L1_CONTEXT_SCALE` | 2.5 | `src/exercises/questionGlobe.ts` | an L1 area's view is this many times its main part's span, so the main part takes about 2/5 of the shorter side |
+| `REGION_CONTEXT_MIN_KM` | 300 km | `src/exercises/questionGlobe.ts` | the narrowest view an L1 region gets; an L1 country's is `NEIGHBOURHOOD_VIEW_KM` |
+| `L1_CONTEXT_MAX_SCALE` | 10 | `src/exercises/questionGlobe.ts` | an L1 area's view is never more than this many times its main part's span, so a tiny one (Monaco, a city district) still takes about a tenth of the shorter side |
 
 A question's `span` move shows `NEIGHBOURHOOD_VIEW_KM` (GLB-C13) around a place or a point-only
-country. Both reveal limits compare `distanceKm(tap, answer point)` with `>`, so a distance equal to the
+country. An L1 country or region with an area (its `target.feature`) gets
+`{ kind: 'span', at: boundsCentre(featureBounds(feature)), km }` with
+`km = max(L1_CONTEXT_SCALE · s, min(floor, L1_CONTEXT_MAX_SCALE · s))`, `s` being
+`featureSpanKm(feature)` and the floor `NEIGHBOURHOOD_VIEW_KM` for a country and
+`REGION_CONTEXT_MIN_KM` for a region. A `km` wider than
+the globe can show ends at the whole sphere, since the globe's zoom never goes below its fitted
+minimum (GLB-C14). Both reveal limits compare `distanceKm(tap, answer point)` with `>`, so a distance equal to the
 limit is the nearer case.
 
 ### EXR-C07 The `Exercise` component

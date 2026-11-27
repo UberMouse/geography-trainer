@@ -1,9 +1,10 @@
 // The globe's camera framing, as plain numbers: no MapLibre, so it runs (and is tested) in node.
 import { EARTH_RADIUS_KM, type AreaFeature, type LngLat } from './geo';
-import { MAX_ZOOM } from './globeLayers';
+import { featureBounds, MAX_ZOOM } from './globeLayers';
 
 /**
- * How much ground (km, edge to edge) the camera shows around a point-only country or a place. The
+ * How much ground (km, edge to edge) the camera shows around a point-only country or a place, and
+ * the narrowest view of an L1 country with an area (a tiny one aside). The
  * target's near neighbours (Sint Eustatius 28 km from Saba) are the wrong options, so the view
  * must separate them: at this span a dot sits clear of land 28 km away, while the neighbouring
  * islands (Saint Kitts, Saint Barthelemy, Sint Maarten) still show as separate land.
@@ -32,7 +33,8 @@ export const MIN_COS_LAT = 0.01;
  * The zoom at which MapLibre's globe shows about `km` of ground across `sizePx` CSS px, centred at
  * latitude `lat`. The globe's radius is `512 · 2^zoom / (2π · cos lat)` px (it grows by 1 / cos lat
  * at a zoom, to match Mercator at the centre), so a km at the centre is `radius / R` px. The
- * perspective is ignored: for a span this small next to the Earth the difference is slight. Capped
+ * perspective is ignored: it is slight for a span of tens or hundreds of km, and one as wide as the
+ * globe (L1 passes up to ~25,000 km) is clamped at the globe's minimum zoom anyway. Capped
  * at `MAX_ZOOM`; a span or size that is not a positive finite number gets `MAX_ZOOM`.
  */
 export function spanZoom(km: number, sizePx: number, lat: number): number {
@@ -80,4 +82,21 @@ export function unionBounds(a: [LngLat, LngLat], b: [LngLat, LngLat]): [LngLat, 
     }
   }
   return best!;
+}
+
+/** The middle of [[west, south], [east, north]] bounds, longitude wrapped to [-180, 180). */
+export function boundsCentre([[west, south], [east, north]]: [LngLat, LngLat]): LngLat {
+  const lng = (west + east) / 2;
+  return [((((lng + 180) % 360) + 360) % 360) - 180, (south + north) / 2];
+}
+
+/**
+ * How far across a feature's main part is, in km: the larger of its height and its width along
+ * the latitude through its middle.
+ */
+export function featureSpanKm(feature: AreaFeature): number {
+  const [[west, south], [east, north]] = featureBounds(feature);
+  const cosMid = Math.cos((((south + north) / 2) * Math.PI) / 180);
+  const degrees = Math.max(north - south, (east - west) * cosMid);
+  return ((degrees * Math.PI) / 180) * EARTH_RADIUS_KM;
 }

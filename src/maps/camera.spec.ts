@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { Polygon } from 'geojson';
 import {
+  boundsCentre,
+  featureSpanKm,
   MIN_COS_LAT,
   NEIGHBOURHOOD_VIEW_KM,
   pairBounds,
@@ -7,7 +10,7 @@ import {
   TILE_PX,
   unionBounds,
 } from './camera';
-import { EARTH_RADIUS_KM } from './geo';
+import { EARTH_RADIUS_KM, type AreaFeature } from './geo';
 import { MAX_ZOOM } from './globeLayers';
 
 const CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM;
@@ -121,5 +124,71 @@ describe('[GLB-C13] camera constants', () => {
     // Past about 89.4° the span is measured as if at cos(lat) = 0.01.
     const floorLat = (Math.acos(MIN_COS_LAT) * 180) / Math.PI;
     expect(spanZoom(600, 400, 90)).toBeCloseTo(spanZoom(600, 400, floorLat), 9);
+  });
+});
+
+/** A clockwise lng/lat box as a feature. */
+function box(w: number, s: number, e: number, n: number): AreaFeature {
+  const ring = [
+    [w, s],
+    [w, n],
+    [e, n],
+    [e, s],
+    [w, s],
+  ];
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'Polygon', coordinates: [ring] } as Polygon,
+  };
+}
+
+const kmPerDegree = (Math.PI / 180) * EARTH_RADIUS_KM;
+
+describe('[GLB-C13] boundsCentre', () => {
+  it('is the middle of the bounds in longitude and latitude', () => {
+    expect(
+      boundsCentre([
+        [10, 40],
+        [20, 50],
+      ]),
+    ).toEqual([15, 45]);
+  });
+
+  it('wraps a centre of bounds across 180° (east above 180) into [-180, 180)', () => {
+    expect(
+      boundsCentre([
+        [170, -10],
+        [200, 10],
+      ]),
+    ).toEqual([-175, 0]);
+    expect(
+      boundsCentre([
+        [160, 0],
+        [190, 20],
+      ]),
+    ).toEqual([175, 10]);
+    expect(
+      boundsCentre([
+        [170, 0],
+        [190, 0],
+      ]),
+    ).toEqual([-180, 0]);
+  });
+});
+
+describe('[GLB-C13] featureSpanKm', () => {
+  // A box's edges are great circles, so its bounds bulge a little toward the pole: compare loosely.
+  it('is the height for a tall feature', () => {
+    expect(featureSpanKm(box(0, 0, 2, 10)) / (10 * kmPerDegree)).toBeCloseTo(1, 2);
+  });
+
+  it('is the width along the middle latitude for a wide feature', () => {
+    const cosMid = Math.cos((41 * Math.PI) / 180);
+    expect(featureSpanKm(box(0, 40, 20, 42)) / (20 * cosMid * kmPerDegree)).toBeCloseTo(1, 1);
+  });
+
+  it('measures a feature across the antimeridian by its own width, not the world’s', () => {
+    expect(featureSpanKm(box(170, -5, 190, 5)) / (20 * kmPerDegree)).toBeCloseTo(1, 1);
   });
 });
