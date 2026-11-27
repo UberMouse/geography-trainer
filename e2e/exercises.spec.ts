@@ -167,7 +167,37 @@ test.describe('L1 highlighted → name', () => {
     await expect(page.getByTestId('last-correct')).toHaveText('true');
   });
 
-  for (const item of ['country:saba', 'country:vatican-city', 'place:the_bottom_netherlands']) {
+  // Each area's main-part bounds [[west, south], [east, north]], read once from public/data and
+  // rounded to 0.01°.
+  const areas: [string, [LngLat, LngLat]][] = [
+    ['country:luxembourg', [[5.72, 49.44], [6.5, 50.17]]],
+    ['country:germany', [[5.85, 47.28], [15.03, 54.95]]],
+    ['region:switzerland.aargau', [[7.73, 47.14], [8.45, 47.63]]],
+  ];
+  for (const [item, [[west, south], [east, north]]] of areas) {
+    test(`[EXR-09] an area (${item}) is centred and whole among its neighbours`, async ({ page }) => {
+      await openExercise(page, `item=${item}&rung=1`);
+      await expect(options(page).first()).toBeVisible();
+      await settled(page);
+      const area = (await page.locator('[data-ready]').boundingBox())!;
+      const corners = await Promise.all(
+        ([[west, south], [west, north], [east, south], [east, north]] as LngLat[]).map((c) =>
+          hook.project(page, c),
+        ),
+      );
+      const xs = corners.map((c) => c.x);
+      const ys = corners.map((c) => c.y);
+      const centreX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const centreY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      expect(Math.abs(centreX - (area.x + area.width / 2))).toBeLessThanOrEqual(area.width * 0.1);
+      expect(Math.abs(centreY - (area.y + area.height / 2))).toBeLessThanOrEqual(area.height * 0.1);
+      const longer = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+      expect(longer).toBeGreaterThan(0);
+      expect(longer).toBeLessThanOrEqual(0.6 * Math.min(area.width, area.height));
+    });
+  }
+
+  for (const item of ['country:saba','country:vatican-city', 'place:the_bottom_netherlands']) {
     test(`[EXR-09] a point-only item (${item}): the camera flies to its neighbourhood`, async ({ page }) => {
       await openExercise(page, `item=${item}&rung=1`);
       await expect(options(page).first()).toBeVisible();

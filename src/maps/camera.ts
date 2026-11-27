@@ -1,6 +1,6 @@
 // The globe's camera framing, as plain numbers: no MapLibre, so it runs (and is tested) in node.
 import { EARTH_RADIUS_KM, type AreaFeature, type LngLat } from './geo';
-import { MAX_ZOOM } from './globeLayers';
+import { featureBounds, MAX_ZOOM } from './globeLayers';
 
 /**
  * How much ground (km, edge to edge) the camera shows around a point-only country or a place. The
@@ -80,4 +80,21 @@ export function unionBounds(a: [LngLat, LngLat], b: [LngLat, LngLat]): [LngLat, 
     }
   }
   return best!;
+}
+
+/** The middle of [[west, south], [east, north]] bounds, longitude wrapped to [-180, 180). */
+export function boundsCentre([[west, south], [east, north]]: [LngLat, LngLat]): LngLat {
+  const lng = (west + east) / 2;
+  return [((((lng + 180) % 360) + 360) % 360) - 180, (south + north) / 2];
+}
+
+/**
+ * How far across a feature's main part is, in km: the larger of its height and its width along
+ * the latitude through its middle.
+ */
+export function featureSpanKm(feature: AreaFeature): number {
+  const [[west, south], [east, north]] = featureBounds(feature);
+  const cosMid = Math.cos((((south + north) / 2) * Math.PI) / 180);
+  const degrees = Math.max(north - south, (east - west) * cosMid);
+  return ((degrees * Math.PI) / 180) * EARTH_RADIUS_KM;
 }
