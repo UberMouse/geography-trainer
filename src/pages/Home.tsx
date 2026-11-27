@@ -1,6 +1,7 @@
 import { Anchor, Button, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { usePageTitle } from '../components/usePageTitle';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
 import { todayNumbers } from '../engine/today';
 import { newTodayText, showsPlacementOffer } from './homeView';
@@ -40,10 +41,11 @@ function useNow(): Date {
 }
 
 /**
- * Today's numbers, a Start link and the links to Progress and Settings, beside the globe filled by
+ * Today's numbers, a Start link, beside the globe filled by
  * country progress.
  */
 export default function Home() {
+  usePageTitle();
   const [data, reload] = useLoaded('home', loadWorldData);
   const now = useNow();
   return (
@@ -119,12 +121,6 @@ function HomeContent({ data, now }: HomeContentProps) {
         <Text>There is nothing to study right now.</Text>
       )}
       <ProgressLegend states={HOME_LEGEND} />
-      <Anchor component={Link} to="/progress">
-        See your progress
-      </Anchor>
-      <Anchor component={Link} to="/settings">
-        Settings
-      </Anchor>
     </Stack>
   );
 }

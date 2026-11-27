@@ -1,6 +1,6 @@
 import { globeHooked, globeReady, hook, viewport } from './globeHook';
 import { answer, current } from './sessionHelpers';
-import { expect, test, type Page } from './test';
+import { appBar, expect, test, type Page } from './test';
 
 // The app shell: one globe for every page, beside (or below) the page's column.
 
@@ -31,8 +31,8 @@ test('[GLB-01] client-side links between pages keep the same globe', async ({ pa
   await page.getByRole('link', { name: 'Quit' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
   await page.getByRole('link', { name: 'Settings' }).click();
-  await page.getByRole('link', { name: 'Back to Home' }).click();
-  await page.getByRole('link', { name: 'See your progress' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
+  await appBar(page).getByRole('link', { name: 'Progress' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('heading', { level: 1, name: 'Geography Trainer' })).toBeVisible();
@@ -95,7 +95,7 @@ test('[GLB-31, GLB-04] the globe hidden on Settings at phone width is the same m
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
   await expect(globeSlot(page)).toBeHidden();
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await homeLoaded();
   expect(await hook.instanceId(page)).toBe(instance);
   const canvas = page.locator('canvas.maplibregl-canvas');

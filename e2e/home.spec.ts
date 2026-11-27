@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { expect, test, type Page } from './test';
+import { appBar, expect, test, type Page } from './test';
 import {
   answer,
   current,
@@ -90,7 +90,7 @@ test('[SCR-20, SCR-21] exported progress imports into a fresh browser', async ({
     await fresh.getByRole('button', { name: 'Replace' }).click();
     await expect(fresh.getByRole('status')).toHaveText('Progress imported.', WAIT);
     await expect(fresh.getByRole('status')).toBeFocused();
-    await fresh.getByRole('link', { name: 'Back to Home' }).click();
+    await appBar(fresh).getByRole('link', { name: 'Geography Trainer' }).click();
     await expect(newToday(fresh)).toHaveText(before.newToday, WAIT);
     expect(await numbers(fresh)).toEqual(before);
   } finally {
@@ -107,7 +107,7 @@ test('[SCR-21] a file that is not JSON shows an alert and changes nothing', asyn
   await page.getByLabel('Import progress').setInputFiles(bad);
   await expect(page.getByRole('alert')).toContainText('not valid JSON');
   await expect(page.getByRole('button', { name: 'Replace' })).toHaveCount(0);
-  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   expect(await numbers(page)).toEqual(before);
 });
 
@@ -125,8 +125,12 @@ test('[SCR-05, SCR-07, SCR-08, SCR-C03] a fresh Home offers the placement test, 
   await expect(legend.first()).toHaveText('New');
   await expect(legend.filter({ hasText: 'Locked' })).toHaveCount(0);
 
-  await expect(page.getByRole('link', { name: 'See your progress' })).toHaveAttribute('href', '/progress');
-  await expect(page.getByRole('main').getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+  const bar = appBar(page);
+  await expect(bar.getByRole('link', { name: 'Progress' })).toHaveAttribute('href', '/progress');
+  await expect(bar.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+  await expect(bar.getByRole('link', { name: 'Geography Trainer' })).toHaveAttribute('aria-current', 'page');
+  // Home's own column has no second link to either.
+  await expect(page.getByRole('main').getByRole('link', { name: /Progress|Settings/ })).toHaveCount(0);
 });
 
 test('[SCR-03, SCR-05] once the only question is answered, Home has nothing to study', async ({

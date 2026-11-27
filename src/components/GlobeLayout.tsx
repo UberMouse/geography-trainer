@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import classes from './GlobeLayout.module.css';
 
 /**
@@ -11,14 +11,17 @@ export default function GlobeLayout({
   column,
   globe,
   hideGlobeOnPhone = false,
+  columnRef,
 }: {
   column: ReactNode;
   globe: ReactNode;
   hideGlobeOnPhone?: boolean;
+  /** The column element, the page's scroll container and the focus target of a new page. */
+  columnRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <div className={hideGlobeOnPhone ? `${classes.root} ${classes.hideGlobe}` : classes.root}>
-      <div className={classes.column} data-testid="column">
+      <div className={classes.column} data-testid="column" ref={columnRef} tabIndex={-1}>
         {column}
       </div>
       <div className={classes.globe} data-testid="globe-slot">

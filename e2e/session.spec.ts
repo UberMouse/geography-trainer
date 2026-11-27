@@ -12,7 +12,7 @@ import {
   writeTexasOnePassFromMastery,
   writeUnitedStatesOnePassFromMastery,
 } from './sessionHelpers';
-import { expect, test, type Page } from './test';
+import { appBar, expect, test, type Page } from './test';
 
 // A session loads the world's map data and draws on the globe: slow on a loaded machine.
 test.describe.configure({ timeout: 240_000 });
@@ -226,9 +226,10 @@ test('[SES-19] at phone width, all 4 options of an L1 question show without scro
   const column = page.getByTestId('column');
   expect(await column.evaluate((el) => el.scrollTop)).toBe(0);
   const columnBox = (await column.boundingBox())!;
+  const barBox = (await appBar(page).boundingBox())!;
   for (const option of await options(page).all()) {
     const box = (await option.boundingBox())!;
-    expect(box.y).toBeGreaterThanOrEqual(columnBox.y);
+    expect(box.y).toBeGreaterThanOrEqual(barBox.y + barBox.height);
     expect(box.y + box.height).toBeLessThanOrEqual(Math.min(vp.height, columnBox.y + columnBox.height));
     expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
   }

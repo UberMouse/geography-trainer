@@ -32,6 +32,7 @@ import {
   withMastered,
   type RoundMastery,
 } from './sessionView';
+import { usePageTitle } from '../components/usePageTitle';
 import { showsTestOutLink, testOutPath } from './testOutView';
 import { useLoaded } from './useLoaded';
 
@@ -96,6 +97,7 @@ const loadSessionData = async (): Promise<SessionData> => {
 
 /** Today's study session: countries, regions and places, in rounds, each answer saved as it is given. */
 export default function Session() {
+  usePageTitle('Study');
   const [data, retry] = useLoaded('session', loadSessionData);
   return (
     <Status

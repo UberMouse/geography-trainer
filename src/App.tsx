@@ -1,8 +1,10 @@
 import { MantineProvider } from '@mantine/core';
 import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router';
+import AppBar from './components/AppBar';
 import Footer from './components/Footer';
 import GlobeLayout from './components/GlobeLayout';
 import SaveStatus from './components/SaveStatus';
+import { useNewPageFocus } from './components/useNewPageFocus';
 import { GlobeProvider, SharedGlobe } from './maps/GlobeProvider';
 import Credits from './pages/Credits';
 import Home from './pages/Home';
@@ -23,15 +25,18 @@ const NO_PHONE_GLOBE = ['/settings', '/credits'];
  */
 export default function App() {
   const { pathname } = useLocation();
+  const columnRef = useNewPageFocus();
   const hideGlobeOnPhone = NO_PHONE_GLOBE.some((path) => matchPath(path, pathname));
   return (
     <MantineProvider forceColorScheme="dark">
       <GlobeProvider>
         <GlobeLayout
           hideGlobeOnPhone={hideGlobeOnPhone}
+          columnRef={columnRef}
           globe={<SharedGlobe />}
           column={
             <>
+              <AppBar />
               <main>
                 <SaveStatus />
                 <Routes>

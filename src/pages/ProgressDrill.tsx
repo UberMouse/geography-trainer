@@ -9,6 +9,7 @@ import {
   unlockedBy,
   type Curriculum,
 } from '../engine/curriculum';
+import { usePageTitle } from '../components/usePageTitle';
 import { loadRegions, type RegionsData } from '../data/loaders';
 import { answerPoint, mainPart, type LngLat } from '../maps/geo';
 import { moveCamera, useGlobe } from '../maps/globeContext';
@@ -32,6 +33,7 @@ const LOAD_FAILURE = 'Could not load the map data or your saved progress:';
 
 /** `/progress/:country` and `/progress/:country/:region` (a full `<country>.<region>` id). */
 export default function ProgressDrill() {
+  usePageTitle('Progress');
   const { country = '', region } = useParams();
   const [data, reload] = useLoaded('progress-drill', loadWorldData);
   return (
@@ -56,15 +58,7 @@ function Resolved({
     [curriculum, data.countries.countries, countryId, regionId],
   );
   if (route.kind === 'not-found') {
-    return (
-      <Stack align="flex-start">
-        <Title order={1}>Not found</Title>
-        <Text>There is nothing to show at this address.</Text>
-        <Anchor component={Link} to={route.back}>
-          {route.back === '/progress' ? 'Back to the world' : 'Back to the country'}
-        </Anchor>
-      </Stack>
-    );
+    return <NotFound back={route.back} />;
   }
   // Only a regions-tier country has a topology to fetch, and only a resolved route gets here.
   const needsRegions = route.kind === 'region' || route.hasRegions;
@@ -74,6 +68,19 @@ function Resolved({
     </WithRegions>
   ) : (
     <Drill data={data} curriculum={curriculum} route={route} regions={null} />
+  );
+}
+
+function NotFound({ back }: { back: string }) {
+  usePageTitle('Not found');
+  return (
+    <Stack align="flex-start">
+      <Title order={1}>Not found</Title>
+      <Text>There is nothing to show at this address.</Text>
+      <Anchor component={Link} to={back}>
+        {back === '/progress' ? 'Back to the world' : 'Back to the country'}
+      </Anchor>
+    </Stack>
   );
 }
 
@@ -187,6 +194,7 @@ function Drill({
   const rows = childRows(curriculum, data.progress, itemId, names);
   const self = itemLook(curriculum, data.progress, itemId);
   const name = names.get(itemId) ?? itemId;
+  usePageTitle(name);
   const isRegion = route.kind === 'region';
   const testOutTier = showsTestOutLink(curriculum, data.progress, data.finishedTests, itemId)
     ? (`${unlockedBy(curriculum, itemId)!.tier}s` as const)

@@ -14,6 +14,7 @@ import {
   type PlacementResult,
   type PlacementState,
 } from '../engine/placement';
+import { usePageTitle } from '../components/usePageTitle';
 import { localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
 import Exercise from '../exercises/Exercise';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
@@ -68,6 +69,7 @@ export default function PlacementRun({ pool, items, progress, tier, heading, sco
   );
   // Passes that failed to save as they were answered; the final save writes them again.
   const [failedSaves, setFailedSaves] = useState<FailedSave[]>([]);
+  usePageTitle(heading);
   const [salt] = useState(() => Math.floor(Math.random() * 2 ** 32));
   const questionRef = useRef<HTMLDivElement>(null);
   const finishedRef = useRef(false);
