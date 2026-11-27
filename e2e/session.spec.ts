@@ -1,3 +1,4 @@
+import { GATE_WAVE1_MASTERED_COUNTRIES } from '../src/engine/config';
 import { hook, viewport } from './globeHook';
 import {
   answer,
@@ -11,6 +12,7 @@ import {
   writeMasteredUnitedStatesWithFewDue,
   writeTexasOnePassFromMastery,
   writeUnitedStatesOnePassFromMastery,
+  writeUnitedStatesThenGateOpener,
 } from './sessionHelpers';
 import { expect, test, type Page } from './test';
 
@@ -210,6 +212,37 @@ test('[SES-24, SES-18] test-out opens from the link on a round summary', async (
   const first = await current(page, 'placement-question');
   expect(first.rung).toBe(3);
   await expect(mode(page)).toHaveAttribute('data-mode', 'bare');
+});
+
+test('[SES-23, SES-C05, SES-C07] a country mastered behind a shut gate gets its Test out link once a later answer opens the gate', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-then-gate-opener.json');
+  const { secondId } = await writeUnitedStatesThenGateOpener(file);
+  await importProgress(page, file);
+
+  await page.getByRole('link', { name: /^Start/ }).click();
+  const first = await current(page);
+  expect(first).toMatchObject({ itemId: 'country:united-states', rung: 3 });
+  await answer(page, isMobile, first);
+  await next(page);
+  const second = await current(page);
+  expect(second).toMatchObject({ itemId: secondId, rung: 3 });
+  await answer(page, isMobile, second);
+  await next(page);
+
+  await expect(summary(page)).toHaveText('Round done: 2 of 2 right', WAIT);
+  // The United States was mastered one country short of its gate; the second answer opened it.
+  const unlocked = page.getByText(/^Unlocked: United States's regions/);
+  await expect(unlocked).toBeVisible();
+  await expect(unlocked.getByRole('link', { name: 'Test out' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Test out' })).toHaveCount(1);
+  await expect(
+    page.getByText(
+      `You've mastered ${GATE_WAVE1_MASTERED_COUNTRIES} countries: regions and places are open for 1 of them`,
+    ),
+  ).toBeVisible();
 });
 
 test('[SES-19] at phone width, all 4 options of an L1 question show without scrolling', async ({

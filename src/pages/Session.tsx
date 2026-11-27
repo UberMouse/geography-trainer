@@ -30,6 +30,7 @@ import {
   questionSeed,
   resumable,
   unlockLines,
+  withGateRecheck,
   withMastered,
   type RoundMastery,
 } from './sessionView';
@@ -202,7 +203,7 @@ function Runner({ data }: { data: SessionData }) {
         {gates.map((line) => (
           <Text key={line.id}>{line.text}</Text>
         ))}
-        {(gates.length > 0 ||
+        {(gates.some((line) => line.opened > 0) ||
           unlocks.some(
             (line) => curriculum.items.get(line.id)?.tier !== 'country' || gateOpen(curriculum, shownProgress, line.id),
           )) && <Text>These join your new questions from your next session.</Text>}
@@ -255,17 +256,19 @@ function Runner({ data }: { data: SessionData }) {
       setAnsweredRun(skipped);
       return;
     }
-    let roundAfter = round;
-    if (newlyMastered) {
-      let testOut = false;
+    // Judged on the progress after this answer; a throw counts as not testable.
+    const isTestable = (itemId: string): boolean => {
       try {
-        testOut = showsTestOutLink(curriculum, progress.current, data.finishedTests, question.itemId);
+        return showsTestOutLink(curriculum, progress.current, data.finishedTests, itemId);
       } catch (error) {
-        console.error('[session] could not check test-out', question.itemId, error);
+        console.error('[session] could not check test-out', itemId, error);
+        return false;
       }
-      roundAfter = withMastered(round, question.itemId, testOut);
-      setRound(roundAfter);
-    }
+    };
+    const mastered = newlyMastered ? withMastered(round, question.itemId, isTestable(question.itemId)) : round;
+    // A country mastered while its gate was shut gets its Test out link once this answer opens it.
+    const roundAfter = withGateRecheck(mastered, isTestable);
+    if (roundAfter !== round) setRound(roundAfter);
     const next = answerCurrent(run, { rating: result.rating, correct: result.correct, after });
     // Saved as answered, so a reload carries on after this question rather than asking it again.
     saveSessionRun(data.dayKey, next, roundAfter.mastered, roundAfter.testable);

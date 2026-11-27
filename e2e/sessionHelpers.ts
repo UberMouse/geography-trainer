@@ -263,6 +263,30 @@ export async function writeTexasOnePassFromMastery(path: string) {
   ]);
 }
 
+/**
+ * A progress file whose session is two questions, both due at L3 and one pass from mastery:
+ * `country:united-states`, due 2 days ago so asked first, then `secondId`, the country with the
+ * (GATE_WAVE1_MASTERED_COUNTRIES - 1)th fewest places, due 1 day ago.
+ * GATE_WAVE1_MASTERED_COUNTRIES - 2 other countries are mastered and not due, so the United
+ * States' gate (CUR-21) is still shut when it is mastered and opens with the second answer.
+ * Today's 15 new items are used up by countries that are not yet due.
+ */
+export async function writeUnitedStatesThenGateOpener(path: string): Promise<{ secondId: string }> {
+  const onePass = (itemId: string, dueInDays: number) =>
+    progressRow(itemId, 3, { dueInDays, l3PassDays: ['2026-01-10'], introducedAt: Date.now() - 60 * DAY });
+  const rows = gateOpeningRows(GATE_WAVE1_MASTERED_COUNTRIES - 1);
+  const secondId = rows.pop()!.itemId;
+  await writeProgressFile(path, [
+    onePass('country:united-states', -2),
+    onePass(secondId, -1),
+    ...rows,
+    ...INTRODUCED_TODAY.map((id) =>
+      progressRow(`country:${id}`, 1, { dueInDays: 30, introducedAt: Date.now() }),
+    ),
+  ]);
+  return { secondId };
+}
+
 /** The countries `writeMasteredUnitedStatesWithFewDue` leaves due, with the rung each is due at. */
 const FEW_DUE = [
   { id: 'afghanistan', rung: 2 },
