@@ -26,4 +26,14 @@ describe('[GLB-C18] a page inside a page', () => {
     parent();
     expect(document.title).toBe(APP_NAME);
   });
+
+  it('keeps the inner title when the parent goes first, and ends on the app name', () => {
+    vi.stubGlobal('document', { title: APP_NAME });
+    const parent = setPageTitle('Progress');
+    const child = setPageTitle('Texas');
+    parent();
+    expect(document.title).toBe('Texas · Geography Trainer');
+    child();
+    expect(document.title).toBe(APP_NAME);
+  });
 });

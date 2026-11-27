@@ -3,6 +3,21 @@ import { NavLink, useLocation } from 'react-router';
 import classes from './AppBar.module.css';
 import { APP_NAME } from './usePageTitle';
 
+/** A pathname without its trailing slashes (`/` stays `/`). */
+function withoutTrailingSlash(pathname: string): string {
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+/** The parts of a click event the bar looks at. */
+type BarClick = {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  preventDefault: () => void;
+};
+
 const LINKS = [
   { text: APP_NAME, to: '/', end: true },
   { text: 'Progress', to: '/progress', end: false },
@@ -26,8 +41,10 @@ export default function AppBar() {
             end={end}
             size="sm"
             fw={to === '/' ? 700 : undefined}
-            onClick={(event: { preventDefault: () => void }) => {
-              if (pathname === to) event.preventDefault();
+            onClick={(event: BarClick) => {
+              const plain =
+                event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+              if (plain && withoutTrailingSlash(pathname) === to) event.preventDefault();
             }}
           >
             {text}

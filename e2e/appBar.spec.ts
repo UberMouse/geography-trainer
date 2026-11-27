@@ -136,6 +136,51 @@ test.describe('[GLB-37] a new page starts at its top, with focus on it', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).not.toBeFocused();
   });
 
+  test('opening an unknown address redirects without moving focus, and a bar link then still does', async ({
+    page,
+  }) => {
+    await page.goto('/no-such-page');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible(WAIT);
+    await expect(page.locator('body')).toBeFocused();
+    await link(page, 'Settings').click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeFocused();
+  });
+
+  test('[GLB-C17] a plain click on the current link, trailing slash or not, is cancelled; a modifier click is not', async ({
+    page,
+  }) => {
+    await page.goto('/progress/');
+    const progress = link(page, 'Progress');
+    await expect(progress).toBeVisible();
+    // Listens at the document, in the bubbling phase, after the bar's own handler has run.
+    const clicked = (modifiers: ('Control' | 'Meta')[]) =>
+      progress.evaluate(
+        (el, mods) => {
+          let prevented = false;
+          const listen = (e: Event) => {
+            prevented = e.defaultPrevented;
+            e.preventDefault(); // keeps a modifier click from opening a tab or leaving the page
+          };
+          el.ownerDocument.addEventListener('click', listen, { once: true });
+          el.dispatchEvent(
+            new (el.ownerDocument.defaultView!.MouseEvent)('click', {
+              bubbles: true,
+              cancelable: true,
+              button: 0,
+              ctrlKey: mods.includes('Control'),
+              metaKey: mods.includes('Meta'),
+            }),
+          );
+          return prevented;
+        },
+        modifiers,
+      );
+    expect(await clicked([])).toBe(true);
+    expect(await clicked(['Control'])).toBe(false);
+    expect(await clicked(['Meta'])).toBe(false);
+  });
+
   test('opening the app does not move focus', async ({ page }) => {
     await page.goto('/progress');
     await expect(page.getByRole('heading', { level: 1, name: 'Progress' })).toBeVisible();
