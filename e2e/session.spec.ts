@@ -134,7 +134,7 @@ test('[SES-25, SES-C05] a reload on a summary with questions left keeps its unlo
   await importProgress(page, file);
   // Round one ended at its summary with three questions left: seeded, not played through.
   await seedSummarySavedRun(page);
-  await page.getByRole('link', { name: /^Start/ }).click();
+  await page.goto('/session');
 
   const unlock = page.getByText("Unlocked: United States's regions");
   const testOut = page.getByRole('link', { name: 'Test out' });
@@ -280,7 +280,7 @@ test('[SES-18] Next moves focus to the new question', async ({ page, isMobile })
 const left = (page: Page) => page.getByRole('link', { name: /^Continue \(\d+ left\)$/ });
 
 for (const how of ['its Back to Home link', 'the app bar']) {
-  test(`[SES-27, SES-28, SCR-03, SCR-C06] leaving after 3 answers by ${how} keeps the round, and Home's Continue carries on`, async ({
+  test(`[SES-27, SES-28, SCR-03, SCR-C06, GLB-36] leaving after 3 answers by ${how} keeps the round, and Home's Continue carries on`, async ({
     page,
     isMobile,
   }) => {
@@ -301,6 +301,9 @@ for (const how of ['its Back to Home link', 'the app bar']) {
     }
     await expect(left(page)).toBeVisible(WAIT);
     await expect(page.getByRole('link', { name: /^Start/ })).toHaveCount(0);
+    // No pin or reveal is left on the globe, whichever link left the session.
+    await expect.poll(() => hook.markers(page)).toEqual([]);
+    expect((await hook.layerIds(page)).filter((id) => id.startsWith('gt-reveal'))).toEqual([]);
     const total = Number(header.match(/of (\d+) done/)![1]);
     const done = Number(header.match(/· (\d+) of/)![1]);
     await expect(left(page)).toHaveText(`Continue (${total - done} left)`);
@@ -310,6 +313,22 @@ for (const how of ['its Back to Home link', 'the app bar']) {
     expect(await current(page)).toEqual(before);
   });
 }
+
+test('[SES-28, SES-27, SES-C05] quitting a new session before answering keeps it: Home offers Continue, at question 1', async ({
+  page,
+}) => {
+  await page.goto('/session');
+  await expect(counter(page)).toHaveText(/^Question 1 · /, WAIT);
+  const header = (await counter(page).textContent())!;
+  const before = await current(page);
+  await page.getByRole('link', { name: 'Back to Home' }).click();
+  await expect(left(page)).toBeVisible(WAIT);
+  await expect(page.getByRole('link', { name: /^Start/ })).toHaveCount(0);
+
+  await left(page).click();
+  await expect(counter(page)).toHaveText(header, WAIT);
+  expect(await current(page)).toEqual(before);
+});
 
 test('[STO-14, SES-27] resetting progress drops the kept round, so Home offers Start again', async ({
   page,
@@ -369,7 +388,7 @@ test('[SES-27, SCR-03] leaving on a summary keeps it, with its unlock line and T
   await writeMasteredUnitedStatesWithFewDue(file);
   await importProgress(page, file);
   await seedSummarySavedRun(page);
-  await page.getByRole('link', { name: /^Start/ }).click();
+  await page.goto('/session');
   await expect(summary(page)).toHaveText('Round done: 20 of 20 right', WAIT);
   await page.getByRole('link', { name: 'Back to Home' }).click();
   await left(page).click();
@@ -441,6 +460,53 @@ test('[SES-21, SES-22, SES-23] the last round waits for the next session, then n
   await expect(page.getByText(/nothing to study right now/)).toBeVisible(WAIT);
   await expect(page.getByRole('link', { name: 'Back to Home' })).toBeVisible();
   await expect(question(page)).toHaveCount(0);
+});
+
+test("[SCR-03, SCR-C06] Start after the day's last summary builds a fresh session, not the old summary", async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-one-pass-from-mastery.json');
+  await writeUnitedStatesOnePassFromMastery(file);
+  await importProgress(page, file);
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await answer(page, isMobile, await current(page));
+  await next(page);
+  await expect(page.getByText(/everything for today/)).toBeVisible(WAIT);
+  await expect(page.locator('[data-unsaved]')).toHaveAttribute('data-unsaved', '0', WAIT);
+
+  // Raise the daily limit: the United States' regions are now studyable, but the kept run (an empty
+  // queue, no review due) still looks resumable to the session page.
+  await appBar(page).getByRole('link', { name: 'Settings' }).click();
+  await page.getByLabel('New items per day').fill('30');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status')).toHaveText(/saved/i, WAIT);
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
+  await page.getByRole('link', { name: /^Start/ }).click();
+  await expect(question(page)).toBeVisible(WAIT);
+  await expect(summary(page)).toHaveCount(0);
+});
+
+test('[SES-27, SES-C05] a summary reopened after its test-out was finished shows the unlock line without the Test out link', async ({
+  page,
+  isMobile,
+}, testInfo) => {
+  const file = testInfo.outputPath('us-mastered-with-few-due.json');
+  await writeMasteredUnitedStatesWithFewDue(file);
+  await importProgress(page, file);
+  await seedSummarySavedRun(page);
+  await page.goto('/session');
+  await expect(summary(page)).toHaveText('Round done: 20 of 20 right', WAIT);
+  await page.getByRole('link', { name: 'Test out' }).click();
+  await answer(page, isMobile, await current(page, 'placement-question'));
+  await page.getByRole('button', { name: 'Finish now' }).click();
+  await expect(page.getByRole('heading', { name: 'Placement done' })).toBeVisible(WAIT);
+
+  await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
+  await left(page).click();
+  await expect(summary(page)).toHaveText('Round done: 20 of 20 right', WAIT);
+  await expect(page.getByText("Unlocked: United States's regions")).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Test out' })).toHaveCount(0);
 });
 
 test('[SES-21] a session whose data fails to load offers Retry, which starts it', async ({ page }) => {

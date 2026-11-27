@@ -3,12 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { usePageTitle } from '../components/usePageTitle';
 import { PLACEMENT_MAX_QUESTIONS, PLACEMENT_MIN_QUESTIONS } from '../engine/config';
-import { dueQuestions } from '../engine/session';
-import { localDayKey } from '../engine/srs';
 import { todayNumbers } from '../engine/today';
-import { loadSessionRun } from '../storage/sessionRunStore';
+import { clearSessionRun } from '../storage/sessionRunStore';
 import { itemsLeft, newTodayText, showsPlacementOffer } from './homeView';
-import { resumable } from './sessionView';
+import { keptRun } from './sessionView';
 import type { ItemState } from '../engine/curriculum';
 import Status from './LoadStatus';
 import ProgressLegend from './ProgressLegend';
@@ -97,13 +95,7 @@ function HomeContent({ data, now }: HomeContentProps) {
   );
   // The round this tab kept, read as the Session page reads it (SCR-C06).
   const left = useMemo(
-    () =>
-      itemsLeft(
-        resumable(
-          loadSessionRun(localDayKey(now, tzOffset(now)), data.progress, (id) => curriculum.items.has(id)),
-          () => dueQuestions({ curriculum, progress: data.progress, now }),
-        ),
-      ),
+    () => itemsLeft(keptRun(curriculum, data.progress, now)),
     [curriculum, data.progress, now],
   );
   useCountriesGlobe(data, looks);
@@ -133,7 +125,8 @@ function HomeContent({ data, now }: HomeContentProps) {
           Continue ({left} left)
         </Button>
       ) : numbers.sessionLength > 0 ? (
-        <Button component={Link} to="/session" size="md">
+        // A fresh session, not a kept summary shown again (SCR-C06).
+        <Button component={Link} to="/session" size="md" onClick={clearSessionRun}>
           Start ({numbers.sessionLength} to study)
         </Button>
       ) : (

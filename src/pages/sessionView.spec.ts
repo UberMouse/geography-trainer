@@ -12,6 +12,7 @@ import {
   countriesNeedingRegions,
   questionHeader,
   questionSeed,
+  keepTestable,
   resumable,
   unlockLines,
   withMastered,
@@ -242,5 +243,22 @@ describe('[SES-25, SES-C07] withMastered', () => {
     });
     // The round it was given is not changed.
     expect(start).toEqual({ mastered: ['country:france'], testable: ['country:france'] });
+  });
+});
+
+describe('[SES-27, SES-C05] keepTestable', () => {
+  const saved: SavedSession = {
+    run: startRun([]),
+    mastered: ['country:france', 'country:spain'],
+    testable: ['country:france', 'country:spain'],
+  };
+  it('drops a test-out finished since from testable, and keeps it in mastered', () => {
+    const kept = keepTestable(saved, (id) => id !== 'country:france');
+    expect(kept.testable).toEqual(['country:spain']);
+    expect(kept.mastered).toEqual(saved.mastered);
+    expect(kept.run).toBe(saved.run);
+  });
+  it('keeps every id whose link is still shown', () => {
+    expect(keepTestable(saved, () => true).testable).toEqual(saved.testable);
   });
 });

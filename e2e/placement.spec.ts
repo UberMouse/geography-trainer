@@ -147,40 +147,42 @@ test('[GLB-36, PLC-19] leaving a test by a bar link keeps its saved answers, sto
   // No finished-test marker: Home still offers the test. The answered question's progress is kept.
   await appBar(page).getByRole('link', { name: 'Geography Trainer' }).click();
   await expect(page.getByRole('link', { name: 'Take the placement test' })).toBeVisible(WAIT);
-  const saved = await page.evaluate(
-    () =>
-      new Promise<{ progress: number; meta: number }>((resolve, reject) => {
-        // The node tsconfig has no DOM types, so the few IndexedDB members used are typed here.
-        interface Req<T> {
-          result: T;
-          error: unknown;
-          onsuccess: (() => void) | null;
-          onerror: (() => void) | null;
-        }
-        interface Count {
-          result: number;
-        }
-        interface Tx {
-          objectStore(name: string): { count(): Count };
-          oncomplete: (() => void) | null;
-          onerror: (() => void) | null;
-          error: unknown;
-        }
-        const idb = (globalThis as unknown as { indexedDB: { open(name: string): Req<{ transaction(names: string[]): Tx }> } })
-          .indexedDB;
-        const open = idb.open('geography-trainer');
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const tx = open.result.transaction(['progress', 'meta']);
-          const progress = tx.objectStore('progress').count();
-          const meta = tx.objectStore('meta').count();
-          tx.oncomplete = () => resolve({ progress: progress.result, meta: meta.result });
-          tx.onerror = () => reject(tx.error);
-        };
-      }),
-  );
-  expect(saved.progress).toBeGreaterThan(0);
-  expect(saved.meta).toBe(0);
+  const saved = () =>
+    page.evaluate(
+      () =>
+        new Promise<{ progress: number; meta: number }>((resolve, reject) => {
+          // The node tsconfig has no DOM types, so the few IndexedDB members used are typed here.
+          interface Req<T> {
+            result: T;
+            error: unknown;
+            onsuccess: (() => void) | null;
+            onerror: (() => void) | null;
+          }
+          interface Count {
+            result: number;
+          }
+          interface Tx {
+            objectStore(name: string): { count(): Count };
+            oncomplete: (() => void) | null;
+            onerror: (() => void) | null;
+            error: unknown;
+          }
+          const idb = (globalThis as unknown as { indexedDB: { open(name: string): Req<{ transaction(names: string[]): Tx }> } })
+            .indexedDB;
+          const open = idb.open('geography-trainer');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const tx = open.result.transaction(['progress', 'meta']);
+            const progress = tx.objectStore('progress').count();
+            const meta = tx.objectStore('meta').count();
+            tx.oncomplete = () => resolve({ progress: progress.result, meta: meta.result });
+            tx.onerror = () => reject(tx.error);
+          };
+        }),
+    );
+  // The answer's save is asynchronous: wait for it before counting.
+  await expect.poll(async () => (await saved()).progress).toBeGreaterThan(0);
+  expect((await saved()).meta).toBe(0);
 });
 
 test("[PLC-02, PLC-06, PLC-18, PLC-20, PLC-22, SCR-18] a test-out of Texas's places: a close miss is noted, focus follows, and the finished test hides its link", async ({

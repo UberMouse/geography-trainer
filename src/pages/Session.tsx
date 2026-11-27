@@ -2,7 +2,7 @@ import { Alert, Anchor, Button, Group, Stack, Text, Title } from '@mantine/core'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { buildCurriculum, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
-import { buildSession, dueQuestions, type SessionQuestion } from '../engine/session';
+import { buildSession, type SessionQuestion } from '../engine/session';
 import {
   answerCurrent,
   nextRound,
@@ -20,14 +20,15 @@ import { buildExerciseItem } from '../exercises/item';
 import type { ExerciseItem, ExerciseResult } from '../exercises/types';
 import { targetPoint } from '../maps/geo';
 import { progressStore } from '../storage/progressStore';
-import { loadSessionRun, saveSessionRun, type SavedSession } from '../storage/sessionRunStore';
+import { saveSessionRun, type SavedSession } from '../storage/sessionRunStore';
 import Status from './LoadStatus';
 import {
   answerEntry,
   countriesNeedingRegions,
   questionHeader,
   questionSeed,
-  resumable,
+  keepTestable,
+  keptRun,
   unlockLines,
   withMastered,
   type RoundMastery,
@@ -65,10 +66,9 @@ const loadSessionData = async (): Promise<SessionData> => {
   const now = new Date();
   const curriculum = buildCurriculum(countries.countries, regionsFromPlaces(countries.countries, places), places);
   const dayKey = localDayKey(now, -now.getTimezoneOffset());
-  const resumed = resumable(
-    loadSessionRun(dayKey, progress, (id) => curriculum.items.has(id)),
-    () => dueQuestions({ curriculum, progress, now }),
-  );
+  const kept = keptRun(curriculum, progress, now);
+  // A test-out finished since the round was saved is no longer offered (SES-27).
+  const resumed = kept && keepTestable(kept, (id) => showsTestOutLink(curriculum, progress, finishedTests, id));
   const questions = resumed ? [...resumed.run.queue] : buildSession({
     curriculum,
     progress,
@@ -113,10 +113,13 @@ export default function Session() {
 function Runner({ data }: { data: SessionData }) {
   const { countries, curriculum, regions, items } = data;
   const [run, setRun] = useState<SessionRun>(() => data.resumed?.run ?? startRun(data.questions));
-  // Leaving the page keeps the saved run (SES-27); a resumed run is written again as resumed on mount.
+  // Leaving the page keeps the saved run (SES-27): a resumed run is written again as resumed on
+  // mount, and a new session as built, so leaving at its first question keeps it (SES-28). A built
+  // session with nothing to study is not written.
   useEffect(() => {
-    const { dayKey, resumed } = data;
+    const { dayKey, resumed, questions } = data;
     if (resumed) saveSessionRun(dayKey, resumed.run, resumed.mastered, resumed.testable);
+    else if (questions.length > 0) saveSessionRun(dayKey, run, [], []);
     // Only on mount: `data` is fixed for this page's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
