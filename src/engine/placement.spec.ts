@@ -13,6 +13,7 @@ import * as config from './config';
 import { buildCurriculum, type Curriculum } from './curriculum';
 import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
+import { gateFillers, withFillersMastered } from './gateFixtures';
 import {
   abilityOf,
   answerPlacement,
@@ -378,9 +379,10 @@ const place = (id: string, c: string, r: string | null, level: number): Place =>
   level,
 });
 
-function fixture(): Curriculum {
+/** France, Germany and Tuvalu, plus `fillers` (placeless countries, see `gateFillers`). */
+function fixture(fillers: readonly Country[] = []): Curriculum {
   return buildCurriculum(
-    [country('france', true), country('germany', true), country('tuvalu', false)],
+    [country('france', true), country('germany', true), country('tuvalu', false), ...fillers],
     [region('france.bretagne', 'france'), region('france.corse', 'france'), region('germany.bayern', 'germany')],
     [
       place('rennes', 'france', 'france.bretagne', 2),
@@ -522,8 +524,21 @@ describe('[PLC-24] isStudied', () => {
 });
 
 describe('[PLC-24, PLC-C07] canTestOut', () => {
-  const c = fixture();
-  const masteredFrance = { 'country:france': mastered('country:france') };
+  // Every filler mastered: France's gate (CUR-21) is open.
+  const fillers = gateFillers();
+  const c = fixture(fillers);
+  const masteredFrance = withFillersMastered(
+    { 'country:france': mastered('country:france') },
+    mastered('country:filler'),
+    fillers,
+  );
+
+  it("[SCR-18] is false for a mastered country whose gate is shut, and the gate does not hold a region", () => {
+    const shut = { 'country:france': mastered('country:france') };
+    expect(canTestOut(c, shut, 'country:france')).toBe(false);
+    const bretagne = { ...shut, 'region:france.bretagne': mastered('region:france.bretagne') };
+    expect(canTestOut(c, bretagne, 'region:france.bretagne')).toBe(true);
+  });
 
   it('is true for a mastered country or region whose children have no rows', () => {
     expect(canTestOut(c, masteredFrance, 'country:france')).toBe(true);

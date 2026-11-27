@@ -24,7 +24,7 @@ import {
   PLACEMENT_START_LEVEL,
   PLACEMENT_STOP_SD,
 } from './config';
-import { unlockedBy, type Curriculum, type Tier } from './curriculum';
+import { gateOpen, unlockedBy, type Curriculum, type Tier } from './curriculum';
 import { isPass } from './grading';
 import { isMastered, isStudied, seedFromPlacement, type ItemProgress, type PlacementOutcome } from './srs';
 
@@ -312,14 +312,16 @@ export { isStudied };
 /**
  * Whether the item can be tested out of: mastered, with children, at least one of which has no
  * progress row, and none of which has been studied (`isStudied`). Rows a placement left (seeds)
- * do not hide it, so quitting a test-out partway keeps the link. Throws for an id not in the
- * curriculum.
+ * do not hide it, so quitting a test-out partway keeps the link. A country also needs its gate
+ * open (`gateOpen`). Throws for an id not in the curriculum.
  */
 export function canTestOut(curriculum: Curriculum, progress: ProgressMap, itemId: string): boolean {
-  if (!curriculum.items.has(itemId)) throw new Error(`Unknown item ${itemId}`);
+  const item = curriculum.items.get(itemId);
+  if (!item) throw new Error(`Unknown item ${itemId}`);
   const own = progress[itemId];
   const unlocked = unlockedBy(curriculum, itemId);
   if (!own || !isMastered(own) || !unlocked) return false;
+  if (item.tier === 'country' && !gateOpen(curriculum, progress, itemId)) return false;
   const { childIds } = unlocked;
   return (
     childIds.some((id) => !progress[id]) &&

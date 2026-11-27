@@ -7,6 +7,7 @@ import {
   unlockedBy,
 } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
+import { gateFillers, withFillersMastered } from '../engine/gateFixtures';
 import type { Country, Place } from '../engine/types';
 import type { AreaFeature } from '../maps/geo';
 import { childRows, resolveDrillRoute, sortOffMap, splitByFrame } from './drillView';
@@ -41,7 +42,9 @@ const regions = [
   { id: 'fr.empty', country: 'fr' },
   { id: 'de.be', country: 'de' },
 ];
-const curriculum = buildCurriculum(countries, regions, places);
+// The fillers (placeless countries) are in the curriculum only, so `opened` can open every gate.
+const fillers = gateFillers();
+const curriculum = buildCurriculum([...countries, ...fillers], regions, places);
 
 // Mastered: L3 passed on two different days.
 const mastered = (itemId: string): ItemProgress =>
@@ -54,6 +57,10 @@ const mastered = (itemId: string): ItemProgress =>
     inL3Lapse: false,
     introducedAt: 1,
   }) as unknown as ItemProgress;
+
+/** `progress` with every filler mastered: every gate (CUR-21) is open. */
+const opened = (progress: Record<string, ItemProgress>) =>
+  withFillersMastered(progress, mastered('country:filler'), fillers);
 
 describe('[SCR-13, SCR-C09] resolveDrillRoute', () => {
   const resolve = (c: string, r?: string) => resolveDrillRoute(curriculum, countries, c, r);
@@ -112,11 +119,23 @@ describe('[SCR-14, SCR-C09] childRows', () => {
   });
 
   it('shows the regions as new, with no unlock text, once the country is mastered', () => {
-    const progress = { [countryItemId('fr')]: mastered(countryItemId('fr')) };
+    const progress = opened({ [countryItemId('fr')]: mastered(countryItemId('fr')) });
     const rows = childRows(curriculum, progress, countryItemId('fr'), names);
     expect(rows.map((r) => [r.state, r.unlockText])).toEqual([
       ['new', null],
       ['new', null],
+    ]);
+  });
+
+  it('holds a mastered country’s unanswered children behind its gate, saying when they open', () => {
+    const fr = countryItemId('fr');
+    const ara = regionItemId('fr.ara');
+    const answered = { ...mastered(ara), l3PassDays: [], cards: { 1: { reps: 1 } } } as unknown as ItemProgress;
+    const progress = { [fr]: mastered(fr), [ara]: answered };
+    const rows = childRows(curriculum, progress, fr, names);
+    expect(rows.map((r) => [r.name, r.state, r.unlockText])).toEqual([
+      ['Auvergne', 'learning', null],
+      ['Ile-de-France', 'locked', "Opens once you've mastered 150 countries (1 so far)"],
     ]);
   });
 
@@ -136,7 +155,7 @@ describe('[SCR-14, SCR-C09] childRows', () => {
     const rows = childRows(curriculum, {}, sg, new Map([[sg, 'Singapore']]));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ tier: 'place', state: 'locked', unlockText: 'Master Singapore to unlock' });
-    const open = childRows(curriculum, { [sg]: mastered(sg) }, sg, new Map());
+    const open = childRows(curriculum, opened({ [sg]: mastered(sg) }), sg, new Map());
     expect(open[0]).toMatchObject({ state: 'new', unlockText: null });
   });
 
@@ -206,8 +225,12 @@ describe('[SCR-18, SCR-C09] the test-out link', () => {
   const linkTier = (itemId: string) => `${unlockedBy(curriculum, itemId)!.tier}s`;
 
   it('shows on a mastered item none of whose children is studied', () => {
-    expect(shows({ [fr]: mastered(fr) })).toBe(true);
+    expect(shows(opened({ [fr]: mastered(fr) }))).toBe(true);
     expect(shows({ [idf]: mastered(idf) }, [], idf)).toBe(true);
+  });
+
+  it('hides on a mastered country whose gate is shut', () => {
+    expect(shows({ [fr]: mastered(fr) })).toBe(false);
   });
 
   it('hides once the item’s test-out is finished', () => {

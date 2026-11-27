@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
-import { MC_FAST_MS } from '../src/engine/config';
+import { GATE_WAVE1_MASTERED_COUNTRIES, MC_FAST_MS } from '../src/engine/config';
 import { globeHooked, hook, type LngLat } from './globeHook';
 import { expect, type Page } from './test';
 
@@ -135,15 +136,63 @@ export async function writeProgressFile(path: string, progress: ReturnType<typeo
   await writeFile(path, JSON.stringify(file));
 }
 
-/** A progress file in which `country:united-states` is mastered (L3 passed on two different days). */
+/** A mastered row: L3 passed on two different days, introduced long ago, next due in 30 days. */
+const masteredRow = (itemId: string) =>
+  progressRow(itemId, 3, {
+    dueInDays: 30,
+    l3PassDays: ['2026-01-10', '2026-01-20'],
+    introducedAt: Date.now() - 60 * DAY,
+  });
+
+/** The committed countries' ids, fewest places first (ties by id). */
+const COUNTRIES_BY_PLACES: string[] = (
+  JSON.parse(readFileSync(new URL('../public/data/countries.topo.json', import.meta.url), 'utf8')) as {
+    objects: { countries: { geometries: { id: string; properties: { places: number } }[] } };
+  }
+).objects.countries.geometries
+  .map((g) => ({ id: g.id, places: g.properties.places }))
+  .sort((a, b) => a.places - b.places || (a.id < b.id ? -1 : 1))
+  .map((c) => c.id);
+
+/**
+ * Mastered rows, not due, for the `n` countries with the fewest places (none of them the United
+ * States). They have far fewer than GATE_WAVE1_MIN_PLACES places, so their own gate (CUR-21)
+ * stays shut, and with the United States mastered too, `n` of GATE_WAVE1_MASTERED_COUNTRIES - 1
+ * or more opens the United States'.
+ */
+function gateOpeningRows(n: number) {
+  return COUNTRIES_BY_PLACES.filter((id) => id !== 'united-states')
+    .slice(0, n)
+    .map((id) => masteredRow(`country:${id}`));
+}
+
+/** A progress file in which `country:united-states` is mastered (L3 passed on two different days):
+ * the only mastered country, so its regions wait for the gate (CUR-21). */
 export async function writeMasteredUnitedStates(path: string) {
+  await writeProgressFile(path, [masteredRow('country:united-states')]);
+}
+
+/** `writeMasteredUnitedStates` with GATE_WAVE1_MASTERED_COUNTRIES countries mastered in all, so
+ * the United States' gate (CUR-21) is open. */
+export async function writeMasteredUnitedStatesGateOpen(path: string) {
   await writeProgressFile(path, [
-    progressRow('country:united-states', 3, {
-      dueInDays: 30,
-      l3PassDays: ['2026-01-10', '2026-01-20'],
-      introducedAt: Date.now() - 60 * DAY,
-    }),
+    masteredRow('country:united-states'),
+    ...gateOpeningRows(GATE_WAVE1_MASTERED_COUNTRIES - 1),
   ]);
+}
+
+/**
+ * A progress file with the United States' gate open (as `writeMasteredUnitedStatesGateOpen`) and
+ * every other country introduced long ago and not due: no new country is left, so the new items
+ * are the United States' regions.
+ */
+export async function writeMasteredUnitedStatesNoNewCountry(path: string) {
+  const mastered = [masteredRow('country:united-states'), ...gateOpeningRows(GATE_WAVE1_MASTERED_COUNTRIES - 1)];
+  const done = new Set(mastered.map((r) => r.itemId));
+  const introduced = COUNTRIES_BY_PLACES.map((id) => `country:${id}`)
+    .filter((itemId) => !done.has(itemId))
+    .map((itemId) => progressRow(itemId, 1, { dueInDays: 30, introducedAt: Date.now() - 60 * DAY }));
+  await writeProgressFile(path, [...mastered, ...introduced]);
 }
 
 /** Countries introduced today in `writeUnitedStatesOnePassFromMastery`, so no new item is due. */
@@ -168,6 +217,8 @@ const INTRODUCED_TODAY = [
 /**
  * A progress file whose session is one question: `country:united-states` due at L3, one pass on
  * another day from mastery. Today's 15 new items are used up by countries that are not yet due.
+ * GATE_WAVE1_MASTERED_COUNTRIES other countries are mastered and not due, so the United States'
+ * gate (CUR-21) is already open when it is mastered.
  */
 export async function writeUnitedStatesOnePassFromMastery(path: string) {
   await writeProgressFile(path, [
@@ -176,6 +227,7 @@ export async function writeUnitedStatesOnePassFromMastery(path: string) {
       l3PassDays: ['2026-01-10'],
       introducedAt: Date.now() - 60 * DAY,
     }),
+    ...gateOpeningRows(GATE_WAVE1_MASTERED_COUNTRIES),
     ...INTRODUCED_TODAY.map((id) =>
       progressRow(`country:${id}`, 1, { dueInDays: 30, introducedAt: Date.now() }),
     ),
@@ -185,7 +237,8 @@ export async function writeUnitedStatesOnePassFromMastery(path: string) {
 /**
  * A progress file whose session is two questions: `region:united-states.texas` due at L3, one pass
  * from mastery, then `country:argentina` due at L3 (a country elsewhere). The United States is
- * mastered, which introduces its regions. Today's 15 new items are used up by other countries.
+ * mastered with its gate (CUR-21) shut, so of its regions only Texas, already answered, is
+ * unlocked (CUR-22). Today's 15 new items are used up by other countries.
  */
 export async function writeTexasOnePassFromMastery(path: string) {
   await writeProgressFile(path, [
@@ -220,15 +273,13 @@ const FEW_DUE = [
 /**
  * A progress file with `country:united-states` mastered and three other countries due now, the
  * state `seedSummarySavedRun` saves a summary for. Today's 15 new items are used up by countries
- * that are not yet due.
+ * that are not yet due. GATE_WAVE1_MASTERED_COUNTRIES other countries are mastered and not due,
+ * so the United States' gate (CUR-21) was open before the saved round.
  */
 export async function writeMasteredUnitedStatesWithFewDue(path: string) {
   await writeProgressFile(path, [
-    progressRow('country:united-states', 3, {
-      dueInDays: 30,
-      l3PassDays: ['2026-01-10', '2026-01-20'],
-      introducedAt: Date.now() - 60 * DAY,
-    }),
+    masteredRow('country:united-states'),
+    ...gateOpeningRows(GATE_WAVE1_MASTERED_COUNTRIES),
     ...FEW_DUE.map(({ id, rung }) =>
       progressRow(`country:${id}`, rung, { dueInDays: -1, introducedAt: Date.now() - 60 * DAY }),
     ),

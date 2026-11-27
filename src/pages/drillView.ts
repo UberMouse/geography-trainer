@@ -2,14 +2,17 @@
 // components so they can be unit-tested.
 
 import {
+  countryGate,
   countryItemId,
+  gateOpen,
   itemState,
+  masteredCountryCount,
   regionItemId,
   type Curriculum,
   type ItemState,
   type Tier,
 } from '../engine/curriculum';
-import type { ItemProgress } from '../engine/srs';
+import { isMastered, type ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
 import { frameTest, type AreaFeature, type LngLat } from '../maps/geo';
 import { STATE_LABELS } from './progressView';
@@ -52,7 +55,8 @@ export interface ChildRow {
   name: string;
   state: ItemState;
   stateLabel: string;
-  /** "Master France to unlock" for a locked item, else null. */
+  /** For a locked item, "Master France to unlock", or, when France is mastered and its gate is
+   * shut, "Opens once you've mastered 60 countries (23 so far)"; else null. */
   unlockText: string | null;
   /** The region's drill-down page; null for a place. */
   href: string | null;
@@ -71,6 +75,11 @@ export function childRows(
   const item = curriculum.items.get(itemId);
   if (!item) return [];
   const nameOf = (id: string) => names.get(id) ?? id;
+  const own = progress[itemId];
+  const lockedText =
+    own && isMastered(own) && item.tier === 'country' && !gateOpen(curriculum, progress, itemId)
+      ? `Opens once you've mastered ${countryGate(curriculum, itemId)} countries (${masteredCountryCount(curriculum, progress)} so far)`
+      : `Master ${nameOf(itemId)} to unlock`;
   const rows = item.children.map((childId) => {
     const child = curriculum.items.get(childId)!;
     const state = itemState(curriculum, progress, childId);
@@ -80,7 +89,7 @@ export function childRows(
       name: nameOf(childId),
       state,
       stateLabel: STATE_LABELS[state],
-      unlockText: state === 'locked' ? `Master ${nameOf(itemId)} to unlock` : null,
+      unlockText: state === 'locked' ? lockedText : null,
       href:
         child.tier === 'region'
           ? `/progress/${item.countryId.slice('country:'.length)}/${childId.slice('region:'.length)}`

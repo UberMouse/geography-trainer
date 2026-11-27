@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildCurriculum, countryItemId, placeItemId } from '../engine/curriculum';
 import type { ItemProgress } from '../engine/srs';
+import { gateFillers, withFillersMastered } from '../engine/gateFixtures';
 import type { Country, Place } from '../engine/types';
 import {
   countryLooks,
@@ -141,7 +142,9 @@ describe('[SCR-06, SCR-10, SCR-C07] the looks of items and countries', () => {
     type: 'city',
     level: 1,
   });
-  const curriculum = buildCurriculum(countries, [], [
+  // The fillers (placeless countries) are in the curriculum only, so `opened` can open every gate.
+  const fillers = gateFillers();
+  const curriculum = buildCurriculum([...countries, ...fillers], [], [
     place('paris', 'fr'),
     place('lyon', 'fr'),
     place('lima', 'pe'),
@@ -157,13 +160,16 @@ describe('[SCR-06, SCR-10, SCR-C07] the looks of items and countries', () => {
       inL3Lapse: false,
       introducedAt: 1,
     }) as unknown as ItemProgress;
+  /** `progress` with every filler mastered: every gate (CUR-21) is open. */
+  const opened = (progress: Record<string, ItemProgress>) =>
+    withFillersMastered(progress, mastered('country:filler'), fillers);
   const fr = countryItemId('fr');
   const paris = placeItemId('paris');
 
   it('gives each state its colour, and deepens a mastered country by its mastered places', () => {
     expect(itemLook(curriculum, {}, fr)).toEqual({ state: 'new', fill: PROGRESS_COLOURS.new });
     expect(itemLook(curriculum, {}, paris)).toEqual({ state: 'locked', fill: PROGRESS_COLOURS.locked });
-    expect(itemLook(curriculum, { [fr]: mastered(fr), [paris]: mastered(paris) }, fr)).toEqual({
+    expect(itemLook(curriculum, opened({ [fr]: mastered(fr), [paris]: mastered(paris) }), fr)).toEqual({
       state: 'mastered',
       fill: mixOklab(PROGRESS_COLOURS.mastered, PROGRESS_COLOURS.complete, 0.5),
     });

@@ -1,7 +1,7 @@
 import { Alert, Anchor, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
-import { buildCurriculum, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
+import { buildCurriculum, gateOpen, regionsFromPlaces, type Curriculum } from '../engine/curriculum';
 import { buildSession, dueQuestions, type SessionQuestion } from '../engine/session';
 import {
   answerCurrent,
@@ -25,6 +25,7 @@ import Status from './LoadStatus';
 import {
   answerEntry,
   countriesNeedingRegions,
+  gateOpenedLines,
   questionHeader,
   questionSeed,
   resumable,
@@ -133,6 +134,9 @@ function Runner({ data }: { data: SessionData }) {
   // True when the current question's answer could not be recorded and the question is skipped.
   const [recordFailed, setRecordFailed] = useState(false);
   const progress = useRef(data.progress);
+  // `progress.current` as of the last answer, for rendering: the summary's lines read the gate
+  // (CUR-21) from it, and a ref cannot be read during render.
+  const [shownProgress, setShownProgress] = useState(data.progress);
   const queue = progressStore.answers;
   const { unsaved } = useSyncExternalStore(queue.subscribe, queue.getState);
   // Chosen once per visit, so the same item at the same position varies its options between visits.
@@ -175,7 +179,8 @@ function Runner({ data }: { data: SessionData }) {
   }
 
   if (ended || !question || !item) {
-    const unlocks = unlockLines(curriculum, round.mastered, nameOf);
+    const unlocks = unlockLines(curriculum, shownProgress, round.mastered, nameOf);
+    const gates = gateOpenedLines(curriculum, shownProgress, round.mastered);
     return (
       <Stack data-unsaved={unsaved} align="flex-start">
         <Title order={2} size="h3" ref={summaryRef} tabIndex={-1} className="session-summary">
@@ -194,7 +199,13 @@ function Runner({ data }: { data: SessionData }) {
             )}
           </Text>
         ))}
-        {unlocks.length > 0 && <Text>These join your new questions from your next session.</Text>}
+        {gates.map((line) => (
+          <Text key={line.id}>{line.text}</Text>
+        ))}
+        {(gates.length > 0 ||
+          unlocks.some(
+            (line) => curriculum.items.get(line.id)?.tier !== 'country' || gateOpen(curriculum, shownProgress, line.id),
+          )) && <Text>These join your new questions from your next session.</Text>}
         {questionsRemain(run) ? (
           <Button
             onClick={() => {
@@ -232,6 +243,7 @@ function Runner({ data }: { data: SessionData }) {
       queue.push(recorded.entry);
       const before = progress.current[question.itemId];
       progress.current = { ...progress.current, [question.itemId]: after };
+      setShownProgress(progress.current);
       if (isMastered(after) && !(before && isMastered(before))) {
         newlyMastered = true;
       }

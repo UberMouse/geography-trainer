@@ -1,7 +1,7 @@
 // Which test-out page a URL names, and the links to it, kept out of the components so they can be
 // unit-tested.
 
-import { countryItemId, regionItemId, unlockedBy, type Curriculum } from '../engine/curriculum';
+import { countryItemId, gateOpen, regionItemId, unlockedBy, type Curriculum } from '../engine/curriculum';
 import { canTestOut, isStudied } from '../engine/placement';
 import { isMastered, type ItemProgress } from '../engine/srs';
 import type { Country } from '../engine/types';
@@ -27,7 +27,8 @@ export type TestOutRoute =
 /**
  * What `/placement/:country[/:region]` names (a region id is the full `<country>.<region>` id).
  * The test runs for a mastered item with children none of which has been studied (`isStudied`),
- * even when some child has a placement row (it then covers the children without one). Anything
+ * even when some child has a placement row (it then covers the children without one), and for a
+ * country only while its gate is open (`gateOpen`). Anything
  * else is unavailable, as for `canTestOut`. The country list is checked
  * first, so an unknown country never reaches `loadRegions`.
  */
@@ -60,6 +61,7 @@ export function resolveTestOutRoute(
   const own = progress[itemId];
   if (!unlocked || !own || !isMastered(own)) return unavailable;
   if (unlocked.childIds.some((id) => progress[id] && isStudied(progress[id]))) return unavailable;
+  if (regionId === undefined && !gateOpen(curriculum, progress, itemId)) return unavailable;
   return {
     kind: 'run',
     itemId,

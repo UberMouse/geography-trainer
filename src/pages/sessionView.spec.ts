@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { answerCurrent, startRun } from '../engine/sessionRun';
-import { createProgress } from '../engine/srs';
+import { createProgress, type ItemProgress } from '../engine/srs';
+import { gateFillers, withFillersMastered } from '../engine/gateFixtures';
 import { Rating } from 'ts-fsrs';
 import type { ExerciseResult } from '../exercises/types';
 import { buildCurriculum } from '../engine/curriculum';
@@ -10,12 +11,26 @@ import type { SavedSession } from '../storage/sessionRunStore';
 import {
   answerEntry,
   countriesNeedingRegions,
+  gateOpenedLines,
   questionHeader,
   questionSeed,
   resumable,
   unlockLines,
   withMastered,
 } from './sessionView';
+import { showsTestOutLink } from './testOutView';
+
+// Mastered: L3 passed on two different days.
+const mastered = (itemId: string): ItemProgress =>
+  ({
+    itemId,
+    rung: 3,
+    highestRung: 3,
+    cards: {},
+    l3PassDays: ['2026-01-10', '2026-01-20'],
+    inL3Lapse: false,
+    introducedAt: 1,
+  }) as unknown as ItemProgress;
 
 describe('[SES-17] questionSeed', () => {
   it('is stable, and differs by item, by position and by salt', () => {
@@ -126,7 +141,11 @@ describe('the full tree', () => {
     place('arlon', 'be', 'be.lux'),
     place('lux-city', 'lu', null),
   ];
-  const curriculum = buildCurriculum(countries, [{ id: 'fr.idf', country: 'fr' }, { id: 'fr.bre', country: 'fr' }, { id: 'be.lux', country: 'be' }], places);
+  // The fillers (placeless countries) are in the curriculum only: `open` masters every one of them,
+  // which opens every gate (CUR-21).
+  const fillers = gateFillers();
+  const curriculum = buildCurriculum([...countries, ...fillers], [{ id: 'fr.idf', country: 'fr' }, { id: 'fr.bre', country: 'fr' }, { id: 'be.lux', country: 'be' }], places);
+  const open = withFillersMastered({}, mastered('country:filler'), fillers);
   const names: Record<string, string> = {
     'country:fr': 'France',
     'country:jp': 'Japan',
@@ -161,7 +180,7 @@ describe('the full tree', () => {
 
   describe('[SES-23, SES-C07] unlockLines', () => {
     it('says regions for a regions-tier country, places for the rest and a region', () => {
-      expect(unlockLines(curriculum, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
+      expect(unlockLines(curriculum, open, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
         { id: 'country:fr', text: "Unlocked: France's regions" },
         { id: 'country:jp', text: "Unlocked: Japan's places" },
         { id: 'region:fr.bre', text: "Unlocked: Brittany's places (France)" },
@@ -169,7 +188,7 @@ describe('the full tree', () => {
     });
 
     it('tells a region and a country of the same name apart, by id and by text', () => {
-      const lines = unlockLines(curriculum, ['country:lu', 'region:be.lux'], nameOf);
+      const lines = unlockLines(curriculum, open, ['country:lu', 'region:be.lux'], nameOf);
       expect(lines).toEqual([
         { id: 'country:lu', text: "Unlocked: Luxembourg's places" },
         { id: 'region:be.lux', text: "Unlocked: Luxembourg's places (Belgium)" },
@@ -177,14 +196,86 @@ describe('the full tree', () => {
     });
 
     it('lists an item mastered twice once and skips items that unlock nothing', () => {
-      expect(unlockLines(curriculum, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf)).toEqual([
+      expect(unlockLines(curriculum, open, ['country:jp', 'place:tokyo', 'country:xx', 'country:jp'], nameOf)).toEqual([
         { id: 'country:jp', text: "Unlocked: Japan's places" },
       ]);
     });
 
     it('is empty when nothing was mastered', () => {
-      expect(unlockLines(curriculum, [], nameOf)).toEqual([]);
+      expect(unlockLines(curriculum, open, [], nameOf)).toEqual([]);
     });
+
+    it('names the gate for a country whose gate is still shut, with no test-out', () => {
+      const progress = { 'country:fr': mastered('country:fr'), 'country:jp': mastered('country:jp') };
+      expect(unlockLines(curriculum, progress, ['country:fr', 'country:jp', 'region:fr.bre'], nameOf)).toEqual([
+        { id: 'country:fr', text: "France: its regions open once you've mastered 150 countries (2 so far)" },
+        { id: 'country:jp', text: "Japan: its places open once you've mastered 150 countries (2 so far)" },
+        { id: 'region:fr.bre', text: "Unlocked: Brittany's places (France)" },
+      ]);
+      expect(showsTestOutLink(curriculum, progress, new Set(), 'country:fr')).toBe(false);
+      expect(showsTestOutLink(curriculum, { ...open, ...progress }, new Set(), 'country:fr')).toBe(true);
+    });
+  });
+});
+
+describe('[SES-23, SES-C07] gateOpenedLines', () => {
+  // big is in the first wave (50 places), small and the fillers in the second; only big and small
+  // have children.
+  const fillers = gateFillers();
+  const curriculum = buildCurriculum(
+    [
+      { id: 'big', name: 'Big', places: 50, hasRegions: false },
+      { id: 'small', name: 'Small', places: 1, hasRegions: false },
+      ...fillers,
+    ],
+    [],
+    [
+      ...Array.from({ length: 50 }, (_, i): Place => ({
+        id: `b${i}`,
+        name: `b${i}`,
+        country: 'big',
+        region: null,
+        lat: 0,
+        lng: 0,
+        type: 'city',
+        level: 1,
+      })),
+      { id: 's0', name: 's0', country: 'small', region: null, lat: 0, lng: 0, type: 'city', level: 1 },
+    ],
+  );
+  /** big and small mastered, then `n` fillers: n + 2 mastered countries. */
+  const progressWith = (n: number) =>
+    withFillersMastered(
+      { 'country:big': mastered('country:big'), 'country:small': mastered('country:small') },
+      mastered('country:filler'),
+      fillers.slice(0, n),
+    );
+  const fillerIds = (from: number, to: number) => fillers.slice(from, to).map((f) => `country:${f.id}`);
+
+  it('names 60 when the round brings the count from below 60 to 60', () => {
+    expect(gateOpenedLines(curriculum, progressWith(58), ['country:big', 'place:b0'])).toEqual([
+      { id: 'gate:60', text: "You've mastered 60 countries: regions and places are open for 1 of them" },
+    ]);
+  });
+
+  it('names 150 when the round brings the count from below 150 to 150 or more', () => {
+    expect(gateOpenedLines(curriculum, progressWith(149), ['country:small', ...fillerIds(147, 149)])).toEqual([
+      { id: 'gate:150', text: "You've mastered 150 countries: regions and places are open for 1 of them" },
+    ]);
+  });
+
+  it('gives both lines, 60 then 150, for a round that crosses both', () => {
+    expect(gateOpenedLines(curriculum, progressWith(148), fillerIds(0, 148)).map((l) => l.id)).toEqual([
+      'gate:60',
+      'gate:150',
+    ]);
+  });
+
+  it('gives no line for a round that crosses no gate, and counts a repeated id once', () => {
+    expect(gateOpenedLines(curriculum, progressWith(59), ['country:small'])).toEqual([]);
+    expect(gateOpenedLines(curriculum, progressWith(56), ['country:big'])).toEqual([]);
+    expect(gateOpenedLines(curriculum, progressWith(58), ['country:big', 'country:big', 'place:b0'])).toHaveLength(1);
+    expect(gateOpenedLines(curriculum, progressWith(58), [])).toEqual([]);
   });
 });
 

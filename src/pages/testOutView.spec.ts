@@ -2,6 +2,7 @@ import { Rating } from 'ts-fsrs';
 import { describe, expect, it } from 'vitest';
 import { buildCurriculum } from '../engine/curriculum';
 import { applyAnswer, createProgress, localDayKey, seedFromPlacement, type ItemProgress } from '../engine/srs';
+import { gateFillers, withFillersMastered } from '../engine/gateFixtures';
 import type { Country, Place, Region } from '../engine/types';
 import { resolveTestOutRoute, showsTestOutLink, testOutLabel, testOutPath } from './testOutView';
 
@@ -32,8 +33,10 @@ const place = (id: string, c: string, r: string | null): Place => ({
 });
 
 const countries = [country('france', true), country('germany', true), country('tuvalu', false)];
+// The fillers (placeless countries) are in the curriculum only, so `opened` can open every gate.
+const fillers = gateFillers();
 const curriculum = buildCurriculum(
-  countries,
+  [...countries, ...fillers],
   // germany.empty has no places, so it is not a curriculum item.
   [region('france.bretagne', 'france'), region('germany.bayern', 'germany'), region('germany.empty', 'germany')],
   [
@@ -43,8 +46,11 @@ const curriculum = buildCurriculum(
   ],
 );
 
+/** `progress` with every filler mastered: every gate (CUR-21) is open. */
+const opened = (progress: Record<string, ItemProgress>) =>
+  withFillersMastered(progress, mastered('country:filler'), fillers);
 const rowFor = (id: string): Record<string, ItemProgress> => ({ [id]: createProgress(id, T0) });
-const masteredFrance = { 'country:france': mastered('country:france') };
+const masteredFrance = opened({ 'country:france': mastered('country:france') });
 const resolve = (progress: Record<string, ItemProgress>, c: string, r?: string) =>
   resolveTestOutRoute(curriculum, countries, progress, c, r);
 
@@ -60,7 +66,7 @@ describe('[PLC-23] resolveTestOutRoute', () => {
   });
 
   it('runs for a mastered country without a regions tier, over its places, needing no regions', () => {
-    expect(resolve({ 'country:tuvalu': mastered('country:tuvalu') }, 'tuvalu')).toEqual({
+    expect(resolve(opened({ 'country:tuvalu': mastered('country:tuvalu') }), 'tuvalu')).toEqual({
       kind: 'run',
       itemId: 'country:tuvalu',
       countryId: 'tuvalu',
@@ -88,6 +94,15 @@ describe('[PLC-23] resolveTestOutRoute', () => {
   it('still runs when a child has only a passed placement seed', () => {
     const seed = seedFromPlacement('region:france.bretagne', 'passed', T0, localDayKey(T0, 0));
     expect(resolve({ ...masteredFrance, 'region:france.bretagne': seed }, 'france').kind).toBe('run');
+  });
+
+  it('is unavailable at the country for a mastered country whose gate is shut', () => {
+    for (const id of ['france', 'tuvalu']) {
+      expect(resolve({ [`country:${id}`]: mastered(`country:${id}`) }, id)).toEqual({
+        kind: 'unavailable',
+        back: `/progress/${id}`,
+      });
+    }
   });
 
   it('is unavailable at the country once a child has been studied', () => {
@@ -167,6 +182,10 @@ describe('[PLC-24] showsTestOutLink', () => {
 
   it('ignores other items and the countries marker', () => {
     expect(show(masteredFrance, ['placement:country:germany', 'placement:countries'], 'country:france')).toBe(true);
+  });
+
+  it('hides for a mastered country whose gate is shut', () => {
+    expect(show({ 'country:france': mastered('country:france') }, [], 'country:france')).toBe(false);
   });
 
   it('stays hidden when canTestOut fails, marker or not', () => {

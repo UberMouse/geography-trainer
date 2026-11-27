@@ -83,3 +83,13 @@ export const PLACEMENT_PROBABLY_KNOWN = 0.5;
 export const PLACEMENT_CONFIRM_START_DAYS = 2;
 /** ...and at most this many fall due per day, least certain first. */
 export const PLACEMENT_CONFIRM_PER_DAY = 6;
+
+// The deeper-tier gate: nothing below a country unlocks until enough countries are mastered.
+/** A country with at least this many places (unfiltered) is in the gate's first wave... */
+export const GATE_WAVE1_MIN_PLACES = 50;
+/** ...whose children open once this many countries are mastered... */
+export const GATE_WAVE1_MASTERED_COUNTRIES = 60;
+/** ...and every other country's children once this many are. */
+export const GATE_WAVE2_MASTERED_COUNTRIES = 150;
+/** Bands added to a region's or a place's difficulty when ordering new items. */
+export const DEEPER_TIER_ORDER_OFFSET = 3;

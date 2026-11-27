@@ -1,6 +1,13 @@
 // The country -> region -> place tree, which items are unlocked, and the order new items arrive in.
 
-import { DIFFICULTY_LEVELS, DIFFICULTY_MEAN_LEVEL_WEIGHT } from './config';
+import {
+  DEEPER_TIER_ORDER_OFFSET,
+  DIFFICULTY_LEVELS,
+  DIFFICULTY_MEAN_LEVEL_WEIGHT,
+  GATE_WAVE1_MASTERED_COUNTRIES,
+  GATE_WAVE1_MIN_PLACES,
+  GATE_WAVE2_MASTERED_COUNTRIES,
+} from './config';
 import { isIntroduced, isMastered, isStudied, type ItemProgress } from './srs';
 import type { Country, Place, Region } from './types';
 
@@ -200,10 +207,57 @@ export function buildCurriculum(
   return { items, countryPlaceCount };
 }
 
+/** Country items that are mastered; progress rows for other ids are ignored. */
+export function masteredCountryCount(curriculum: Curriculum, progress: Readonly<Record<string, ItemProgress>>): number {
+  let n = 0;
+  for (const [id, p] of Object.entries(progress)) {
+    if (curriculum.items.get(id)?.tier === 'country' && isMastered(p)) n++;
+  }
+  return n;
+}
+
+/** Mastered countries that open a country's children: GATE_WAVE1_MASTERED_COUNTRIES for a country
+ * with at least GATE_WAVE1_MIN_PLACES places, else GATE_WAVE2_MASTERED_COUNTRIES. Throws for an id
+ * that is not a country item. */
+export function countryGate(curriculum: Curriculum, countryItemId: string): number {
+  if (curriculum.items.get(countryItemId)?.tier !== 'country') throw new Error(`Not a country item ${countryItemId}`);
+  return (curriculum.countryPlaceCount.get(countryItemId) ?? 0) >= GATE_WAVE1_MIN_PLACES
+    ? GATE_WAVE1_MASTERED_COUNTRIES
+    : GATE_WAVE2_MASTERED_COUNTRIES;
+}
+
+/** Whether enough countries are mastered to open the country's children. Throws for an id that is
+ * not a country item. */
+export function gateOpen(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  countryItemId: string,
+): boolean {
+  return masteredCountryCount(curriculum, progress) >= countryGate(curriculum, countryItemId);
+}
+
+/** A country is unlocked; a region's child once the region is mastered; a country's child once the
+ * country is mastered and its gate is open, or the child itself `isIntroduced`. `masteredCountries`
+ * is `masteredCountryCount`, counted once by the caller. */
+function isUnlocked(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  item: CurriculumItem,
+  masteredCountries: number,
+): boolean {
+  if (item.parent === null) return true;
+  const parentProgress = progress[item.parent];
+  if (!parentProgress || !isMastered(parentProgress)) return false;
+  if (curriculum.items.get(item.parent)!.tier !== 'country') return true;
+  if (masteredCountries >= countryGate(curriculum, item.parent)) return true;
+  const own = progress[item.id];
+  return own !== undefined && isIntroduced(own);
+}
+
 /**
- * Unlocked items, mastered and in-progress ones included. A mastered parent unlocks its children.
- * With `placeTypes`, places of other types are left out, and so are regions with no place of those
- * types; countries are always kept.
+ * Unlocked items (see `isUnlocked`), mastered and in-progress ones included. With `placeTypes`,
+ * places of other types are left out, and so are regions with no place of those types; countries
+ * are always kept.
  */
 export function unlockedItems(
   curriculum: Curriculum,
@@ -211,6 +265,7 @@ export function unlockedItems(
   opts: UnlockOptions = {},
 ): CurriculumItem[] {
   const out: CurriculumItem[] = [];
+  const masteredCountries = masteredCountryCount(curriculum, progress);
   for (const item of curriculum.items.values()) {
     const types = opts.placeTypes;
     if (types && item.place && !types.has(item.place.type)) continue;
@@ -218,18 +273,19 @@ export function unlockedItems(
       const hasMatch = item.children.some((c) => types.has(curriculum.items.get(c)!.place!.type));
       if (!hasMatch) continue;
     }
-    if (item.parent !== null) {
-      const parentProgress = progress[item.parent];
-      if (!parentProgress || !isMastered(parentProgress)) continue;
-    }
+    if (!isUnlocked(curriculum, progress, item, masteredCountries)) continue;
     out.push(item);
   }
   return out;
 }
 
 function compareNew(curriculum: Curriculum) {
+  const orderOf = (item: CurriculumItem) =>
+    item.tier === 'country' ? item.difficulty : item.difficulty + DEEPER_TIER_ORDER_OFFSET;
   return (a: CurriculumItem, b: CurriculumItem): number => {
-    if (a.difficulty !== b.difficulty) return a.difficulty < b.difficulty ? -1 : 1;
+    const da = orderOf(a);
+    const db = orderOf(b);
+    if (da !== db) return da < db ? -1 : 1;
     const ca = curriculum.countryPlaceCount.get(a.countryId) ?? 0;
     const cb = curriculum.countryPlaceCount.get(b.countryId) ?? 0;
     if (ca !== cb) return cb - ca;
@@ -238,8 +294,9 @@ function compareNew(curriculum: Curriculum) {
 }
 
 /** Unlocked items that are still new: no progress yet, or progress that has never been answered
- * (a fresh or placement-seeded item, see `isIntroduced`). Lowest difficulty first, then the owning country's
- * place count (descending), then id. */
+ * (a fresh or placement-seeded item, see `isIntroduced`). Lowest difficulty first (a region's or a
+ * place's counting DEEPER_TIER_ORDER_OFFSET more), then the owning country's place count
+ * (descending), then id. */
 export function newItems(
   curriculum: Curriculum,
   progress: Readonly<Record<string, ItemProgress>>,
@@ -281,29 +338,29 @@ function itemOrThrow(curriculum: Curriculum, itemId: string): CurriculumItem {
   return item;
 }
 
-function stateOf(item: CurriculumItem, progress: ProgressMap): ItemState {
-  if (item.parent !== null) {
-    const parent = progress[item.parent];
-    if (!parent || !isMastered(parent)) return 'locked';
-  }
+function stateOf(curriculum: Curriculum, item: CurriculumItem, progress: ProgressMap, masteredCountries: number): ItemState {
+  if (!isUnlocked(curriculum, progress, item, masteredCountries)) return 'locked';
   const own = progress[item.id];
   if (own && isMastered(own)) return 'mastered';
   if (own && isStudied(own)) return 'learning';
   return 'new';
 }
 
-/** Locked while the parent is not mastered; else mastered, learning (studied, see `isStudied`) or new. Throws for an unknown id. */
+/** Locked while not unlocked (`unlockedItems`' rule, without a place-type filter); else mastered,
+ * learning (studied, see `isStudied`) or new. Throws for an unknown id. */
 export function itemState(curriculum: Curriculum, progress: ProgressMap, itemId: string): ItemState {
-  return stateOf(itemOrThrow(curriculum, itemId), progress);
+  const item = itemOrThrow(curriculum, itemId);
+  return stateOf(curriculum, item, progress, masteredCountryCount(curriculum, progress));
 }
 
 /** Counts over every descendant of the item, in one walk of its subtree. Throws for an unknown id. */
 export function subtreeProgress(curriculum: Curriculum, progress: ProgressMap, itemId: string): SubtreeProgress {
   const out: SubtreeProgress = { total: 0, mastered: 0, learning: 0, unlocked: 0 };
   const stack = [...itemOrThrow(curriculum, itemId).children];
+  const masteredCountries = masteredCountryCount(curriculum, progress);
   while (stack.length > 0) {
     const item = curriculum.items.get(stack.pop()!)!;
-    const state = stateOf(item, progress);
+    const state = stateOf(curriculum, item, progress, masteredCountries);
     out.total++;
     if (state === 'mastered') out.mastered++;
     else if (state === 'learning') out.learning++;

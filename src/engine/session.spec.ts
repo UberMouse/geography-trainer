@@ -11,6 +11,7 @@ import {
 import { buildSession, dueQuestions } from './session';
 import { createProgress, localDayKey, nextDue, seedFromPlacement, type ItemProgress } from './srs';
 import type { Place } from './types';
+import { gateFillers, withFillersMastered } from './gateFixtures';
 
 const NOW = new Date('2026-03-10T12:00:00Z');
 const DAY = 86_400_000;
@@ -139,6 +140,26 @@ describe('buildSession', () => {
     expect(q).toEqual([]);
   });
 
+  it('[SES-02, SES-05, CUR-22] behind a shut gate, asks an answered child that is due, not a due seed', () => {
+    const c = buildCurriculum(
+      [{ id: 'small', name: 'small', places: 3, hasRegions: false }],
+      [],
+      [place('p0', 'small', 'city', 1), place('p1', 'small', 'city', 1), place('p2', 'small', 'city', 1)],
+    );
+    const close = seedFromPlacement(placeItemId('p1'), 'close', NOW, localDayKey(NOW, 0));
+    const closeDue = {
+      ...close,
+      cards: Object.fromEntries(Object.entries(close.cards).map(([r, card]) => [r, { ...card, due: NOW.getTime() - DAY }])),
+    };
+    const progress = {
+      [countryItemId('small')]: { ...dueProgress(countryItemId('small'), 1, -9), l3PassDays: ['2026-03-01', '2026-03-02'] },
+      [placeItemId('p0')]: dueProgress(placeItemId('p0'), 1, 1),
+      [placeItemId('p1')]: closeDue,
+    };
+    const q = buildSession({ curriculum: c, progress, now: NOW, introducedToday: 0, rng }).map((x) => x.itemId);
+    expect(q).toEqual([placeItemId('p0')]);
+  });
+
   it('[SES-03] caps new items at dailyCap minus introducedToday', () => {
     const count = (introducedToday: number, dailyCap?: number) =>
       buildSession({ curriculum: cur, progress: {}, now: NOW, introducedToday, dailyCap, rng }).length;
@@ -167,8 +188,10 @@ describe('buildSession', () => {
   });
 
   it('[SES-06] leaves out filtered place types, due and new', () => {
+    // With every filler country mastered too (not due, as `mastered`), a's gate (CUR-21) is open.
+    const fillers = gateFillers();
     const c = buildCurriculum(
-      [{ id: 'a', name: 'a', places: 3, hasRegions: false }],
+      [{ id: 'a', name: 'a', places: 3, hasRegions: false }, ...fillers],
       [],
       [place('m', 'a', 'mountain', 1), place('c', 'a', 'city', 1), place('d', 'a', 'city', 2)],
     );
@@ -177,11 +200,15 @@ describe('buildSession', () => {
       ...dueProgress(country, 1, -9),
       l3PassDays: ['2026-03-01', '2026-03-02'],
     };
-    const progress = {
-      [country]: mastered,
-      [placeItemId('m')]: dueProgress(placeItemId('m'), 1, 1),
-      [placeItemId('c')]: dueProgress(placeItemId('c'), 1, 1),
-    };
+    const progress = withFillersMastered(
+      {
+        [country]: mastered,
+        [placeItemId('m')]: dueProgress(placeItemId('m'), 1, 1),
+        [placeItemId('c')]: dueProgress(placeItemId('c'), 1, 1),
+      },
+      mastered,
+      fillers,
+    );
     const input = { curriculum: c, progress, now: NOW, introducedToday: 0, rng };
     const all = buildSession(input).map((x) => x.itemId);
     expect(all).toEqual([placeItemId('c'), placeItemId('m'), placeItemId('d')]);

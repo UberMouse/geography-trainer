@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { Rating } from 'ts-fsrs';
-import { buildCurriculum, newItems } from '../../src/engine/curriculum';
+import { GATE_WAVE1_MASTERED_COUNTRIES, GATE_WAVE2_MASTERED_COUNTRIES } from '../../src/engine/config';
+import { buildCurriculum, countryGate, newItems } from '../../src/engine/curriculum';
 import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../../src/engine/srs';
 import type { Country, Place, Region } from '../../src/engine/types';
 
@@ -58,5 +59,16 @@ describe('[DAT-32, CUR-03, CUR-19] curriculum on the committed data', () => {
     const fresh = ids(newItems(c, {}));
     expect(fresh.indexOf('country:united-states')).toBeGreaterThanOrEqual(0);
     expect(fresh.indexOf('country:united-states')).toBeLessThan(fresh.indexOf('country:tuvalu'));
+  });
+
+  it('[CUR-21] puts the 28 countries with 50 or more places in the first wave, the rest in the second', () => {
+    const c = buildCurriculum(countries, regions, places);
+    const byPlaces = [...c.countryPlaceCount].sort((a, b) => b[1] - a[1]);
+    const first = byPlaces.filter(([id]) => countryGate(c, id) === GATE_WAVE1_MASTERED_COUNTRIES);
+    expect(first).toHaveLength(28);
+    expect(first[0]).toEqual(['country:united-states', 629]);
+    expect(first.at(-1)).toEqual(['country:south-africa', 52]);
+    expect(byPlaces.slice(0, 28)).toEqual(first);
+    for (const [id] of byPlaces.slice(28)) expect(countryGate(c, id), id).toBe(GATE_WAVE2_MASTERED_COUNTRIES);
   });
 });

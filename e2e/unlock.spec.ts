@@ -11,6 +11,8 @@ import {
   tapGlobe,
   WAIT,
   writeMasteredUnitedStates,
+  writeMasteredUnitedStatesGateOpen,
+  writeMasteredUnitedStatesNoNewCountry,
 } from './sessionHelpers';
 
 /** The progress colours (`PROGRESS_COLOURS` in `src/pages/progressView.ts`). */
@@ -37,7 +39,7 @@ test.describe.configure({ timeout: 240_000 });
 
 test("[CUR-08] a mastered country's regions are asked in the next session", async ({ page, isMobile }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
-  await writeMasteredUnitedStates(file);
+  await writeMasteredUnitedStatesNoNewCountry(file);
   await importProgress(page, file);
 
   await page.getByRole('link', { name: /^Start/ }).click();
@@ -190,7 +192,7 @@ test('[SCR-11] a country can be opened from the Go to a country control using on
 
 test('[SCR-14] the United States page shows it mastered and its regions as new', async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
-  await writeMasteredUnitedStates(file);
+  await writeMasteredUnitedStatesGateOpen(file);
   await importProgress(page, file);
 
   await page.goto('/progress/united-states');
@@ -203,9 +205,26 @@ test('[SCR-14] the United States page shows it mastered and its regions as new',
   await expect(list.locator('li[data-state="new"]')).toHaveCount(await list.locator('li').count());
 });
 
-test('[SCR-18] the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
+test("[SCR-14] a mastered country's regions wait for the gate", async ({ page }, testInfo) => {
   const file = testInfo.outputPath('mastered-us.json');
   await writeMasteredUnitedStates(file);
+  await importProgress(page, file);
+
+  await page.goto('/progress/united-states');
+  await expect(page.getByTestId('drill-state')).toHaveText('(Mastered)', WAIT);
+  const rows = page.getByTestId('drill-list').locator('li');
+  await expect(rows.first()).toBeVisible(WAIT);
+  for (const row of await rows.all()) {
+    await expect(row).toHaveAttribute('data-state', 'locked');
+    await expect(row).toContainText("Opens once you've mastered 60 countries (1 so far)");
+  }
+  // SCR-18: the gate also hides the test-out link.
+  await expect(page.getByRole('link', { name: /Test out of/ })).toHaveCount(0);
+});
+
+test('[SCR-18] the mastered United States page links to test out of its regions', async ({ page }, testInfo) => {
+  const file = testInfo.outputPath('mastered-us.json');
+  await writeMasteredUnitedStatesGateOpen(file);
   await importProgress(page, file);
 
   await page.goto('/progress/united-states');

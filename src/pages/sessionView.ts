@@ -1,9 +1,16 @@
 // Plain helpers for the Session page, kept out of the component so they can be unit-tested.
 
-import { unlockedBy, type Curriculum } from '../engine/curriculum';
+import {
+  countryGate,
+  gateOpen,
+  masteredCountryCount,
+  unlockedBy,
+  type Curriculum,
+} from '../engine/curriculum';
+import { GATE_WAVE1_MASTERED_COUNTRIES, GATE_WAVE2_MASTERED_COUNTRIES } from '../engine/config';
 import { itemsDone, type SessionRun } from '../engine/sessionRun';
 import type { SessionQuestion } from '../engine/session';
-import { applyAnswer, createProgress, localDayKey, type ItemProgress } from '../engine/srs';
+import { applyAnswer, createProgress, isMastered, localDayKey, type ItemProgress } from '../engine/srs';
 import type { ExerciseResult } from '../exercises/types';
 import type { AnswerEntry } from '../storage/repo';
 import type { SavedSession } from '../storage/sessionRunStore';
@@ -125,11 +132,14 @@ export function withMastered(round: RoundMastery, itemId: string, testOut: boole
 /**
  * The round summary's lines for the items mastered in the round, each with the mastered item's
  * id: "Unlocked: France's regions", "Unlocked: Brittany's places (France)". A region's line names
- * its country, so a region and a country of the same name stay apart. An item listed twice counts
- * once; one that unlocks nothing is left out. `nameOf` gives the display name of an item id.
+ * its country, so a region and a country of the same name stay apart. A country whose gate is
+ * shut in `progress` gets "United States: its regions open once you've mastered 60 countries (23
+ * so far)" instead, and is never testable (`canTestOut` checks the gate). An item listed twice
+ * counts once; one that unlocks nothing is left out. `nameOf` gives the display name of an item id.
  */
 export function unlockLines(
   curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
   masteredIds: readonly string[],
   nameOf: (itemId: string) => string,
 ): { id: string; text: string }[] {
@@ -138,8 +148,49 @@ export function unlockLines(
     const unlocked = unlockedBy(curriculum, id);
     if (!unlocked) continue;
     const item = curriculum.items.get(id);
+    if (item?.tier === 'country' && !gateOpen(curriculum, progress, id)) {
+      const gate = countryGate(curriculum, id);
+      const sofar = masteredCountryCount(curriculum, progress);
+      lines.push({
+        id,
+        text: `${nameOf(id)}: its ${unlocked.tier}s open once you've mastered ${gate} countries (${sofar} so far)`,
+      });
+      continue;
+    }
     const owner = item?.tier === 'region' ? ` (${nameOf(item.countryId)})` : '';
     lines.push({ id, text: `Unlocked: ${nameOf(id)}'s ${unlocked.tier}s${owner}` });
+  }
+  return lines;
+}
+
+/**
+ * One line per gate count (GATE_WAVE1_MASTERED_COUNTRIES, then GATE_WAVE2_MASTERED_COUNTRIES) the
+ * round crossed: `masteredCountryCount(progress)` reaches it, and the count less the round's
+ * mastered countries (`masteredIds`) is below it. The text names the count and how many mastered
+ * countries with children have that gate: "You've mastered 60 countries: regions and places are
+ * open for 28 of them". Its id is `gate:<count>`.
+ */
+export function gateOpenedLines(
+  curriculum: Curriculum,
+  progress: Readonly<Record<string, ItemProgress>>,
+  masteredIds: readonly string[],
+): { id: string; text: string }[] {
+  const now = masteredCountryCount(curriculum, progress);
+  const roundCountries = [...new Set(masteredIds)].filter((id) => curriculum.items.get(id)?.tier === 'country');
+  const before = now - roundCountries.length;
+  const lines: { id: string; text: string }[] = [];
+  for (const gate of [GATE_WAVE1_MASTERED_COUNTRIES, GATE_WAVE2_MASTERED_COUNTRIES]) {
+    if (before >= gate || now < gate) continue;
+    let opened = 0;
+    for (const item of curriculum.items.values()) {
+      const own = progress[item.id];
+      if (item.tier !== 'country' || item.children.length === 0 || !own || !isMastered(own)) continue;
+      if (countryGate(curriculum, item.id) === gate) opened++;
+    }
+    lines.push({
+      id: `gate:${gate}`,
+      text: `You've mastered ${gate} countries: regions and places are open for ${opened} of them`,
+    });
   }
   return lines;
 }
